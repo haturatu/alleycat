@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
     ports:
-      - "8091:8090"
+      - "8091:8091"
     volumes:
       - pb_data:/pb/pb_data
     deploy:
@@ -19,7 +19,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - PB_URL=http://pocketbase:8090
+      - PB_URL=http://pocketbase:8091
       - ADMIN_URL=http://admin:5173
     depends_on:
       - pocketbase
@@ -37,7 +37,7 @@ services:
       - "5175:5173"
     environment:
       - VITE_PB_URL=/
-      - VITE_PB_PROXY_TARGET=http://pocketbase:8090
+      - VITE_PB_PROXY_TARGET=http://pocketbase:8091
       - VITE_UPLOADS_PROXY_TARGET=http://frontend:5173
       - VITE_SITE_PROXY_TARGET=http://frontend:5173
       - VITE_BASE=/admin/
