@@ -1,4 +1,5 @@
 import http from "http";
+import fs from "fs";
 import { readFile, stat } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -6,6 +7,20 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.resolve(__dirname, "..", "public");
+const defaultPublicDir = path.resolve(__dirname, "..", "default-public-asset");
+const activePublicDir = (() => {
+  const hasAssets = (dir) => {
+    try {
+      const entries = fs.readdirSync(dir);
+      return entries.some((entry) => !entry.startsWith("."));
+    } catch {
+      return false;
+    }
+  };
+  if (hasAssets(publicDir)) return publicDir;
+  if (hasAssets(defaultPublicDir)) return defaultPublicDir;
+  return publicDir;
+})();
 
 const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const PORT = Number(process.env.PORT || 5173);
@@ -13,10 +28,9 @@ const ADMIN_URL = process.env.ADMIN_URL || "http://admin:5174";
 const DEFAULT_SITE_NAME = process.env.SITE_NAME || "Example Blog";
 const DEFAULT_DESCRIPTION = process.env.SITE_DESCRIPTION || "A calm place to write.";
 const DEFAULT_WELCOME = process.env.HOME_WELCOME || "Welcome to your blog";
-const DEFAULT_TOP_IMAGE = process.env.HOME_TOP_IMAGE || "/top.png";
-const DEFAULT_TOP_IMAGE_ALT = process.env.HOME_TOP_IMAGE_ALT || "Top Image";
-const FOOTER_HTML =
-  process.env.FOOTER_HTML || '<div style="text-align: center;">Powered by PocketBase</div>';
+const DEFAULT_TOP_IMAGE = process.env.HOME_TOP_IMAGE || "/default-hero.svg";
+const DEFAULT_TOP_IMAGE_ALT = process.env.HOME_TOP_IMAGE_ALT || "Default hero image";
+const FOOTER_HTML = process.env.FOOTER_HTML || "";
 const ANALYTICS_URL = process.env.ANALYTICS_URL || "";
 const ANALYTICS_SITE_ID = process.env.ANALYTICS_SITE_ID || "";
 const ADS_CLIENT = process.env.ADS_CLIENT || "";
@@ -134,13 +148,6 @@ const renderHead = (title = "Home") => `<!doctype html>
     <link rel="alternate" href="/feed.json" type="application/json" title="${escapeHtml(DEFAULT_SITE_NAME)}" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <meta name="description" content="${escapeHtml(DEFAULT_DESCRIPTION)}" />
-    <style>
-      .page-title {
-        font-size: 1.2em;
-        background: var(--color-highlight);
-        padding: 0.5em;
-      }
-    </style>
     ${ANALYTICS_URL && ANALYTICS_SITE_ID ? `<script defer src="${escapeHtml(ANALYTICS_URL)}" data-website-id="${escapeHtml(ANALYTICS_SITE_ID)}"></script>` : ""}
     ${ADS_CLIENT ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${escapeHtml(ADS_CLIENT)}" crossorigin="anonymous"></script>` : ""}
   </head>
@@ -184,10 +191,8 @@ const renderNav = (menuPages = []) => {
     </nav>`;
 };
 
-const renderFooter = () => `
-    ${FOOTER_HTML}
-  </body>
-</html>`;
+const renderFooter = () =>
+  `${FOOTER_HTML ? `<footer class="footer">${FOOTER_HTML}</footer>` : ""}\n  </body>\n</html>`;
 
 const renderPagination = (baseUrl, pageNumber, totalPages) => {
   if (!totalPages || totalPages <= 1) return "";
@@ -392,8 +397,8 @@ const serveStatic = async (req, res) => {
   if (pathname === "/") return false;
 
   const safePath = path.normalize(pathname).replace(/^\.+/, "");
-  const filePath = path.join(publicDir, safePath);
-  if (!filePath.startsWith(publicDir)) return false;
+  const filePath = path.join(activePublicDir, safePath);
+  if (!filePath.startsWith(activePublicDir)) return false;
 
   try {
     const fileStat = await stat(filePath);

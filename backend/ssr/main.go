@@ -86,6 +86,8 @@ var (
 	pbURL      = getEnv("PB_URL", "http://127.0.0.1:8090")
 	adminURL   = getEnv("ADMIN_URL", "http://admin:5173")
 	publicDir  = getEnv("PUBLIC_DIR", "/public")
+	defaultPublicDir = getEnv("DEFAULT_PUBLIC_DIR", "/default-public-asset")
+	activePublicDir  = resolvePublicDir()
 	listenAddr = getEnv("LISTEN_ADDR", ":5173")
 )
 
@@ -173,7 +175,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	filePath := filepath.Join(publicDir, clean)
+	filePath := filepath.Join(activePublicDir, clean)
 	info, err := os.Stat(filePath)
 	if err != nil || info.IsDir() {
 		return false
@@ -181,6 +183,31 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 
 	http.ServeFile(w, r, filePath)
 	return true
+}
+
+func resolvePublicDir() string {
+	if hasPublicAssets(publicDir) {
+		return publicDir
+	}
+	if hasPublicAssets(defaultPublicDir) {
+		return defaultPublicDir
+	}
+	return publicDir
+}
+
+func hasPublicAssets(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func adminProxy() http.Handler {
@@ -202,8 +229,8 @@ func renderHome() string {
 		pageSize = 3
 	}
 	posts := getPostsList(1, pageSize, "published = true")
-	topImage := defaultString(settings.HomeTopImage, "/top.png")
-	topImageAlt := defaultString(settings.HomeTopImageAlt, "Top Image")
+	topImage := defaultString(settings.HomeTopImage, "/default-hero.svg")
+	topImageAlt := defaultString(settings.HomeTopImageAlt, "Default hero image")
 	heroImage := ""
 	if topImage != "" {
 		heroImage = `<img src="` + html.EscapeString(topImage) + `" alt="` + html.EscapeString(topImageAlt) + `" class="top-image" />`
@@ -395,13 +422,6 @@ func renderHead(title string, settings SettingsRecord) string {
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <meta name="description" content="` + html.EscapeString(description) + `" />
     ` + highlight + `
-    <style>
-      .page-title {
-        font-size: 1.2em;
-        background: var(--color-highlight);
-        padding: 0.5em;
-      }
-    </style>
     ` + analytics + `
     ` + ads + `
     ` + highlightScript + `
@@ -450,9 +470,14 @@ func renderNav(menuPages []PageRecord) string {
 
 func renderFooter() string {
 	settings := getSettings()
-	footer := defaultString(settings.FooterHTML, `<div style="text-align: center;"><a href="/pgp/">PGP</a> --- <a href="/contact/">Contact</a> --- <a href="/machines/">Machines</a> --- <a href="/cat-v/">cat -v</a></div>`)
+	footer := strings.TrimSpace(settings.FooterHTML)
+	if footer == "" {
+		return `
+  </body>
+</html>`
+	}
 	return `
-    ` + footer + `
+    <footer class="footer">` + footer + `</footer>
   </body>
 </html>`
 }
@@ -720,9 +745,9 @@ func getSettings() SettingsRecord {
 			SiteName:           "Example Blog",
 			Description:        "A calm place to write.",
 			WelcomeText:        "Welcome to your blog",
-			HomeTopImage:       "/top.png",
-			HomeTopImageAlt:    "Top Image",
-			FooterHTML:         `<div style="text-align: center;"><a href="/pgp/">PGP</a> --- <a href="/contact/">Contact</a> --- <a href="/machines/">Machines</a> --- <a href="/cat-v/">cat -v</a></div>`,
+			HomeTopImage:       "/default-hero.svg",
+			HomeTopImageAlt:    "Default hero image",
+			FooterHTML:         "",
 			SiteURL:            "",
 			SiteLanguage:       "ja",
 			EnableFeedXML:      true,
@@ -756,13 +781,10 @@ func getSettings() SettingsRecord {
 		set.WelcomeText = "Welcome to your blog"
 	}
 	if set.HomeTopImage == "" {
-		set.HomeTopImage = "/top.png"
+		set.HomeTopImage = "/default-hero.svg"
 	}
 	if set.HomeTopImageAlt == "" {
-		set.HomeTopImageAlt = "Top Image"
-	}
-	if set.FooterHTML == "" {
-		set.FooterHTML = `<div style="text-align: center;"><a href="/pgp/">PGP</a> --- <a href="/contact/">Contact</a> --- <a href="/machines/">Machines</a> --- <a href="/cat-v/">cat -v</a></div>`
+		set.HomeTopImageAlt = "Default hero image"
 	}
 	if set.SiteLanguage == "" {
 		set.SiteLanguage = "ja"

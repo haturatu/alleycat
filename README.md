@@ -10,6 +10,7 @@
   - [Services and Ports](#services-and-ports)
   - [Persistent Data](#persistent-data)
   - [Initial Setup](#initial-setup)
+  - [Public Assets Fallback](#public-assets-fallback)
   - [Notes](#notes)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -69,6 +70,12 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
    - `viewer`
 5. Log into the CMS at `http://127.0.0.1:5174` (or the deployed admin URL).
 6. Ensure public content is published so it appears on the public site.
+
+## Public Assets Fallback
+- The SSR server serves static files from `frontend/public` by default.
+- If `frontend/public` is empty, it automatically falls back to `frontend/default-public-asset`.
+- Default assets live in `frontend/default-public-asset` (`styles.css`, `default-hero.svg`, `default-pattern.svg`).
+- Add your own assets to `frontend/public` to override the defaults.
 
 ## Notes
 - Public API exposure is controlled by PocketBase rules.

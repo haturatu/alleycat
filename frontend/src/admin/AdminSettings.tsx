@@ -5,10 +5,9 @@ const defaults = {
   site_name: "Example Blog",
   description: "A calm place to write.",
   welcome_text: "Welcome to your blog",
-  home_top_image: "/top.png",
-  home_top_image_alt: "Top Image",
-  footer_html:
-    "<div style=\"text-align: center;\"><a href=\"/pgp/\">PGP</a> --- <a href=\"/contact/\">Contact</a> --- <a href=\"/machines/\">Machines</a> --- <a href=\"/cat-v/\">cat -v</a></div>",
+  home_top_image: "/default-hero.svg",
+  home_top_image_alt: "Default hero image",
+  footer_html: "",
   site_url: "",
   site_language: "ja",
   enable_feed_xml: true,

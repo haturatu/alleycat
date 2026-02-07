@@ -79,10 +79,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <div style={{ textAlign: "center" }}>
-        <a href="/pgp/">PGP</a> --- <a href="/contact/">Contact</a> ---{" "}
-        <a href="/machines/">Machines</a> --- <a href="/cat-v/">cat -v</a>
-      </div>
+      <footer className="footer" />
     </>
   );
 }

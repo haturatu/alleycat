@@ -1,0 +1,260 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@300;400;500;600;700&display=swap");
+
+:root {
+  --bg: #f4efe8;
+  --bg-alt: #faf6f0;
+  --surface: #ffffff;
+  --ink: #181818;
+  --muted: #5f6b76;
+  --accent: #d76d3f;
+  --accent-ink: #fff6ee;
+  --line: rgba(24, 24, 24, 0.12);
+  --shadow: 0 26px 60px rgba(14, 16, 20, 0.15);
+  --radius: 22px;
+  --max: 980px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --bg-alt: #121822;
+  --surface: #151c26;
+  --ink: #eef1f5;
+  --muted: #a6b0bb;
+  --accent: #ff9a6a;
+  --accent-ink: #2b130d;
+  --line: rgba(238, 241, 245, 0.12);
+  --shadow: 0 32px 70px rgba(0, 0, 0, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Manrope", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.75;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+#root {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% -10%, rgba(215, 109, 63, 0.2), transparent 40%),
+    radial-gradient(circle at 70% 0%, rgba(70, 120, 200, 0.2), transparent 45%),
+    var(--bg);
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 6vw;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.navbar-home {
+  font-family: "Fraunces", "Hiragino Mincho ProN", serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+}
+
+.navbar-links {
+  list-style: none;
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.navbar-links a {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.navbar-links a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.icon {
+  font-size: 0.9rem;
+}
+
+main {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 56px 6vw 90px;
+}
+
+.page-header {
+  display: grid;
+  gap: 18px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 30px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.top-image {
+  width: 100%;
+  height: clamp(220px, 35vw, 380px);
+  object-fit: cover;
+  border-radius: calc(var(--radius) - 6px);
+  filter: saturate(1.05);
+}
+
+.page-title {
+  font-family: "Fraunces", "Hiragino Mincho ProN", serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  margin: 0;
+}
+
+.postList {
+  margin-top: 28px;
+  display: grid;
+  gap: 26px;
+}
+
+.post {
+  background: var(--surface);
+  padding: 26px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.post-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.post-title {
+  font-family: "Fraunces", "Hiragino Mincho ProN", serif;
+  font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+  margin: 0;
+}
+
+.post-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.post-excerpt {
+  margin: 16px 0 20px;
+}
+
+.post-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.body {
+  font-size: 1rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(215, 109, 63, 0.15);
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.page-navigation {
+  margin: 28px 0;
+}
+
+.page-navigation-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.pagination {
+  margin-top: 36px;
+}
+
+.pagination ul {
+  list-style: none;
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.pagination a {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.footer {
+  text-align: center;
+  padding: 30px 6vw 50px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.footer a {
+  margin: 0 8px;
+}
+
+@media (max-width: 720px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .navbar-links {
+    gap: 12px;
+  }
+}

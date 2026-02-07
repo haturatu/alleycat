@@ -32,7 +32,11 @@ export default function HomePage() {
   return (
     <>
       <header className="page-header">
-        <img src="/top.png" alt="Top Image" className="top-image" />
+        <img
+          src={siteConfig.homeTopImage}
+          alt={siteConfig.homeTopImageAlt}
+          className="top-image"
+        />
         <h1 className="page-title">{siteConfig.homeWelcome}</h1>
       </header>
       <PostList posts={posts} />

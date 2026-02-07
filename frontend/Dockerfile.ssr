@@ -14,6 +14,8 @@ FROM alpine:3.20
 WORKDIR /app
 COPY --from=build /out/ssr /app/ssr
 COPY frontend/public /public
+COPY frontend/default-public-asset /default-public-asset
 ENV PUBLIC_DIR=/public
+ENV DEFAULT_PUBLIC_DIR=/default-public-asset
 EXPOSE 5173
 CMD ["/app/ssr"]
