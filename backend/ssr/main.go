@@ -117,6 +117,15 @@ func main() {
 
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if path == "/theme-status" {
+		w.Header().Set("Content-Type", "application/json")
+		status := `{"publicAssets":false}`
+		if activePublicDir == publicDir {
+			status = `{"publicAssets":true}`
+		}
+		_, _ = w.Write([]byte(status))
+		return
+	}
 	if strings.HasPrefix(path, "/api/files/") {
 		http.NotFound(w, r)
 		return
