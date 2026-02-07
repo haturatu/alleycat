@@ -56,42 +56,49 @@ type PageRecord struct {
 }
 
 type SettingsRecord struct {
-	ID                 string `json:"id"`
-	SiteName           string `json:"site_name"`
-	Description        string `json:"description"`
-	WelcomeText        string `json:"welcome_text"`
-	HomeTopImage       string `json:"home_top_image"`
-	HomeTopImageAlt    string `json:"home_top_image_alt"`
-	FooterHTML         string `json:"footer_html"`
-	SiteURL            string `json:"site_url"`
-	SiteLanguage       string `json:"site_language"`
-	EnableFeedXML      bool   `json:"enable_feed_xml"`
-	EnableFeedJSON     bool   `json:"enable_feed_json"`
-	FeedItemsLimit     int    `json:"feed_items_limit"`
-	EnableAnalytics    bool   `json:"enable_analytics"`
-	AnalyticsURL       string `json:"analytics_url"`
-	AnalyticsSiteID    string `json:"analytics_site_id"`
-	EnableAds          bool   `json:"enable_ads"`
-	AdsClient          string `json:"ads_client"`
-	EnableCodeHighlight bool  `json:"enable_code_highlight"`
-	HighlightTheme     string `json:"highlight_theme"`
-	ArchivePageSize    int    `json:"archive_page_size"`
-	HomePageSize       int    `json:"home_page_size"`
-	ShowToc            bool   `json:"show_toc"`
-	ShowArchiveTags    bool   `json:"show_archive_tags"`
-	ShowArchiveSearch  bool   `json:"show_archive_search"`
+	ID                  string `json:"id"`
+	SiteName            string `json:"site_name"`
+	Description         string `json:"description"`
+	WelcomeText         string `json:"welcome_text"`
+	HomeTopImage        string `json:"home_top_image"`
+	HomeTopImageAlt     string `json:"home_top_image_alt"`
+	FooterHTML          string `json:"footer_html"`
+	SiteURL             string `json:"site_url"`
+	SiteLanguage        string `json:"site_language"`
+	EnableFeedXML       bool   `json:"enable_feed_xml"`
+	EnableFeedJSON      bool   `json:"enable_feed_json"`
+	FeedItemsLimit      int    `json:"feed_items_limit"`
+	EnableAnalytics     bool   `json:"enable_analytics"`
+	AnalyticsURL        string `json:"analytics_url"`
+	AnalyticsSiteID     string `json:"analytics_site_id"`
+	EnableAds           bool   `json:"enable_ads"`
+	AdsClient           string `json:"ads_client"`
+	EnableCodeHighlight bool   `json:"enable_code_highlight"`
+	HighlightTheme      string `json:"highlight_theme"`
+	ArchivePageSize     int    `json:"archive_page_size"`
+	HomePageSize        int    `json:"home_page_size"`
+	ShowToc             bool   `json:"show_toc"`
+	ShowArchiveTags     bool   `json:"show_archive_tags"`
+	ShowArchiveSearch   bool   `json:"show_archive_search"`
+}
+
+type MediaRecord struct {
+	ID      string `json:"id"`
+	File    string `json:"file"`
+	Caption string `json:"caption"`
 }
 
 var (
-	pbURL      = getEnv("PB_URL", "http://127.0.0.1:8090")
-	adminURL   = getEnv("ADMIN_URL", "http://admin:5173")
-	publicDir  = getEnv("PUBLIC_DIR", "/public")
+	pbURL            = getEnv("PB_URL", "http://127.0.0.1:8090")
+	adminURL         = getEnv("ADMIN_URL", "http://admin:5173")
+	publicDir        = getEnv("PUBLIC_DIR", "/public")
 	defaultPublicDir = getEnv("DEFAULT_PUBLIC_DIR", "/default-public-asset")
 	activePublicDir  = resolvePublicDir()
-	listenAddr = getEnv("LISTEN_ADDR", ":5173")
+	listenAddr       = getEnv("LISTEN_ADDR", ":5173")
 )
 
 var headingRe = regexp.MustCompile(`(?is)<h([23])([^>]*)>(.*?)</h[23]>`)
+var mediaFileRe = regexp.MustCompile(`(?i)(?:https?:\/\/[^"'\\s)]+)?/api/files/media/([a-zA-Z0-9_-]+)/([^"'\\s)]+)`)
 
 func main() {
 	mux := http.NewServeMux()
@@ -173,6 +180,12 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 	clean := filepath.Clean(path)
 	if strings.Contains(clean, "..") {
 		return false
+	}
+
+	if strings.HasPrefix(clean, "/uploads/") {
+		if serveMediaUpload(w, r, clean) {
+			return true
+		}
 	}
 
 	filePath := filepath.Join(activePublicDir, clean)
@@ -325,6 +338,7 @@ func renderPost(path string) string {
 	if body == "" {
 		body = post.Content
 	}
+	body = rewriteMediaURLs(body)
 	bodyWithIds, toc := buildTOC(body)
 	prev, next := getAdjacentPosts(post)
 
@@ -361,6 +375,7 @@ func renderPage(path string) string {
 	if body == "" {
 		body = page.Content
 	}
+	body = rewriteMediaURLs(body)
 
 	return renderHead(page.Title, settings) + renderNav(menuPages) +
 		`<main class="body-tag">
@@ -480,6 +495,79 @@ func renderFooter() string {
     <footer class="footer">` + footer + `</footer>
   </body>
 </html>`
+}
+
+func rewriteMediaURLs(body string) string {
+	matches := mediaFileRe.FindAllStringSubmatch(body, -1)
+	if len(matches) == 0 {
+		return body
+	}
+	cache := map[string]string{}
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		id := m[1]
+		if _, ok := cache[id]; ok {
+			continue
+		}
+		media, err := fetchMediaById(id)
+		if err != nil || media == nil {
+			continue
+		}
+		caption := strings.TrimSpace(media.Caption)
+		if caption != "" {
+			cache[id] = caption
+		}
+	}
+	if len(cache) == 0 {
+		return body
+	}
+	return mediaFileRe.ReplaceAllStringFunc(body, func(match string) string {
+		sub := mediaFileRe.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		if caption, ok := cache[sub[1]]; ok && caption != "" {
+			if strings.HasPrefix(caption, "http://") || strings.HasPrefix(caption, "https://") {
+				return caption
+			}
+			if !strings.HasPrefix(caption, "/") {
+				return "/" + caption
+			}
+			return caption
+		}
+		return match
+	})
+}
+
+func serveMediaUpload(w http.ResponseWriter, r *http.Request, path string) bool {
+	media, err := fetchMediaByCaption(path)
+	if err != nil || media == nil || media.File == "" {
+		return false
+	}
+	fileURL := pbURL + "/api/files/media/" + media.ID + "/" + url.PathEscape(media.File)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, fileURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return false
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if cc := resp.Header.Get("Cache-Control"); cc != "" {
+		w.Header().Set("Cache-Control", cc)
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
+	return true
 }
 
 func renderPostList(items []PostRecord) string {
@@ -742,26 +830,26 @@ func getSettings() SettingsRecord {
 	data, err := fetchSettings(params)
 	if err != nil || len(data.Items) == 0 {
 		return SettingsRecord{
-			SiteName:           "Example Blog",
-			Description:        "A calm place to write.",
-			WelcomeText:        "Welcome to your blog",
-			HomeTopImage:       "/default-hero.svg",
-			HomeTopImageAlt:    "Default hero image",
-			FooterHTML:         "",
-			SiteURL:            "",
-			SiteLanguage:       "ja",
-			EnableFeedXML:      true,
-			EnableFeedJSON:     true,
-			FeedItemsLimit:     30,
-			EnableAnalytics:    false,
-			EnableAds:          false,
+			SiteName:            "Example Blog",
+			Description:         "A calm place to write.",
+			WelcomeText:         "Welcome to your blog",
+			HomeTopImage:        "/default-hero.svg",
+			HomeTopImageAlt:     "Default hero image",
+			FooterHTML:          "",
+			SiteURL:             "",
+			SiteLanguage:        "ja",
+			EnableFeedXML:       true,
+			EnableFeedJSON:      true,
+			FeedItemsLimit:      30,
+			EnableAnalytics:     false,
+			EnableAds:           false,
 			EnableCodeHighlight: true,
-			HighlightTheme:     "github-dark",
-			ArchivePageSize:    10,
-			HomePageSize:       3,
-			ShowToc:            true,
-			ShowArchiveTags:    true,
-			ShowArchiveSearch:  true,
+			HighlightTheme:      "github-dark",
+			ArchivePageSize:     10,
+			HomePageSize:        3,
+			ShowToc:             true,
+			ShowArchiveTags:     true,
+			ShowArchiveSearch:   true,
 		}
 	}
 	set := data.Items[0]
@@ -943,6 +1031,31 @@ func fetchSettings(params url.Values) (PBList[SettingsRecord], error) {
 	return data, nil
 }
 
+func fetchMediaById(id string) (*MediaRecord, error) {
+	var data MediaRecord
+	endpoint := pbURL + "/api/collections/media/records/" + url.PathEscape(id)
+	if err := fetchJSON(endpoint, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+func fetchMediaByCaption(caption string) (*MediaRecord, error) {
+	var data PBList[MediaRecord]
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("perPage", "1")
+	params.Set("filter", `caption = "`+escapeFilterValue(caption)+`"`)
+	endpoint := pbURL + "/api/collections/media/records?" + params.Encode()
+	if err := fetchJSON(endpoint, &data); err != nil {
+		return nil, err
+	}
+	if len(data.Items) == 0 {
+		return nil, nil
+	}
+	return &data.Items[0], nil
+}
+
 func fetchJSON(url string, target any) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
@@ -955,6 +1068,11 @@ func fetchJSON(url string, target any) error {
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func escapeFilterValue(value string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+	return replacer.Replace(value)
 }
 
 func splitPath(path string) []string {

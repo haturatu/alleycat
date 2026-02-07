@@ -73,6 +73,8 @@ const formatDate = (value) => {
 const stripHtml = (value = "") =>
   value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
+const mediaFileRe = /(?:https?:\/\/[^"'\\s)]+)?\/api\/files\/media\/([a-zA-Z0-9_-]+)\/([^"'\\s)]+)/g;
+
 const buildExcerpt = (value = "", length = 160) => {
   const text = stripHtml(value);
   if (text.length <= length) return text;
@@ -132,6 +134,50 @@ const getPostBySlug = async (slug) => {
   base.searchParams.set("perPage", "1");
   const data = await fetchJson(base.toString());
   return data.items?.[0] || null;
+};
+
+const getMediaById = async (id) => {
+  try {
+    return await fetchJson(`${PB_URL}/api/collections/media/records/${id}`);
+  } catch {
+    return null;
+  }
+};
+
+const getMediaByCaption = async (caption) => {
+  try {
+    const base = new URL(`${PB_URL}/api/collections/media/records`);
+    base.searchParams.set("page", "1");
+    base.searchParams.set("perPage", "1");
+    base.searchParams.set("filter", `caption = \"${caption.replace(/\\\\/g, "\\\\\\\\").replace(/\"/g, "\\\\\"")}\"`);
+    const data = await fetchJson(base.toString());
+    return data.items?.[0] || null;
+  } catch {
+    return null;
+  }
+};
+
+const rewriteMediaUrls = async (body = "") => {
+  const matches = [...body.matchAll(mediaFileRe)];
+  if (matches.length === 0) return body;
+  const cache = new Map();
+  await Promise.all(
+    matches.map(async (match) => {
+      const id = match[1];
+      if (cache.has(id)) return;
+      const media = await getMediaById(id);
+      if (media?.caption) {
+        cache.set(id, media.caption.trim());
+      }
+    })
+  );
+  if (cache.size === 0) return body;
+  return body.replace(mediaFileRe, (full, id) => {
+    const caption = cache.get(id);
+    if (!caption) return full;
+    if (caption.startsWith("http://") || caption.startsWith("https://")) return caption;
+    return caption.startsWith("/") ? caption : `/${caption}`;
+  });
 };
 
 const renderHead = (title = "Home") => `<!doctype html>
@@ -327,7 +373,8 @@ const renderPost = async (slug) => {
   const menuPages = await getPagesMenu();
   const post = await getPostBySlug(slug);
   if (!post) return renderNotFound();
-  const body = post.body || post.content || "";
+  const rawBody = post.body || post.content || "";
+  const body = await rewriteMediaUrls(rawBody);
   const tags = parseTags(post.tags || "");
 
   return (
@@ -357,7 +404,8 @@ const renderPage = async (urlPath) => {
   const menuPages = await getPagesMenu();
   const page = await getPageByUrl(urlPath);
   if (!page) return renderNotFound();
-  const body = page.body || page.content || "";
+  const rawBody = page.body || page.content || "";
+  const body = await rewriteMediaUrls(rawBody);
 
   return (
     renderHead(page.title || "Page") +
@@ -397,6 +445,21 @@ const serveStatic = async (req, res) => {
   if (pathname === "/") return false;
 
   const safePath = path.normalize(pathname).replace(/^\.+/, "");
+  if (safePath.startsWith("/uploads/")) {
+    const media = await getMediaByCaption(safePath);
+    if (media?.file) {
+      const fileUrl = `${PB_URL}/api/files/media/${media.id}/${encodeURIComponent(media.file)}`;
+      const proxyRes = await fetch(fileUrl);
+      if (proxyRes.ok) {
+        res.writeHead(proxyRes.status, {
+          "Content-Type": proxyRes.headers.get("content-type") || "application/octet-stream",
+          "Cache-Control": proxyRes.headers.get("cache-control") || "public, max-age=300",
+        });
+        res.end(Buffer.from(await proxyRes.arrayBuffer()));
+        return true;
+      }
+    }
+  }
   const filePath = path.join(activePublicDir, safePath);
   if (!filePath.startsWith(activePublicDir)) return false;
 
