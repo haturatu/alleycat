@@ -98,7 +98,7 @@ var (
 )
 
 var headingRe = regexp.MustCompile(`(?is)<h([23])([^>]*)>(.*?)</h[23]>`)
-var mediaFileRe = regexp.MustCompile(`(?i)(?:https?:\/\/[^"'\\s)]+)?/api/files/media/([a-zA-Z0-9_-]+)/([^"'\\s)]+)`)
+var mediaFileRe = regexp.MustCompile(`(?i)(?:https?:\/\/[^"'\\s)]+)?/api/files/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/([^"'\\s)]+)`)
 
 func main() {
 	mux := http.NewServeMux()
@@ -525,10 +525,14 @@ func rewriteMediaURLs(body string) string {
 	}
 	cache := map[string]string{}
 	for _, m := range matches {
-		if len(m) < 2 {
+		if len(m) < 3 {
 			continue
 		}
-		id := m[1]
+		collection := m[1]
+		id := m[2]
+		if !isMediaCollection(collection) {
+			continue
+		}
 		if _, ok := cache[id]; ok {
 			continue
 		}
@@ -541,15 +545,15 @@ func rewriteMediaURLs(body string) string {
 			cache[id] = caption
 		}
 	}
-	if len(cache) == 0 {
-		return body
-	}
 	return mediaFileRe.ReplaceAllStringFunc(body, func(match string) string {
 		sub := mediaFileRe.FindStringSubmatch(match)
-		if len(sub) < 3 {
+		if len(sub) < 4 {
 			return match
 		}
-		if caption, ok := cache[sub[1]]; ok && caption != "" {
+		collection := sub[1]
+		recordId := sub[2]
+		filename := sub[3]
+		if caption, ok := cache[recordId]; ok && caption != "" {
 			if strings.HasPrefix(caption, "http://") || strings.HasPrefix(caption, "https://") {
 				return caption
 			}
@@ -558,8 +562,12 @@ func rewriteMediaURLs(body string) string {
 			}
 			return caption
 		}
-		return "/api/files/media/" + sub[1] + "/" + sub[2]
+		return "/api/files/" + collection + "/" + recordId + "/" + filename
 	})
+}
+
+func isMediaCollection(collection string) bool {
+	return collection == "media" || collection == "pbc_2708086759"
 }
 
 func serveMediaUpload(w http.ResponseWriter, r *http.Request, path string) bool {

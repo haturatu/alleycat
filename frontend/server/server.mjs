@@ -73,7 +73,7 @@ const formatDate = (value) => {
 const stripHtml = (value = "") =>
   value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
-const mediaFileRe = /(?:https?:\/\/[^"'\\s)]+)?\/api\/files\/media\/([a-zA-Z0-9_-]+)\/([^"'\\s)]+)/g;
+const mediaFileRe = /(?:https?:\/\/[^"'\\s)]+)?\/api\/files\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/([^"'\\s)]+)/g;
 
 const buildExcerpt = (value = "", length = 160) => {
   const text = stripHtml(value);
@@ -163,7 +163,9 @@ const rewriteMediaUrls = async (body = "") => {
   const cache = new Map();
   await Promise.all(
     matches.map(async (match) => {
-      const id = match[1];
+      const collection = match[1];
+      const id = match[2];
+      if (collection !== "media" && collection !== "pbc_2708086759") return;
       if (cache.has(id)) return;
       const media = await getMediaById(id);
       if (media?.caption) {
@@ -171,10 +173,9 @@ const rewriteMediaUrls = async (body = "") => {
       }
     })
   );
-  if (cache.size === 0) return body;
-  return body.replace(mediaFileRe, (full, id, filename) => {
+  return body.replace(mediaFileRe, (full, collection, id, filename) => {
     const caption = cache.get(id);
-    if (!caption) return `/api/files/media/${id}/${filename}`;
+    if (!caption) return `/api/files/${collection}/${id}/${filename}`;
     if (caption.startsWith("http://") || caption.startsWith("https://")) return caption;
     return caption.startsWith("/") ? caption : `/${caption}`;
   });
