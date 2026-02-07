@@ -36,6 +36,8 @@ export default function AdminSettings() {
   const [settings, setSettings] = useState<SettingsRecord>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [themeLocked, setThemeLocked] = useState(false);
+  const [themeCheckDone, setThemeCheckDone] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +57,23 @@ export default function AdminSettings() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch("/theme-status");
+        if (res.ok) {
+          const data = await res.json();
+          setThemeLocked(Boolean(data?.publicAssets));
+        }
+      } catch {
+        // ignore
+      } finally {
+        setThemeCheckDone(true);
+      }
+    };
+    check();
   }, []);
 
   const update = (key: keyof SettingsRecord, value: string | number | boolean) => {
@@ -115,7 +134,11 @@ export default function AdminSettings() {
         </label>
         <label>
           Theme
-          <select value={settings.theme} onChange={(e) => update("theme", e.target.value)}>
+          <select
+            value={settings.theme}
+            onChange={(e) => update("theme", e.target.value)}
+            disabled={themeLocked}
+          >
             <option value="ember">Ember (default)</option>
             <option value="terminal">Terminal</option>
             <option value="wiki">Wiki</option>
@@ -123,6 +146,9 @@ export default function AdminSettings() {
             <option value="minimal">Minimal</option>
           </select>
         </label>
+        {themeCheckDone && themeLocked && (
+          <p className="admin-note">Theme selection is disabled because /frontend/public has assets.</p>
+        )}
         <label>
           Site URL (feeds)
           <input value={settings.site_url} onChange={(e) => update("site_url", e.target.value)} placeholder="https://example.com" />

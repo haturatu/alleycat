@@ -996,6 +996,9 @@ func getSettings() SettingsRecord {
 }
 
 func themeStylesheet(settings SettingsRecord) string {
+	if activePublicDir == publicDir {
+		return "/styles.css"
+	}
 	theme := strings.TrimSpace(settings.Theme)
 	if theme == "" {
 		theme = "ember"

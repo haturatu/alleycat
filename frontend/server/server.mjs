@@ -189,6 +189,7 @@ const rewriteMediaUrls = async (body = "") => {
 };
 
 const themeStylesheet = (themeOverride) => {
+  if (activePublicDir === publicDir) return "/styles.css";
   const raw = themeOverride || process.env.THEME || "ember";
   const theme = raw.trim().toLowerCase();
   return `/themes/${encodeURIComponent(theme)}/styles.css`;
@@ -486,6 +487,16 @@ const serveStatic = async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === "/") return false;
+
+  if (pathname === "/theme-status") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        publicAssets: activePublicDir === publicDir,
+      })
+    );
+    return true;
+  }
 
   const safePath = path.normalize(pathname).replace(/^\.+/, "");
   if (safePath.startsWith("/uploads/")) {

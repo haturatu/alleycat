@@ -160,6 +160,12 @@ body {
   gap: 6px;
 }
 
+.admin-note {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 0.85rem;
+}
+
 .admin-field {
   display: grid;
   gap: 6px;

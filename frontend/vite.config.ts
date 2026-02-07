@@ -26,6 +26,15 @@ export default defineConfig({
             },
           }
         : {}),
+      ...(process.env.VITE_SITE_PROXY_TARGET
+        ? {
+            "/theme-status": {
+              target: process.env.VITE_SITE_PROXY_TARGET,
+              changeOrigin: true,
+              secure: false,
+            },
+          }
+        : {}),
     },
   },
 });
