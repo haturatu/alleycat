@@ -79,6 +79,11 @@ func ensureCollections(app core.App) error {
 			Name: "path",
 			Max:  200,
 		})
+		addFieldIfMissing(c, &core.AutodateField{
+			Name:     "uploaded_at",
+			OnCreate: true,
+			OnUpdate: false,
+		})
 		addFieldIfMissing(c, &core.TextField{
 			Name: "alt",
 			Max:  200,
