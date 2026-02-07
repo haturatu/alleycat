@@ -38,6 +38,7 @@ services:
     environment:
       - VITE_PB_URL=/
       - VITE_PB_PROXY_TARGET=http://pocketbase:8090
+      - VITE_UPLOADS_PROXY_TARGET=http://frontend:5173
       - VITE_BASE=/admin/
       - VITE_ADMIN=true
     depends_on:
