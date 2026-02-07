@@ -144,12 +144,15 @@ const getMediaById = async (id) => {
   }
 };
 
-const getMediaByCaption = async (caption) => {
+const getMediaByPath = async (mediaPath) => {
   try {
     const base = new URL(`${PB_URL}/api/collections/media/records`);
     base.searchParams.set("page", "1");
     base.searchParams.set("perPage", "1");
-    base.searchParams.set("filter", `caption = \"${caption.replace(/\\\\/g, "\\\\\\\\").replace(/\"/g, "\\\\\"")}\"`);
+    base.searchParams.set(
+      "filter",
+      `path = \"${mediaPath.replace(/\\\\/g, "\\\\\\\\").replace(/\"/g, "\\\\\"")}\"`
+    );
     const data = await fetchJson(base.toString());
     return data.items?.[0] || null;
   } catch {
@@ -480,7 +483,7 @@ const serveStatic = async (req, res) => {
 
   const safePath = path.normalize(pathname).replace(/^\.+/, "");
   if (safePath.startsWith("/uploads/")) {
-    const media = await getMediaByCaption(safePath);
+    const media = await getMediaByPath(safePath);
     if (media?.file) {
       const fileUrl = `${PB_URL}/api/files/media/${media.id}/${encodeURIComponent(media.file)}`;
       const proxyRes = await fetch(fileUrl);

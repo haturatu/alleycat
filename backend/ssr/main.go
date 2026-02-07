@@ -575,7 +575,7 @@ func isMediaCollection(collection string) bool {
 }
 
 func serveMediaUpload(w http.ResponseWriter, r *http.Request, path string) bool {
-	media, err := fetchMediaByCaption(path)
+	media, err := fetchMediaByPath(path)
 	if err != nil || media == nil || media.File == "" {
 		return false
 	}
@@ -1073,12 +1073,12 @@ func fetchMediaById(id string) (*MediaRecord, error) {
 	return &data, nil
 }
 
-func fetchMediaByCaption(caption string) (*MediaRecord, error) {
+func fetchMediaByPath(mediaPath string) (*MediaRecord, error) {
 	var data PBList[MediaRecord]
 	params := url.Values{}
 	params.Set("page", "1")
 	params.Set("perPage", "1")
-	params.Set("filter", `caption = "`+escapeFilterValue(caption)+`"`)
+	params.Set("filter", `path = "`+escapeFilterValue(mediaPath)+`"`)
 	endpoint := pbURL + "/api/collections/media/records?" + params.Encode()
 	if err := fetchJSON(endpoint, &data); err != nil {
 		return nil, err
