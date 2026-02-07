@@ -13,6 +13,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM alpine:3.20
 WORKDIR /pb
 COPY --from=build /pb/pocketbase /pb/pocketbase
-EXPOSE 8090
+EXPOSE 8091
 VOLUME ["/pb/pb_data"]
-CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8090"]
+CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8091"]

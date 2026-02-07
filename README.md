@@ -11,6 +11,7 @@
   - [Persistent Data](#persistent-data)
   - [Initial Setup](#initial-setup)
   - [Public Assets Fallback](#public-assets-fallback)
+  - [Admin Settings](#admin-settings)
   - [Notes](#notes)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -27,7 +28,7 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 ### docker-compose (recommended)
 1. `cd lumeblog-cms`
 2. `docker-compose up --build` (builds and starts services)
-3. Open PocketBase admin UI at `http://127.0.0.1:8090/_/`.
+3. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
 4. Complete initial setup (see "Initial Setup" below).
 
 ### Local (without Docker)
@@ -38,29 +39,29 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
    - `cd frontend`
    - `npm install`
    - `npm run dev`
-3. If PocketBase is not on `http://127.0.0.1:8090`, set `VITE_PB_URL`.
+3. If PocketBase is not on `http://127.0.0.1:8091`, set `VITE_PB_URL`.
 
 ## Services and Ports
-- `8090`: PocketBase API + Admin UI (`/_/`)
-- `5173`: Public site (Vite dev server)
-- `5174`: Admin UI web app (`/admin` in the SPA build)
+- `8091`: PocketBase API + Admin UI (`/_/`)
+- `5173`: Public site (SSR server)
+- `5175`: Admin UI web app
 
 ## Persistent Data
 - Docker: stored in the named volume `pb_data` mounted at `/pb/pb_data`.
 - Local (no Docker): stored in `lumeblog-cms/backend/pb_data`.
 
 ## Initial Setup
-1. Open PocketBase admin UI at `http://127.0.0.1:8090/_/`.
+1. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
 2. Create the first PocketBase superuser (email + password).
 3. Alternative (recommended for first launch): use the auto-generated one-time URL shown in the PocketBase logs on first boot.
    Example:
    ```
-   2025/03/23 02:37:45 Server started at http://127.0.0.1:8090
-   ├─ REST API:  http://127.0.0.1:8090/api/
-   └─ Dashboard: http://127.0.0.1:8090/_/
+   2025/03/23 02:37:45 Server started at http://127.0.0.1:8091
+   ├─ REST API:  http://127.0.0.1:8091/api/
+   └─ Dashboard: http://127.0.0.1:8091/_/
 
    (!) Launch the URL below in the browser if it hasn't been open already to create your first superuser account:
-   http://127.0.0.1:8090/_/#/pbinstal/<temporary-token>
+   http://127.0.0.1:8091/_/#/pbinstal/<temporary-token>
    (you can also create your first superuser by running: ./pocketbase superuser upsert EMAIL PASS)
    ```
    Open the URL in a browser to access the superuser creation screen directly.
@@ -68,7 +69,7 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
    - `admin`
    - `editor`
    - `viewer`
-5. Log into the CMS at `http://127.0.0.1:5174` (or the deployed admin URL).
+5. Log into the CMS at `http://127.0.0.1:5175` (or the deployed admin URL).
 6. Ensure public content is published so it appears on the public site.
 
 ## Public Assets Fallback
@@ -76,6 +77,35 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 - If `frontend/public` is empty, it automatically falls back to `frontend/default-public-asset`.
 - Default assets live in `frontend/default-public-asset` (`styles.css`, `default-hero.svg`, `default-pattern.svg`).
 - Add your own assets to `frontend/public` to override the defaults.
+
+## Admin Settings
+The following settings are editable in the Admin UI:
+- Site name
+- Description
+- Welcome text
+- Home top image
+- Home top image alt
+- Footer HTML
+- Theme (Ember, Terminal, Wiki, Docs, Minimal). Disabled when `frontend/public` has assets.
+- Site URL (feeds)
+- Site language
+- Feed items limit
+- Enable RSS/Atom feed
+- Enable JSON feed
+- Enable code highlight
+- Highlight theme
+- Home page size
+- Archive page size
+- Show table of contents
+- Show archive tags
+- Show tags
+- Show categories
+- Show archive search slot
+- Enable analytics
+- Analytics URL
+- Analytics site id
+- Enable ads
+- Ads client
 
 ## Notes
 - Public API exposure is controlled by PocketBase rules.
