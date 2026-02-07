@@ -1,0 +1,36 @@
+.DS_Store
+.env
+.env.*
+.idea/
+.vscode/
+
+# Node/Vite
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+tmp/
+
+# PocketBase data
+pb_data/
+pb_data/*
+
+# Logs
+*.log
+
+# public/uploads (if you want to ignore uploaded files)
+frontend/public

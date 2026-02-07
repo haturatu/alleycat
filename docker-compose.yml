@@ -1,0 +1,51 @@
+services:
+  pocketbase:
+    build:
+      context: ./backend
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.ssr
+    ports:
+      - "5173:5173"
+    environment:
+      - PB_URL=http://pocketbase:8090
+      - ADMIN_URL=http://admin:5173
+    depends_on:
+      - pocketbase
+      - admin
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  admin:
+    build:
+      context: ./frontend
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_PB_URL=http://0.0.0.0:8090
+      - VITE_BASE=/admin/
+      - VITE_ADMIN=true
+    depends_on:
+      - pocketbase
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  pb_data:

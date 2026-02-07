@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example Blog</title>
+    <meta name="supported-color-schemes" content="light dark" />
+    <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <style>
+      .page-title {
+        font-size: 1.2em;
+        background: var(--color-highlight);
+        padding: 0.5em;
+      }
+    </style>
+    <!-- analytics/ads loaded dynamically in main.tsx to avoid blocking --> 
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
