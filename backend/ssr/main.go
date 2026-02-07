@@ -63,6 +63,7 @@ type SettingsRecord struct {
 	HomeTopImage        string `json:"home_top_image"`
 	HomeTopImageAlt     string `json:"home_top_image_alt"`
 	FooterHTML          string `json:"footer_html"`
+	Theme               string `json:"theme"`
 	SiteURL             string `json:"site_url"`
 	SiteLanguage        string `json:"site_language"`
 	EnableFeedXML       bool   `json:"enable_feed_xml"`
@@ -79,6 +80,8 @@ type SettingsRecord struct {
 	HomePageSize        int    `json:"home_page_size"`
 	ShowToc             bool   `json:"show_toc"`
 	ShowArchiveTags     bool   `json:"show_archive_tags"`
+	ShowTags            bool   `json:"show_tags"`
+	ShowCategories      bool   `json:"show_categories"`
 	ShowArchiveSearch   bool   `json:"show_archive_search"`
 }
 
@@ -114,6 +117,10 @@ func main() {
 
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/files/") {
+		http.NotFound(w, r)
+		return
+	}
 	if strings.HasPrefix(path, "/api/") {
 		proxyPocketBase(w, r)
 		return
@@ -122,14 +129,20 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	settings := getSettings()
+	previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+	if previewTheme != "" {
+		settings.Theme = previewTheme
+	}
+
 	if path == "/" {
-		html := renderHome()
+		html := renderHome(settings)
 		writeHTML(w, html)
 		return
 	}
 
 	if path == "/archive" {
-		html := renderArchive("/archive/")
+		html := renderArchive("/archive/", settings)
 		writeHTML(w, html)
 		return
 	}
@@ -155,18 +168,18 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/archive/") {
-		html := renderArchive(path)
+		html := renderArchive(path, settings)
 		writeHTML(w, html)
 		return
 	}
 
 	if strings.HasPrefix(path, "/posts/") {
-		html := renderPost(path)
+		html := renderPost(path, settings)
 		writeHTML(w, html)
 		return
 	}
 
-	html := renderPage(path)
+	html := renderPage(path, settings)
 	writeHTML(w, html)
 }
 
@@ -256,8 +269,7 @@ func adminProxy() http.Handler {
 	return proxy
 }
 
-func renderHome() string {
-	settings := getSettings()
+func renderHome(settings SettingsRecord) string {
 	menuPages := getMenuPages()
 	pageSize := settings.HomePageSize
 	if pageSize <= 0 {
@@ -278,32 +290,42 @@ func renderHome() string {
         ` + heroImage + `
         <h1 class="page-title">` + html.EscapeString(defaultString(settings.WelcomeText, "Welcome to your blog")) + `</h1>
       </header>
-      ` + renderPostList(posts.Items) + `
+      ` + renderPostList(posts.Items, settings.ShowTags) + `
       <hr>
       <p>More posts can be found in <a href="/archive/">the archive</a>.</p>
     </main>` + renderFooter()
 }
 
-func renderArchive(path string) string {
-	settings := getSettings()
+func renderArchive(path string, settings SettingsRecord) string {
 	menuPages := getMenuPages()
 	parts := splitPath(path)
 	tag := ""
+	category := ""
 	pageNumber := 1
 	if len(parts) >= 2 {
 		if isNumeric(parts[1]) {
 			pageNumber = atoi(parts[1], 1)
 		} else {
-			tag = parts[1]
+			if parts[1] == "category" && len(parts) >= 3 {
+				category = parts[2]
+			} else {
+				tag = parts[1]
+			}
 		}
 	}
 	if tag != "" && len(parts) >= 3 && isNumeric(parts[2]) {
 		pageNumber = atoi(parts[2], 1)
 	}
+	if category != "" && len(parts) >= 4 && isNumeric(parts[3]) {
+		pageNumber = atoi(parts[3], 1)
+	}
 
 	filter := "published = true"
 	if tag != "" {
 		filter = fmt.Sprintf("published = true && tags ~ \"%s\"", tag)
+	}
+	if category != "" {
+		filter = fmt.Sprintf("published = true && category = \"%s\"", category)
 	}
 
 	pageSize := settings.ArchivePageSize
@@ -315,11 +337,21 @@ func renderArchive(path string) string {
 	if tag != "" {
 		title = fmt.Sprintf("tag: %s", tag)
 	}
+	if category != "" {
+		title = fmt.Sprintf("category: %s", category)
+	}
 
 	pagination := renderPagination(archiveBase(tag), pageNumber, posts.TotalPages)
+	if category != "" {
+		pagination = renderPagination(archiveCategoryBase(category), pageNumber, posts.TotalPages)
+	}
 	tagsNav := ""
-	if settings.ShowArchiveTags && tag == "" && pageNumber == 1 {
+	if settings.ShowArchiveTags && settings.ShowTags && tag == "" && category == "" && pageNumber == 1 {
 		tagsNav = renderTagsNav(collectTags())
+	}
+	categoriesNav := ""
+	if settings.ShowCategories && tag == "" && category == "" && pageNumber == 1 {
+		categoriesNav = renderCategoriesNav(collectCategories())
 	}
 	searchSlot := ""
 	if settings.ShowArchiveSearch {
@@ -337,14 +369,14 @@ func renderArchive(path string) string {
         ` + rssLinks + `
         ` + searchSlot + `
       </header>
-      ` + renderPostList(posts.Items) + `
+      ` + renderPostList(posts.Items, settings.ShowTags) + `
       ` + pagination + `
       ` + tagsNav + `
+      ` + categoriesNav + `
     </main>` + renderFooter()
 }
 
-func renderPost(path string) string {
-	settings := getSettings()
+func renderPost(path string, settings SettingsRecord) string {
 	menuPages := getMenuPages()
 	parts := splitPath(path)
 	if len(parts) < 2 {
@@ -372,8 +404,8 @@ func renderPost(path string) string {
           <div class="post-details">
             ` + renderTime(post) + `
             <p>` + fmt.Sprintf("%d min read", readingMinutes(body)) + `</p>
-            ` + renderCategory(post.Category) + `
-            ` + renderPostTags(post.Tags) + `
+            ` + renderCategory(post.Category, settings.ShowCategories) + `
+            ` + renderPostTags(post.Tags, settings.ShowTags) + `
           </div>
         </header>
         ` + renderTocBlock(settings.ShowToc, toc) + `
@@ -383,8 +415,7 @@ func renderPost(path string) string {
     </main>` + renderFooter()
 }
 
-func renderPage(path string) string {
-	settings := getSettings()
+func renderPage(path string, settings SettingsRecord) string {
 	menuPages := getMenuPages()
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
@@ -453,7 +484,7 @@ func renderHead(title string, settings SettingsRecord) string {
     <meta name="supported-color-schemes" content="light dark" />
     <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="` + themeStylesheet(settings) + `" />
     ` + feedLinkXML(settings, siteName) + `
     ` + feedLinkJSON(settings, siteName) + `
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
@@ -603,7 +634,7 @@ func serveMediaUpload(w http.ResponseWriter, r *http.Request, path string) bool 
 	return true
 }
 
-func renderPostList(items []PostRecord) string {
+func renderPostList(items []PostRecord, showTags bool) string {
 	var b strings.Builder
 	for _, post := range items {
 		body := post.Body
@@ -622,7 +653,7 @@ func renderPostList(items []PostRecord) string {
             <div class="post-details">
               ` + renderTime(&post) + `
               <p>` + fmt.Sprintf("%d min read", readingMinutes(body)) + `</p>
-              ` + renderPostTags(post.Tags) + `
+              ` + renderPostTags(post.Tags, showTags) + `
             </div>
           </header>
           <div class="post-excerpt body">` + excerpt + `</div>
@@ -643,14 +674,17 @@ func renderTime(post *PostRecord) string {
 	return `<p><time datetime="` + date + `">` + formatDate(date) + `</time></p>`
 }
 
-func renderCategory(category string) string {
-	if category == "" {
+func renderCategory(category string, enabled bool) string {
+	if !enabled || category == "" {
 		return ""
 	}
 	return `<p>` + html.EscapeString(category) + `</p>`
 }
 
-func renderPostTags(tags string) string {
+func renderPostTags(tags string, enabled bool) string {
+	if !enabled {
+		return ""
+	}
 	parsed := parseTags(tags)
 	if len(parsed) == 0 {
 		return ""
@@ -717,6 +751,17 @@ func renderTagsNav(tags []string) string {
 	return `<nav class="page-navigation"><h2>tags:</h2><ul class="page-navigation-tags">` + b.String() + `</ul></nav>`
 }
 
+func renderCategoriesNav(categories []string) string {
+	if len(categories) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, category := range categories {
+		b.WriteString(`<li><a href="/archive/category/` + url.PathEscape(category) + `/">` + html.EscapeString(category) + `</a></li>`)
+	}
+	return `<nav class="page-navigation"><h2>categories:</h2><ul class="page-navigation-tags">` + b.String() + `</ul></nav>`
+}
+
 func collectTags() []string {
 	set := map[string]struct{}{}
 	page := 1
@@ -737,6 +782,35 @@ func collectTags() []string {
 	result := make([]string, 0, len(set))
 	for tag := range set {
 		result = append(result, tag)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func collectCategories() []string {
+	params := url.Values{}
+	params.Set("page", "1")
+	params.Set("perPage", "200")
+	params.Set("filter", "published = true")
+	params.Set("fields", "category")
+	data, err := fetchPosts(params)
+	if err != nil {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, post := range data.Items {
+		if post.Category == "" {
+			continue
+		}
+		set[post.Category] = struct{}{}
+	}
+	return sortedKeys(set)
+}
+
+func sortedKeys(set map[string]struct{}) []string {
+	result := make([]string, 0, len(set))
+	for key := range set {
+		result = append(result, key)
 	}
 	sort.Strings(result)
 	return result
@@ -882,6 +956,8 @@ func getSettings() SettingsRecord {
 			HomePageSize:        3,
 			ShowToc:             true,
 			ShowArchiveTags:     true,
+			ShowTags:            true,
+			ShowCategories:      true,
 			ShowArchiveSearch:   true,
 		}
 	}
@@ -907,6 +983,9 @@ func getSettings() SettingsRecord {
 	if set.HomeTopImageAlt == "" {
 		set.HomeTopImageAlt = "Default hero image"
 	}
+	if set.Theme == "" {
+		set.Theme = "ember"
+	}
 	if set.SiteLanguage == "" {
 		set.SiteLanguage = "ja"
 	}
@@ -914,6 +993,15 @@ func getSettings() SettingsRecord {
 		set.FeedItemsLimit = 30
 	}
 	return set
+}
+
+func themeStylesheet(settings SettingsRecord) string {
+	theme := strings.TrimSpace(settings.Theme)
+	if theme == "" {
+		theme = "ember"
+	}
+	theme = strings.ToLower(theme)
+	return "/themes/" + url.PathEscape(theme) + "/styles.css"
 }
 
 func feedLinkXML(settings SettingsRecord, siteName string) string {
@@ -1121,6 +1209,13 @@ func archiveBase(tag string) string {
 		return "/archive"
 	}
 	return "/archive/" + url.PathEscape(tag)
+}
+
+func archiveCategoryBase(category string) string {
+	if category == "" {
+		return "/archive/category"
+	}
+	return "/archive/category/" + url.PathEscape(category)
 }
 
 func paginationLink(base string, page int) string {

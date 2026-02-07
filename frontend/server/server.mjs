@@ -188,7 +188,13 @@ const rewriteMediaUrls = async (body = "") => {
   });
 };
 
-const renderHead = (title = "Home") => `<!doctype html>
+const themeStylesheet = (themeOverride) => {
+  const raw = themeOverride || process.env.THEME || "ember";
+  const theme = raw.trim().toLowerCase();
+  return `/themes/${encodeURIComponent(theme)}/styles.css`;
+};
+
+const renderHead = (title = "Home", themeOverride = "") => `<!doctype html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -197,7 +203,7 @@ const renderHead = (title = "Home") => `<!doctype html>
     <meta name="supported-color-schemes" content="light dark" />
     <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="${themeStylesheet(themeOverride)}" />
     <link rel="alternate" href="/feed.xml" type="application/atom+xml" title="${escapeHtml(DEFAULT_SITE_NAME)}" />
     <link rel="alternate" href="/feed.json" type="application/json" title="${escapeHtml(DEFAULT_SITE_NAME)}" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
@@ -347,7 +353,7 @@ const renderPostList = (items = []) =>
       .join("")}
   </section>`;
 
-const renderHome = async () => {
+const renderHome = async (themeOverride = "") => {
   const menuPages = await getPagesMenu();
   let posts;
   try {
@@ -358,7 +364,7 @@ const renderHome = async () => {
   const items = posts.items || [];
 
   return (
-    renderHead("Home") +
+    renderHead("Home", themeOverride) +
     renderNav(menuPages) +
     `<main class="body-home">
       <header class="page-header">
@@ -373,7 +379,7 @@ const renderHome = async () => {
   );
 };
 
-const renderArchive = async (tag, pageNumber) => {
+const renderArchive = async (tag, pageNumber, themeOverride = "") => {
   const menuPages = await getPagesMenu();
   const filter = tag
     ? `published = true && tags ~ \"${tag}\"`
@@ -390,7 +396,7 @@ const renderArchive = async (tag, pageNumber) => {
   const tagsNav = !tag && pageNumber === 1 ? renderTagsNav(await collectTags()) : "";
 
   return (
-    renderHead(title) +
+    renderHead(title, themeOverride) +
     renderNav(menuPages) +
     `<main class="body-tag">
       <header class="page-header">
@@ -406,7 +412,7 @@ const renderArchive = async (tag, pageNumber) => {
   );
 };
 
-const renderPost = async (slug) => {
+const renderPost = async (slug, themeOverride = "") => {
   const menuPages = await getPagesMenu();
   const post = await getPostBySlug(slug);
   if (!post) return renderNotFound();
@@ -415,7 +421,7 @@ const renderPost = async (slug) => {
   const tags = parseTags(post.tags || "");
 
   return (
-    renderHead(post.title || "Post") +
+    renderHead(post.title || "Post", themeOverride) +
     renderNav(menuPages) +
     `<main class="body-post">
       <article class="post">
@@ -437,7 +443,7 @@ const renderPost = async (slug) => {
   );
 };
 
-const renderPage = async (urlPath) => {
+const renderPage = async (urlPath, themeOverride = "") => {
   const menuPages = await getPagesMenu();
   const page = await getPageByUrl(urlPath);
   if (!page) return renderNotFound();
@@ -445,7 +451,7 @@ const renderPage = async (urlPath) => {
   const body = await rewriteMediaUrls(rawBody);
 
   return (
-    renderHead(page.title || "Page") +
+    renderHead(page.title || "Page", themeOverride) +
     renderNav(menuPages) +
     `<main class="body-tag">
       <article class="post">
@@ -555,9 +561,10 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pathName = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+    const themeOverride = url.searchParams.get("theme") || "";
 
     if (pathName === "/") {
-      const html = await renderHome();
+      const html = await renderHome(themeOverride);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
       return;
@@ -567,7 +574,7 @@ const server = http.createServer(async (req, res) => {
       const parts = pathName.split("/").filter(Boolean);
       const tag = parts[1] ? decodeURIComponent(parts[1]) : null;
       const pageNumber = parts[2] ? Number(parts[2]) || 1 : 1;
-      const html = await renderArchive(tag, pageNumber);
+      const html = await renderArchive(tag, pageNumber, themeOverride);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
       return;
@@ -576,13 +583,13 @@ const server = http.createServer(async (req, res) => {
     if (pathName.startsWith("/posts/")) {
       const parts = pathName.split("/").filter(Boolean);
       const slug = parts[1];
-      const html = await renderPost(slug);
+      const html = await renderPost(slug, themeOverride);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
       return;
     }
 
-    const html = await renderPage(pathName);
+    const html = await renderPage(pathName, themeOverride);
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(html);
   } catch {

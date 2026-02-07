@@ -1,0 +1,214 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap");
+
+:root {
+  --bg: #0b0d0f;
+  --bg-alt: #101418;
+  --surface: #0f1316;
+  --ink: #e6f2e6;
+  --muted: #9ab59a;
+  --accent: #50fa7b;
+  --accent-ink: #04120a;
+  --line: rgba(80, 250, 123, 0.12);
+  --shadow: 0 24px 50px rgba(0, 0, 0, 0.55);
+  --radius: 8px;
+  --max: 980px;
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f5f2;
+  --bg-alt: #ffffff;
+  --surface: #ffffff;
+  --ink: #1a1a1a;
+  --muted: #586659;
+  --accent: #008f3f;
+  --accent-ink: #e6f8ee;
+  --line: rgba(26, 26, 26, 0.12);
+  --shadow: 0 20px 40px rgba(26, 26, 26, 0.12);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "JetBrains Mono", "Noto Sans JP", monospace;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.75;
+}
+
+img { max-width: 100%; display: block; }
+
+a { color: var(--accent); text-decoration: none; }
+
+a:hover { color: #b3ffca; }
+
+#root {
+  min-height: 100vh;
+  background: linear-gradient(120deg, rgba(80, 250, 123, 0.08), transparent 50%), var(--bg);
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 6vw;
+  border-bottom: 1px solid var(--line);
+  background: rgba(11, 13, 15, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.navbar-home {
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.navbar-home::before {
+  content: "> ";
+  color: var(--accent);
+}
+
+.navbar-links {
+  list-style: none;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.navbar-links a {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.navbar-links a[aria-current="page"] {
+  color: var(--accent);
+}
+
+.button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.icon { font-size: 0.85rem; }
+
+main {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 40px 6vw 80px;
+}
+
+.page-header {
+  display: grid;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 22px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.top-image {
+  width: 100%;
+  height: clamp(200px, 32vw, 320px);
+  object-fit: cover;
+  border-radius: 6px;
+  filter: grayscale(0.2) contrast(1.05);
+}
+
+.page-title {
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  margin: 0;
+}
+
+.postList { margin-top: 22px; display: grid; gap: 20px; }
+
+.post {
+  background: var(--surface);
+  padding: 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.post-header { display: flex; flex-direction: column; gap: 8px; }
+
+.post-title {
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  margin: 0;
+}
+
+.post-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.post-excerpt { margin: 12px 0 16px; }
+
+.post-link { color: var(--accent); font-weight: 600; }
+
+.body { font-size: 0.95rem; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(80, 250, 123, 0.12);
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.page-navigation { margin: 24px 0; }
+
+.page-navigation-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+}
+
+.pagination { margin-top: 28px; }
+
+.pagination ul {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.pagination a {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.footer {
+  text-align: center;
+  padding: 26px 6vw 40px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.footer a { margin: 0 8px; }
+
+@media (max-width: 720px) {
+  .navbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .navbar-links { gap: 12px; }
+}

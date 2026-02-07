@@ -8,6 +8,7 @@ const defaults = {
   home_top_image: "/default-hero.svg",
   home_top_image_alt: "Default hero image",
   footer_html: "",
+  theme: "ember",
   site_url: "",
   site_language: "ja",
   enable_feed_xml: true,
@@ -24,6 +25,8 @@ const defaults = {
   home_page_size: 3,
   show_toc: true,
   show_archive_tags: true,
+  show_tags: true,
+  show_categories: true,
   show_archive_search: true,
 };
 
@@ -109,6 +112,16 @@ export default function AdminSettings() {
         <label>
           Footer HTML
           <textarea value={settings.footer_html} onChange={(e) => update("footer_html", e.target.value)} rows={3} />
+        </label>
+        <label>
+          Theme
+          <select value={settings.theme} onChange={(e) => update("theme", e.target.value)}>
+            <option value="ember">Ember (default)</option>
+            <option value="terminal">Terminal</option>
+            <option value="wiki">Wiki</option>
+            <option value="docs">Docs</option>
+            <option value="minimal">Minimal</option>
+          </select>
         </label>
         <label>
           Site URL (feeds)
@@ -199,6 +212,22 @@ export default function AdminSettings() {
             type="checkbox"
             checked={settings.show_archive_tags}
             onChange={(e) => update("show_archive_tags", e.target.checked)}
+          />
+        </label>
+        <label className="admin-check admin-check-right">
+          <span>Show tags</span>
+          <input
+            type="checkbox"
+            checked={settings.show_tags}
+            onChange={(e) => update("show_tags", e.target.checked)}
+          />
+        </label>
+        <label className="admin-check admin-check-right">
+          <span>Show categories</span>
+          <input
+            type="checkbox"
+            checked={settings.show_categories}
+            onChange={(e) => update("show_categories", e.target.checked)}
           />
         </label>
         <label className="admin-check admin-check-right">
