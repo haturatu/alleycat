@@ -12,6 +12,45 @@ export default function RichEditor({
   onChange: (value: string) => void;
 }) {
   const lastValueRef = useRef(value);
+  const rewriteSeqRef = useRef(0);
+  const mediaCaptionCache = useRef<Map<string, string>>(new Map());
+
+  const rewriteMediaUrls = async (html: string) => {
+    const re = /(?:https?:\/\/[^"'\\s)]+)?\/api\/files\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/([^"'\\s)]+)/g;
+    const matches = [...html.matchAll(re)];
+    if (matches.length === 0) return html;
+
+    await Promise.all(
+      matches.map(async (match) => {
+        const collection = match[1];
+        const recordId = match[2];
+        if (collection !== "media" && collection !== "pbc_2708086759") return;
+        if (mediaCaptionCache.current.has(recordId)) return;
+        try {
+          const record = await pb.collection("media").getOne(recordId);
+          const mediaPath = typeof record.path === "string" ? record.path.trim() : "";
+          const fallback = typeof record.caption === "string" ? record.caption.trim() : "";
+          if (mediaPath) {
+            mediaCaptionCache.current.set(recordId, mediaPath);
+          } else if (fallback) {
+            mediaCaptionCache.current.set(recordId, fallback);
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+
+    return html.replace(re, (full, collection, recordId, filename) => {
+      const mediaPath = mediaCaptionCache.current.get(recordId);
+      if (!mediaPath) {
+        return `/api/files/${collection}/${recordId}/${filename}`;
+      }
+      if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) return mediaPath;
+      return mediaPath.startsWith("/") ? mediaPath : `/${mediaPath}`;
+    });
+  };
+
   const uploadAndInsertImage = async (file: File, editor: any) => {
     if (!editor) return;
     const form = new FormData();
@@ -21,7 +60,19 @@ export default function RichEditor({
     try {
       const record = await pb.collection("media").create(form);
       const filename = record.file as string;
-      const url = pb.files.getURL(record, filename);
+      let mediaPath = typeof record.path === "string" ? record.path.trim() : "";
+      if (!mediaPath && filename) {
+        mediaPath = `/uploads/${filename}`;
+        try {
+          await pb.collection("media").update(record.id, { path: mediaPath });
+        } catch {
+          // ignore path update failure
+        }
+      }
+      if (mediaPath) {
+        mediaCaptionCache.current.set(record.id, mediaPath);
+      }
+      const url = mediaPath || pb.files.getURL(record, filename);
       editor.chain().focus().setImage({ src: url, alt: file.name }).run();
     } catch (err) {
       console.error(err);
@@ -79,8 +130,13 @@ export default function RichEditor({
     if (!editor) return;
     const hasFocus = editor.view?.hasFocus?.() ?? false;
     if (value !== lastValueRef.current && !hasFocus) {
-      editor.commands.setContent(value || "<p></p>", false);
-      lastValueRef.current = value;
+      const seq = ++rewriteSeqRef.current;
+      (async () => {
+        const rewritten = await rewriteMediaUrls(value || "<p></p>");
+        if (seq !== rewriteSeqRef.current) return;
+        editor.commands.setContent(rewritten || "<p></p>", false);
+        lastValueRef.current = rewritten;
+      })();
     }
   }, [editor, value]);
 

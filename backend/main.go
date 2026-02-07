@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -75,6 +76,10 @@ func ensureCollections(app core.App) error {
 			MaxSelect: 1,
 		})
 		addFieldIfMissing(c, &core.TextField{
+			Name: "path",
+			Max:  200,
+		})
+		addFieldIfMissing(c, &core.TextField{
 			Name: "alt",
 			Max:  200,
 		})
@@ -88,6 +93,10 @@ func ensureCollections(app core.App) error {
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := migrateMediaPaths(app); err != nil {
 		return err
 	}
 
@@ -236,6 +245,35 @@ func ensureCollections(app core.App) error {
 	}
 
 	return app.ReloadCachedCollections()
+}
+
+func migrateMediaPaths(app core.App) error {
+	media, err := app.FindCollectionByNameOrId("media")
+	if err != nil {
+		return err
+	}
+	records := []*core.Record{}
+	if err := app.RecordQuery(media).All(&records); err != nil {
+		return err
+	}
+	for _, record := range records {
+		pathValue := record.GetString("path")
+		if pathValue != "" {
+			continue
+		}
+		caption := strings.TrimSpace(record.GetString("caption"))
+		if caption == "" {
+			continue
+		}
+		if !strings.HasPrefix(caption, "/") {
+			continue
+		}
+		record.Set("path", caption)
+		if err := app.Save(record); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ensureCollection(app core.App, typ, name string, configure func(c *core.Collection) error) (*core.Collection, error) {

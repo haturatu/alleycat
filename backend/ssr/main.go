@@ -86,6 +86,7 @@ type MediaRecord struct {
 	ID      string `json:"id"`
 	File    string `json:"file"`
 	Caption string `json:"caption"`
+	Path    string `json:"path"`
 }
 
 var (
@@ -540,9 +541,12 @@ func rewriteMediaURLs(body string) string {
 		if err != nil || media == nil {
 			continue
 		}
-		caption := strings.TrimSpace(media.Caption)
-		if caption != "" {
-			cache[id] = caption
+		path := strings.TrimSpace(media.Path)
+		if path == "" {
+			path = strings.TrimSpace(media.Caption)
+		}
+		if path != "" {
+			cache[id] = path
 		}
 	}
 	return mediaFileRe.ReplaceAllStringFunc(body, func(match string) string {
@@ -553,14 +557,14 @@ func rewriteMediaURLs(body string) string {
 		collection := sub[1]
 		recordId := sub[2]
 		filename := sub[3]
-		if caption, ok := cache[recordId]; ok && caption != "" {
-			if strings.HasPrefix(caption, "http://") || strings.HasPrefix(caption, "https://") {
-				return caption
+		if mediaPath, ok := cache[recordId]; ok && mediaPath != "" {
+			if strings.HasPrefix(mediaPath, "http://") || strings.HasPrefix(mediaPath, "https://") {
+				return mediaPath
 			}
-			if !strings.HasPrefix(caption, "/") {
-				return "/" + caption
+			if !strings.HasPrefix(mediaPath, "/") {
+				return "/" + mediaPath
 			}
-			return caption
+			return mediaPath
 		}
 		return "/api/files/" + collection + "/" + recordId + "/" + filename
 	})

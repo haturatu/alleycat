@@ -168,16 +168,20 @@ const rewriteMediaUrls = async (body = "") => {
       if (collection !== "media" && collection !== "pbc_2708086759") return;
       if (cache.has(id)) return;
       const media = await getMediaById(id);
-      if (media?.caption) {
-        cache.set(id, media.caption.trim());
+      const mediaPath = typeof media?.path === "string" ? media.path.trim() : "";
+      const fallback = typeof media?.caption === "string" ? media.caption.trim() : "";
+      if (mediaPath) {
+        cache.set(id, mediaPath);
+      } else if (fallback) {
+        cache.set(id, fallback);
       }
     })
   );
   return body.replace(mediaFileRe, (full, collection, id, filename) => {
-    const caption = cache.get(id);
-    if (!caption) return `/api/files/${collection}/${id}/${filename}`;
-    if (caption.startsWith("http://") || caption.startsWith("https://")) return caption;
-    return caption.startsWith("/") ? caption : `/${caption}`;
+    const mediaPath = cache.get(id);
+    if (!mediaPath) return `/api/files/${collection}/${id}/${filename}`;
+    if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) return mediaPath;
+    return mediaPath.startsWith("/") ? mediaPath : `/${mediaPath}`;
   });
 };
 
