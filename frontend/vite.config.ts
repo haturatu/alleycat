@@ -7,5 +7,14 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: "all",
+    proxy: process.env.VITE_PB_PROXY_TARGET
+      ? {
+          "/api": {
+            target: process.env.VITE_PB_PROXY_TARGET,
+            changeOrigin: true,
+            secure: false,
+          },
+        }
+      : undefined,
   },
 });

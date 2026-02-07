@@ -8,10 +8,18 @@ const inferredUrl =
 const envUrl = import.meta.env.VITE_PB_URL;
 const normalizedEnvUrl =
   envUrl && envUrl.includes("0.0.0.0")
-    ? envUrl.replace("0.0.0.0", typeof window !== "undefined" ? window.location.hostname : "127.0.0.1")
+    ? envUrl.replace(
+        "0.0.0.0",
+        typeof window !== "undefined" ? window.location.hostname : "127.0.0.1"
+      )
     : envUrl;
 
-const baseUrl = normalizedEnvUrl || inferredUrl;
+const baseUrl =
+  normalizedEnvUrl && normalizedEnvUrl.startsWith("/")
+    ? typeof window !== "undefined"
+      ? `${window.location.origin}${normalizedEnvUrl}`
+      : `http://127.0.0.1:8090${normalizedEnvUrl}`
+    : normalizedEnvUrl || (typeof window !== "undefined" ? window.location.origin : inferredUrl);
 
 export const pb = new PocketBase(baseUrl);
 pb.autoCancellation(false);

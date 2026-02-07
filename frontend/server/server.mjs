@@ -172,9 +172,9 @@ const rewriteMediaUrls = async (body = "") => {
     })
   );
   if (cache.size === 0) return body;
-  return body.replace(mediaFileRe, (full, id) => {
+  return body.replace(mediaFileRe, (full, id, filename) => {
     const caption = cache.get(id);
-    if (!caption) return full;
+    if (!caption) return `/api/files/media/${id}/${filename}`;
     if (caption.startsWith("http://") || caption.startsWith("https://")) return caption;
     return caption.startsWith("/") ? caption : `/${caption}`;
   });
@@ -239,6 +239,35 @@ const renderNav = (menuPages = []) => {
 
 const renderFooter = () =>
   `${FOOTER_HTML ? `<footer class="footer">${FOOTER_HTML}</footer>` : ""}\n  </body>\n</html>`;
+
+const proxyPocketBase = async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (!url.pathname.startsWith("/api/")) return false;
+
+  const target = new URL(url.pathname, PB_URL);
+  target.search = url.search;
+
+  const body =
+    req.method && !["GET", "HEAD"].includes(req.method) ? await readRequestBody(req) : undefined;
+
+  const proxyRes = await fetch(target, {
+    method: req.method,
+    headers: req.headers,
+    body,
+  });
+
+  res.writeHead(proxyRes.status, Object.fromEntries(proxyRes.headers.entries()));
+  res.end(Buffer.from(await proxyRes.arrayBuffer()));
+  return true;
+};
+
+const readRequestBody = (req) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(chunks.length ? Buffer.concat(chunks) : undefined));
+    req.on("error", reject);
+  });
 
 const renderPagination = (baseUrl, pageNumber, totalPages) => {
   if (!totalPages || totalPages <= 1) return "";
@@ -512,6 +541,7 @@ const proxyAdmin = async (req, res) => {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (await proxyPocketBase(req, res)) return;
     if (await serveStatic(req, res)) return;
     if (await proxyAdmin(req, res)) return;
 

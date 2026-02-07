@@ -36,7 +36,8 @@ services:
     ports:
       - "5175:5173"
     environment:
-      - VITE_PB_URL=http://0.0.0.0:8091
+      - VITE_PB_URL=/api
+      - VITE_PB_PROXY_TARGET=http://pocketbase:8090
       - VITE_BASE=/admin/
       - VITE_ADMIN=true
     depends_on:

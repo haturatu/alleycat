@@ -113,6 +113,10 @@ func main() {
 
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/") {
+		proxyPocketBase(w, r)
+		return
+	}
 	if serveStatic(w, r) {
 		return
 	}
@@ -163,6 +167,23 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	html := renderPage(path)
 	writeHTML(w, html)
+}
+
+func proxyPocketBase(w http.ResponseWriter, r *http.Request) {
+	target, err := url.Parse(pbURL)
+	if err != nil {
+		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		return
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Director = func(req *http.Request) {
+		req.URL.Scheme = target.Scheme
+		req.URL.Host = target.Host
+		req.URL.Path = r.URL.Path
+		req.URL.RawQuery = r.URL.RawQuery
+		req.Host = target.Host
+	}
+	proxy.ServeHTTP(w, r)
 }
 
 func writeHTML(w http.ResponseWriter, content string) {
@@ -525,7 +546,7 @@ func rewriteMediaURLs(body string) string {
 	}
 	return mediaFileRe.ReplaceAllStringFunc(body, func(match string) string {
 		sub := mediaFileRe.FindStringSubmatch(match)
-		if len(sub) < 2 {
+		if len(sub) < 3 {
 			return match
 		}
 		if caption, ok := cache[sub[1]]; ok && caption != "" {
@@ -537,7 +558,7 @@ func rewriteMediaURLs(body string) string {
 			}
 			return caption
 		}
-		return match
+		return "/api/files/media/" + sub[1] + "/" + sub[2]
 	})
 }
 
