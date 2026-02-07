@@ -99,7 +99,7 @@ var (
 )
 
 var headingRe = regexp.MustCompile(`(?is)<h([23])([^>]*)>(.*?)</h[23]>`)
-var mediaFileRe = regexp.MustCompile(`(?i)(?:https?:\/\/[^"'\\s)]+)?/api/files/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/([^"'\\s)]+)`)
+var mediaFileRe = regexp.MustCompile("(?i)(?:https?://[^\"'\\s)]+)?/api/files/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/([^\"'\\s)]+)")
 
 func main() {
 	mux := http.NewServeMux()

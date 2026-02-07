@@ -62,7 +62,8 @@ export default function RichEditor({
       const filename = record.file as string;
       let mediaPath = typeof record.path === "string" ? record.path.trim() : "";
       if (!mediaPath && filename) {
-        mediaPath = `/uploads/${filename}`;
+        const normalized = normalizeUploadFilename(filename);
+        mediaPath = `/uploads/${normalized}`;
         try {
           await pb.collection("media").update(record.id, { path: mediaPath });
         } catch {
@@ -139,6 +140,19 @@ export default function RichEditor({
       })();
     }
   }, [editor, value]);
+
+  const normalizeUploadFilename = (filename: string) => {
+    const dot = filename.lastIndexOf(".");
+    if (dot <= 0) return filename;
+    const base = filename.slice(0, dot);
+    const ext = filename.slice(dot);
+    const underscore = base.lastIndexOf("_");
+    if (underscore === -1) return filename;
+    const suffix = base.slice(underscore + 1);
+    if (suffix.length < 6 || suffix.length > 16) return filename;
+    if (!/^[a-zA-Z0-9]+$/.test(suffix)) return filename;
+    return `${base.slice(0, underscore)}${ext}`;
+  };
 
   return (
     <div className="editor">

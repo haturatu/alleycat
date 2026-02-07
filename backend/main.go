@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/pocketbase/pocketbase"
@@ -266,19 +267,50 @@ func migrateMediaPaths(app core.App) error {
 		if pathValue != "" {
 			continue
 		}
-		caption := strings.TrimSpace(record.GetString("caption"))
-		if caption == "" {
+		path := strings.TrimSpace(record.GetString("caption"))
+		if path != "" && strings.HasPrefix(path, "/uploads/") {
+			record.Set("path", path)
+			if err := app.Save(record); err != nil {
+				return err
+			}
 			continue
 		}
-		if !strings.HasPrefix(caption, "/") {
+		filename := strings.TrimSpace(record.GetString("file"))
+		if filename == "" {
 			continue
 		}
-		record.Set("path", caption)
+		normalized := normalizeUploadFilename(filename)
+		if normalized == "" {
+			continue
+		}
+		record.Set("path", "/uploads/"+normalized)
 		if err := app.Save(record); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func normalizeUploadFilename(filename string) string {
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		return filename
+	}
+	base := strings.TrimSuffix(filename, ext)
+	underscore := strings.LastIndex(base, "_")
+	if underscore == -1 {
+		return filename
+	}
+	suffix := base[underscore+1:]
+	if len(suffix) < 6 || len(suffix) > 16 {
+		return filename
+	}
+	for _, r := range suffix {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+			return filename
+		}
+	}
+	return base[:underscore] + ext
 }
 
 func ensureCollection(app core.App, typ, name string, configure func(c *core.Collection) error) (*core.Collection, error) {
