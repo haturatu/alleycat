@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
     ports:
-      - "8090:8090"
+      - "8091:8090"
     volumes:
       - pb_data:/pb/pb_data
     deploy:
@@ -34,9 +34,9 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5174:5173"
+      - "5175:5173"
     environment:
-      - VITE_PB_URL=http://0.0.0.0:8090
+      - VITE_PB_URL=http://0.0.0.0:8091
       - VITE_BASE=/admin/
       - VITE_ADMIN=true
     depends_on:
