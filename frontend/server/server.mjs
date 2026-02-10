@@ -136,6 +136,32 @@ const getPostBySlug = async (slug) => {
   return data.items?.[0] || null;
 };
 
+const getAdjacentPosts = async (post) => {
+  if (!post) return { newer: null, older: null };
+  const field = post.published_at ? "published_at" : post.date ? "date" : "";
+  const value = post.published_at || post.date || "";
+  if (!field || !value) return { newer: null, older: null };
+  const safeValue = value.replace(/"/g, "");
+
+  const fetchNearest = async (op, sort) => {
+    try {
+      const data = await getPosts({
+        page: 1,
+        perPage: 1,
+        filter: `published = true && ${field} ${op} "${safeValue}"`,
+        sort,
+      });
+      return data.items?.[0] || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const newer = await fetchNearest(">", field);
+  const older = await fetchNearest("<", `-${field}`);
+  return { newer, older };
+};
+
 const getMediaById = async (id) => {
   try {
     return await fetchJson(`${PB_URL}/api/collections/media/records/${id}`);
@@ -420,6 +446,16 @@ const renderPost = async (slug, themeOverride = "") => {
   const rawBody = post.body || post.content || "";
   const body = await rewriteMediaUrls(rawBody);
   const tags = parseTags(post.tags || "");
+  const { newer, older } = await getAdjacentPosts(post);
+  const navHtml =
+    newer || older
+      ? `<nav class="page-pagination pagination post-pagination">
+    <ul>
+      ${older ? `<li class="pagination-prev"><a href="/posts/${encodeURIComponent(older.slug)}/" rel="prev"><span>← Older post</span><strong>${escapeHtml(older.title || "Post")}</strong></a></li>` : ""}
+      ${newer ? `<li class="pagination-next"><a href="/posts/${encodeURIComponent(newer.slug)}/" rel="next"><span>Newer post →</span><strong>${escapeHtml(newer.title || "Post")}</strong></a></li>` : ""}
+    </ul>
+  </nav>`
+      : "";
 
   return (
     renderHead(post.title || "Post", themeOverride) +
@@ -439,6 +475,7 @@ const renderPost = async (slug, themeOverride = "") => {
         </header>
         <div class="post-body body">${body}</div>
       </article>
+      ${navHtml}
     </main>` +
     renderFooter()
   );
@@ -583,8 +620,14 @@ const server = http.createServer(async (req, res) => {
 
     if (pathName.startsWith("/archive/")) {
       const parts = pathName.split("/").filter(Boolean);
-      const tag = parts[1] ? decodeURIComponent(parts[1]) : null;
-      const pageNumber = parts[2] ? Number(parts[2]) || 1 : 1;
+      let tag = parts[1] ? decodeURIComponent(parts[1]) : null;
+      let pageNumber = 1;
+      if (parts[1] && /^\d+$/.test(parts[1])) {
+        pageNumber = Number(parts[1]) || 1;
+        tag = null;
+      } else if (parts[2]) {
+        pageNumber = Number(parts[2]) || 1;
+      }
       const html = await renderArchive(tag, pageNumber, themeOverride);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);

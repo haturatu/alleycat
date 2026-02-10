@@ -273,7 +273,9 @@ func renderArchive(path string, settings SettingsRecord) string {
 
 	if len(parts) >= 1 && parts[0] == "archive" {
 		if len(parts) >= 2 {
-			if parts[1] == "category" && len(parts) >= 3 {
+			if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+				pageNumber = n
+			} else if parts[1] == "category" && len(parts) >= 3 {
 				category := decodePathSegment(parts[2])
 				title = "category: " + category
 				filter = fmt.Sprintf("published = true && category = \"%s\"", escapeFilter(category))
@@ -373,6 +375,24 @@ func renderPost(path string, settings SettingsRecord) string {
 		categoryHTML = fmt.Sprintf(`<p>%s</p>`, escapeHTML(post.Category))
 	}
 	postTags := renderPostTags(parseTags(post.Tags), settings.ShowTags)
+	newer, older := getAdjacentPosts(post)
+	navHTML := ""
+	if newer != nil || older != nil {
+		olderHTML := ""
+		newerHTML := ""
+		if older != nil {
+			olderHTML = fmt.Sprintf(`<li class="pagination-prev"><a href="/posts/%s/" rel="prev"><span>← Older post</span><strong>%s</strong></a></li>`, url.PathEscape(older.Slug), escapeHTML(defaultString(older.Title, "Post")))
+		}
+		if newer != nil {
+			newerHTML = fmt.Sprintf(`<li class="pagination-next"><a href="/posts/%s/" rel="next"><span>Newer post →</span><strong>%s</strong></a></li>`, url.PathEscape(newer.Slug), escapeHTML(defaultString(newer.Title, "Post")))
+		}
+		navHTML = fmt.Sprintf(`<nav class="page-pagination pagination post-pagination">
+      <ul>
+        %s
+        %s
+      </ul>
+    </nav>`, olderHTML, newerHTML)
+	}
 
 	return renderHead(defaultString(post.Title, "Post"), settings) +
 		renderNav(menu, settings) +
@@ -389,12 +409,13 @@ func renderPost(path string, settings SettingsRecord) string {
         </header>
         <div class="post-body body">%s</div>
       </article>
+      %s
     </main>`, escapeHTML(post.Title), func() string {
 			if date == "" {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, body) +
+		}(), calcReadTime(body), categoryHTML, postTags, body, navHTML) +
 		renderFooter(settings)
 }
 

@@ -6,6 +6,10 @@ import { formatDate, parseTags, readingTimeMinutes } from "../utils/text";
 export default function PostPage() {
   const { slug } = useParams();
   const [post, setPost] = useState<PostRecord | null>(null);
+  const [adjacent, setAdjacent] = useState<{ newer: PostRecord | null; older: PostRecord | null }>({
+    newer: null,
+    older: null,
+  });
 
   useEffect(() => {
     if (!slug) return;
@@ -18,6 +22,34 @@ export default function PostPage() {
       .then(setPost)
       .catch(() => setPost(null));
   }, [slug]);
+
+  useEffect(() => {
+    if (!post) {
+      setAdjacent({ newer: null, older: null });
+      return;
+    }
+    const field = post.published_at ? "published_at" : post.date ? "date" : "";
+    const value = post.published_at || post.date || "";
+    if (!field || !value) {
+      setAdjacent({ newer: null, older: null });
+      return;
+    }
+    const safeValue = value.replace(/"/g, "");
+    const fetchNearest = async (op: "<" | ">", sort: string) => {
+      try {
+        const res = await pb.collection("posts").getList<PostRecord>(1, 1, {
+          filter: `published = true && ${field} ${op} "${safeValue}"`,
+          sort,
+        });
+        return res.items[0] ?? null;
+      } catch {
+        return null;
+      }
+    };
+    Promise.all([fetchNearest("<", `-${field}`), fetchNearest(">", field)]).then(
+      ([older, newer]) => setAdjacent({ newer, older })
+    );
+  }, [post]);
 
   if (!post) {
     return (
@@ -85,6 +117,28 @@ export default function PostPage() {
           </div>
         )}
       </article>
+      {(adjacent.older || adjacent.newer) && (
+        <nav className="page-pagination pagination post-pagination">
+          <ul>
+            {adjacent.older && (
+              <li className="pagination-prev">
+                <Link to={`/posts/${adjacent.older.slug}/`} rel="prev">
+                  <span>← Older post</span>
+                  <strong>{adjacent.older.title || "Post"}</strong>
+                </Link>
+              </li>
+            )}
+            {adjacent.newer && (
+              <li className="pagination-next">
+                <Link to={`/posts/${adjacent.newer.slug}/`} rel="next">
+                  <span>Newer post →</span>
+                  <strong>{adjacent.newer.title || "Post"}</strong>
+                </Link>
+              </li>
+            )}
+          </ul>
+        </nav>
+      )}
     </>
   );
 }

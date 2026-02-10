@@ -46,6 +46,41 @@ func getPostBySlug(slug string) *PostRecord {
 	return &data.Items[0]
 }
 
+func getAdjacentPosts(post *PostRecord) (newer *PostRecord, older *PostRecord) {
+	if post == nil {
+		return nil, nil
+	}
+	field := ""
+	value := ""
+	if strings.TrimSpace(post.PublishedAt) != "" {
+		field = "published_at"
+		value = post.PublishedAt
+	} else if strings.TrimSpace(post.Date) != "" {
+		field = "date"
+		value = post.Date
+	}
+	if field == "" || value == "" {
+		return nil, nil
+	}
+
+	fetchNearest := func(op, sort string) *PostRecord {
+		data, err := getPosts(map[string]string{
+			"page":    "1",
+			"perPage": "1",
+			"filter":  fmt.Sprintf("published = true && %s %s \"%s\"", field, op, escapeFilter(value)),
+			"sort":    sort,
+		})
+		if err != nil || len(data.Items) == 0 {
+			return nil
+		}
+		return &data.Items[0]
+	}
+
+	newer = fetchNearest(">", field)
+	older = fetchNearest("<", "-"+field)
+	return newer, older
+}
+
 func getMediaByID(id string) *MediaRecord {
 	media, err := fetchRecord[MediaRecord](fmt.Sprintf("%s/api/collections/media/records/%s", pbURL, id))
 	if err != nil {
