@@ -119,6 +119,38 @@ body {
   flex-wrap: wrap;
 }
 
+.admin-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.admin-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  min-width: 240px;
+  flex: 1 1 280px;
+}
+
+.admin-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-toolbar-actions button {
+  padding: 8px 16px;
+  border: none;
+  cursor: pointer;
+}
+
+.admin-toolbar-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

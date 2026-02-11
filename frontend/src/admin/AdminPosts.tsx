@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PostRecord } from "../lib/pb";
 import { formatDate } from "../utils/text";
@@ -16,6 +16,9 @@ const extractMediaIds = (value?: string) => {
 
 export default function AdminPosts() {
   const [posts, setPosts] = useState<PostRecord[]>([]);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const load = () => {
     const loadPosts = async () => {
@@ -42,6 +45,80 @@ export default function AdminPosts() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(posts.map((post) => post.id));
+      const next = new Set(Array.from(prev).filter((id) => ids.has(id)));
+      return next;
+    });
+  }, [posts]);
+
+  const filteredPosts = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return posts;
+    return posts.filter((post) => {
+      const haystack = [
+        post.title,
+        post.slug,
+        post.tags,
+        post.category,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(trimmed);
+    });
+  }, [posts, query]);
+
+  const allFilteredSelected =
+    filteredPosts.length > 0 && filteredPosts.every((post) => selected.has(post.id));
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filteredPosts.forEach((post) => next.delete(post.id));
+        return next;
+      }
+      filteredPosts.forEach((post) => next.add(post.id));
+      return next;
+    });
+  };
+
+  const bulkSetPublished = async (value: boolean) => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`${selected.size}件を${value ? "公開" : "非公開"}にしますか？`)) return;
+    setBulkLoading(true);
+    const now = new Date().toISOString();
+    const byId = new Map(posts.map((post) => [post.id, post]));
+    await Promise.all(
+      Array.from(selected).map(async (id) => {
+        const post = byId.get(id);
+        const payload: Record<string, unknown> = { published: value };
+        if (value && (!post?.published_at || post.published_at === "")) {
+          payload.published_at = now;
+        }
+        await pb.collection("posts").update(id, payload);
+      })
+    );
+    setSelected(new Set());
+    setBulkLoading(false);
+    load();
+  };
 
   const remove = async (id: string) => {
     if (!window.confirm("削除しますか？")) return;
@@ -91,9 +168,41 @@ export default function AdminPosts() {
           New
         </Link>
       </header>
+      <div className="admin-toolbar">
+        <input
+          className="admin-input"
+          type="search"
+          placeholder="Search title, slug, tags..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <div className="admin-toolbar-actions">
+          <button
+            className="admin-primary"
+            disabled={bulkLoading || selected.size === 0}
+            onClick={() => bulkSetPublished(true)}
+          >
+            Publish
+          </button>
+          <button
+            disabled={bulkLoading || selected.size === 0}
+            onClick={() => bulkSetPublished(false)}
+          >
+            Unpublish
+          </button>
+        </div>
+      </div>
       <table className="admin-table">
         <thead>
           <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             <th>Title</th>
             <th>Date</th>
             <th>Status</th>
@@ -101,8 +210,16 @@ export default function AdminPosts() {
           </tr>
         </thead>
         <tbody>
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <tr key={post.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selected.has(post.id)}
+                  onChange={() => toggleSelect(post.id)}
+                  aria-label={`Select ${post.title}`}
+                />
+              </td>
               <td>{post.title}</td>
               <td>{formatDate(post.published_at)}</td>
               <td>{post.published ? "public" : "draft"}</td>
