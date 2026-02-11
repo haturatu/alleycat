@@ -24,6 +24,7 @@ export default function AdminPostEditor() {
   const [categories, setCategories] = useState<string[]>([]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [excerptLength, setExcerptLength] = useState(0);
 
   useEffect(() => {
     if (!id || id === "new") return;
@@ -73,12 +74,24 @@ export default function AdminPostEditor() {
       });
   }, []);
 
+  useEffect(() => {
+    pb.collection("settings")
+      .getList(1, 1)
+      .then((res) => {
+        const length = Number(res.items?.[0]?.excerpt_length ?? 0);
+        setExcerptLength(Number.isFinite(length) ? length : 0);
+      })
+      .catch(() => setExcerptLength(0));
+  }, []);
+
   const save = async () => {
+    const autoExcerpt = excerptLength > 0;
+    const finalExcerpt = autoExcerpt ? buildExcerpt(body, excerptLength) : excerpt;
     const form = new FormData();
     form.set("title", title);
     form.set("slug", slug);
     form.set("body", body);
-    form.set("excerpt", excerpt || buildExcerpt(body));
+    form.set("excerpt", finalExcerpt || buildExcerpt(body));
     form.set("tags", tags);
     form.set("category", category);
     form.set("author", author);
@@ -197,8 +210,18 @@ export default function AdminPostEditor() {
         </label>
         <label>
           Excerpt
-          <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} rows={3} />
+          <textarea
+            value={excerptLength > 0 ? buildExcerpt(body, excerptLength) : excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            rows={3}
+            disabled={excerptLength > 0}
+          />
         </label>
+        {excerptLength > 0 && (
+          <p className="admin-note">
+            Excerpt is auto-generated from content ({excerptLength} chars).
+          </p>
+        )}
         <label className="admin-check admin-check-right">
           <span>Published</span>
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />

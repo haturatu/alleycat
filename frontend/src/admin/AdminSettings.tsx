@@ -22,6 +22,7 @@ const defaults = {
   enable_code_highlight: true,
   highlight_theme: "github-dark",
   archive_page_size: 10,
+  excerpt_length: 0,
   home_page_size: 3,
   show_toc: true,
   show_archive_tags: true,
@@ -222,6 +223,14 @@ export default function AdminSettings() {
             type="number"
             value={settings.archive_page_size}
             onChange={(e) => update("archive_page_size", Number(e.target.value))}
+          />
+        </label>
+        <label>
+          Excerpt length (0 = manual)
+          <input
+            type="number"
+            value={settings.excerpt_length}
+            onChange={(e) => update("excerpt_length", Number(e.target.value))}
           />
         </label>
         <label className="admin-check admin-check-right">

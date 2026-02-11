@@ -185,7 +185,11 @@ func renderPostList(items []PostRecord, showTags bool) string {
 		}
 		excerpt := post.Excerpt
 		if strings.TrimSpace(excerpt) == "" {
-			excerpt = buildExcerpt(body, 160)
+			length := settings.ExcerptLength
+			if length <= 0 {
+				length = 160
+			}
+			excerpt = buildExcerpt(body, length)
 		}
 		tags := parseTags(post.Tags)
 		tagsHTML := renderPostTags(tags, showTags)

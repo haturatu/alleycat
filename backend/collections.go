@@ -224,6 +224,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_code_highlight"})
 		addFieldIfMissing(c, &core.TextField{Name: "highlight_theme"})
 		addFieldIfMissing(c, &core.NumberField{Name: "archive_page_size"})
+		addFieldIfMissing(c, &core.NumberField{Name: "excerpt_length"})
 		addFieldIfMissing(c, &core.NumberField{Name: "home_page_size"})
 		addFieldIfMissing(c, &core.BoolField{Name: "show_toc"})
 		addFieldIfMissing(c, &core.BoolField{Name: "show_archive_tags"})

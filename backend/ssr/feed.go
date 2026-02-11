@@ -108,7 +108,11 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 		}
 		excerpt := post.Excerpt
 		if strings.TrimSpace(excerpt) == "" {
-			excerpt = buildExcerpt(body, 160)
+			length := settings.ExcerptLength
+			if length <= 0 {
+				length = 160
+			}
+			excerpt = buildExcerpt(body, length)
 		}
 		date := post.PublishedAt
 		if date == "" {

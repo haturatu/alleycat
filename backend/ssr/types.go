@@ -59,6 +59,7 @@ type SettingsRecord struct {
 	EnableCodeHighlight bool   `json:"enable_code_highlight"`
 	HighlightTheme      string `json:"highlight_theme"`
 	ArchivePageSize     int    `json:"archive_page_size"`
+	ExcerptLength       int    `json:"excerpt_length"`
 	HomePageSize        int    `json:"home_page_size"`
 	ShowToc             bool   `json:"show_toc"`
 	ShowArchiveTags     bool   `json:"show_archive_tags"`

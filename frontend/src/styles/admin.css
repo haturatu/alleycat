@@ -222,6 +222,11 @@ body {
   min-width: 0;
 }
 
+.admin-form textarea:disabled {
+  background: #f0f0f0;
+  color: #777;
+}
+
 .admin-inline {
   display: flex;
   gap: 8px;
