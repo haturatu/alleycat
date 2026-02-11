@@ -35,35 +35,35 @@ export default function AdminPosts() {
     let alive = true;
     const loadPosts = async () => {
       setLoading(true);
-      const trimmed = query.trim();
-      const filter = trimmed ? buildFilter(trimmed) : undefined;
       try {
-        const res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
-          filter,
-          sort: "-published_at",
-        });
+        const trimmed = query.trim();
+        const filter = trimmed ? buildFilter(trimmed) : undefined;
+        let res: { items: PostRecord[]; totalPages: number; totalItems: number } | null = null;
+        try {
+          res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
+            filter,
+            sort: "-published_at",
+          });
+        } catch {
+          try {
+            res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
+              filter,
+              sort: "-created",
+            });
+          } catch {
+            res = null;
+          }
+        }
         if (!alive) return;
-        setPosts(res.items);
-        setTotalPages(res.totalPages);
-        setTotalItems(res.totalItems);
-        return;
-      } catch {
-        // try fallback sort
-      }
-      try {
-        const res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
-          filter,
-          sort: "-created",
-        });
-        if (!alive) return;
-        setPosts(res.items);
-        setTotalPages(res.totalPages);
-        setTotalItems(res.totalItems);
-      } catch {
-        if (!alive) return;
-        setPosts([]);
-        setTotalPages(1);
-        setTotalItems(0);
+        if (res) {
+          setPosts(res.items);
+          setTotalPages(res.totalPages);
+          setTotalItems(res.totalItems);
+        } else {
+          setPosts([]);
+          setTotalPages(1);
+          setTotalItems(0);
+        }
       } finally {
         if (alive) setLoading(false);
       }
