@@ -176,7 +176,7 @@ func renderPostTags(tags []string, show bool) string {
 	return fmt.Sprintf(`<div class="post-tags">%s</div>`, items.String())
 }
 
-func renderPostList(items []PostRecord, showTags bool) string {
+func renderPostList(items []PostRecord, showTags bool, excerptLength int) string {
 	list := strings.Builder{}
 	for _, post := range items {
 		body := post.Body
@@ -185,7 +185,7 @@ func renderPostList(items []PostRecord, showTags bool) string {
 		}
 		excerpt := post.Excerpt
 		if strings.TrimSpace(excerpt) == "" {
-			length := settings.ExcerptLength
+			length := excerptLength
 			if length <= 0 {
 				length = 160
 			}
@@ -261,7 +261,7 @@ func renderHome(settings SettingsRecord) string {
       %s
       <hr>
       <p>More posts can be found in <a href="/archive/">the archive</a>.</p>
-    </main>`, imageHTML, escapeHTML(settings.WelcomeText), renderPostList(items, settings.ShowTags)) +
+    </main>`, imageHTML, escapeHTML(settings.WelcomeText), renderPostList(items, settings.ShowTags, settings.ExcerptLength)) +
 		renderFooter(settings)
 }
 
@@ -350,7 +350,7 @@ func renderArchive(path string, settings SettingsRecord) string {
       %s
       %s
       %s
-    </main>`, escapeHTML(title), searchHTML, renderPostList(posts.Items, settings.ShowTags), pagination, tagsNav, categoriesNav) +
+    </main>`, escapeHTML(title), searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
 		renderFooter(settings)
 }
 
