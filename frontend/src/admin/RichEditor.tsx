@@ -169,6 +169,12 @@ export default function RichEditor({
         <button onClick={() => editor.chain().focus().toggleBulletList().run()} type="button">
           Bullet
         </button>
+        <button onClick={() => editor.chain().focus().toggleCode().run()} type="button">
+          Code
+        </button>
+        <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} type="button">
+          Code Block
+        </button>
       </div>
       <EditorContent editor={editor} />
     </div>

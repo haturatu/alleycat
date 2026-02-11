@@ -304,11 +304,32 @@ body {
   word-break: break-word;
 }
 
+.editor .ProseMirror code {
+  font-family: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 0.95em;
+  background: #1f1f1f;
+  color: #f7f2e9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .editor .ProseMirror pre {
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre;
+  word-break: normal;
   overflow-x: auto;
   max-width: 100%;
+  background: #141311;
+  color: #f7f2e9;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #2b2b2b;
+  line-height: 1.5;
+}
+
+.editor .ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
 
 .editor .ProseMirror img {
