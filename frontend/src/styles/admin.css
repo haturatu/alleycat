@@ -151,6 +151,15 @@ body {
   cursor: not-allowed;
 }
 
+.admin-pagination {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

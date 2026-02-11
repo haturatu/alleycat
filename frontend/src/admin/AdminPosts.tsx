@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PostRecord } from "../lib/pb";
 import { formatDate } from "../utils/text";
@@ -19,61 +19,67 @@ export default function AdminPosts() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  const load = () => {
-    const loadPosts = async () => {
-      try {
-        const items = await pb.collection("posts").getFullList<PostRecord>({ sort: "-published_at" });
-        setPosts(items);
-      } catch {
-        try {
-          const items = await pb.collection("posts").getFullList<PostRecord>({ sort: "-created" });
-          setPosts(items);
-        } catch {
-          try {
-            const res = await pb.collection("posts").getList<PostRecord>(1, 100);
-            setPosts(res.items);
-          } catch {
-            setPosts([]);
-          }
-        }
-      }
-    };
-    loadPosts();
+  const buildFilter = (value: string) => {
+    const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return `title ~ "${safe}" || slug ~ "${safe}" || tags ~ "${safe}" || category ~ "${safe}"`;
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    let alive = true;
+    const loadPosts = async () => {
+      setLoading(true);
+      const trimmed = query.trim();
+      const filter = trimmed ? buildFilter(trimmed) : undefined;
+      try {
+        const res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
+          filter,
+          sort: "-published_at",
+        });
+        if (!alive) return;
+        setPosts(res.items);
+        setTotalPages(res.totalPages);
+        setTotalItems(res.totalItems);
+        return;
+      } catch {
+        // try fallback sort
+      }
+      try {
+        const res = await pb.collection("posts").getList<PostRecord>(page, perPage, {
+          filter,
+          sort: "-created",
+        });
+        if (!alive) return;
+        setPosts(res.items);
+        setTotalPages(res.totalPages);
+        setTotalItems(res.totalItems);
+      } catch {
+        if (!alive) return;
+        setPosts([]);
+        setTotalPages(1);
+        setTotalItems(0);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+    loadPosts();
+    return () => {
+      alive = false;
+    };
+  }, [page, perPage, query, reloadToken]);
 
   useEffect(() => {
-    setSelected((prev) => {
-      if (prev.size === 0) return prev;
-      const ids = new Set(posts.map((post) => post.id));
-      const next = new Set(Array.from(prev).filter((id) => ids.has(id)));
-      return next;
-    });
-  }, [posts]);
-
-  const filteredPosts = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return posts;
-    return posts.filter((post) => {
-      const haystack = [
-        post.title,
-        post.slug,
-        post.tags,
-        post.category,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(trimmed);
-    });
-  }, [posts, query]);
+    setSelected(new Set());
+  }, [posts, page, perPage, query]);
 
   const allFilteredSelected =
-    filteredPosts.length > 0 && filteredPosts.every((post) => selected.has(post.id));
+    posts.length > 0 && posts.every((post) => selected.has(post.id));
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -91,10 +97,10 @@ export default function AdminPosts() {
     setSelected((prev) => {
       const next = new Set(prev);
       if (allFilteredSelected) {
-        filteredPosts.forEach((post) => next.delete(post.id));
+        posts.forEach((post) => next.delete(post.id));
         return next;
       }
-      filteredPosts.forEach((post) => next.add(post.id));
+      posts.forEach((post) => next.add(post.id));
       return next;
     });
   };
@@ -117,7 +123,7 @@ export default function AdminPosts() {
     );
     setSelected(new Set());
     setBulkLoading(false);
-    load();
+    setReloadToken((n) => n + 1);
   };
 
   const remove = async (id: string) => {
@@ -157,7 +163,7 @@ export default function AdminPosts() {
       }
     }
 
-    load();
+    setReloadToken((n) => n + 1);
   };
 
   return (
@@ -174,8 +180,23 @@ export default function AdminPosts() {
           type="search"
           placeholder="Search title, slug, tags..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(1);
+          }}
         />
+        <select
+          className="admin-input"
+          value={perPage}
+          onChange={(e) => {
+            setPerPage(Number(e.target.value));
+            setPage(1);
+          }}
+        >
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
         <div className="admin-toolbar-actions">
           <button
             className="admin-primary"
@@ -210,7 +231,7 @@ export default function AdminPosts() {
           </tr>
         </thead>
         <tbody>
-          {filteredPosts.map((post) => (
+          {posts.map((post) => (
             <tr key={post.id}>
               <td>
                 <input
@@ -231,6 +252,22 @@ export default function AdminPosts() {
           ))}
         </tbody>
       </table>
+      <div className="admin-pagination">
+        <span>
+          Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
+        </span>
+        <div className="admin-toolbar-actions">
+          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Prev
+          </button>
+          <button
+            disabled={loading || page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
