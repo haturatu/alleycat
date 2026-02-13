@@ -12,15 +12,23 @@ export default function AdminLayout() {
     navigate("/");
   };
 
+  const closeSidebar = () => setSidebarOpen(false);
+
   return (
     <div className="admin-shell" data-sidebar-open={sidebarOpen}>
       <aside className="admin-sidebar">
         <h2>Admin</h2>
         <nav>
-          <Link to="/posts">Posts</Link>
-          <Link to="/pages">Pages</Link>
-          <Link to="/settings">Settings</Link>
-          <button className="admin-ghost" onClick={logout}>
+          <Link to="/posts" onClick={closeSidebar}>
+            Posts
+          </Link>
+          <Link to="/pages" onClick={closeSidebar}>
+            Pages
+          </Link>
+          <Link to="/settings" onClick={closeSidebar}>
+            Settings
+          </Link>
+          <button className="admin-ghost" onClick={() => { closeSidebar(); logout(); }}>
             Logout
           </button>
         </nav>
