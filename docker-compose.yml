@@ -2,6 +2,7 @@ services:
   pocketbase:
     build:
       context: ./backend
+    restart: always
     ports:
       - "8091:8091"
     volumes:
@@ -16,6 +17,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile.ssr
+    restart: always
     ports:
       - "5173:5173"
     environment:
@@ -33,6 +35,7 @@ services:
   admin:
     build:
       context: ./frontend
+    restart: always
     ports:
       - "5175:5173"
     environment:
