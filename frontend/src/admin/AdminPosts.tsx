@@ -257,11 +257,12 @@ export default function AdminPosts() {
                   aria-label={`Select ${post.title}`}
                 />
               </td>
-              <td>{post.title}</td>
+              <td>
+                <Link to={`/posts/${post.id}`}>{post.title}</Link>
+              </td>
               <td>{formatDate(post.published_at)}</td>
               <td>{post.published ? "public" : "draft"}</td>
               <td className="admin-actions">
-                <Link to={`/posts/${post.id}`}>Edit</Link>
                 <button onClick={() => remove(post.id)}>Delete</button>
               </td>
             </tr>
