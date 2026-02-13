@@ -229,7 +229,8 @@ export default function AdminPosts() {
           </button>
         </div>
       </div>
-      <table className="admin-table">
+      <div className="admin-table-wrap">
+        <table className="admin-table">
         <thead>
           <tr>
             <th>
@@ -268,7 +269,8 @@ export default function AdminPosts() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
       <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)

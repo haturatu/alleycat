@@ -176,6 +176,11 @@ body {
   border: 1px solid #ddd;
 }
 
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .admin-table th,
 .admin-table td {
   padding: 10px;
@@ -419,8 +424,6 @@ body {
   }
 
   .admin-table {
-    display: block;
-    overflow-x: auto;
     min-width: 640px;
   }
 
