@@ -186,6 +186,7 @@ body {
 .admin-actions {
   display: flex;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .admin-actions button {
@@ -420,6 +421,7 @@ body {
   .admin-table {
     display: block;
     overflow-x: auto;
+    min-width: 640px;
   }
 
   .admin-pagination {
