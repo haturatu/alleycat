@@ -160,6 +160,15 @@ body {
   flex-wrap: wrap;
 }
 
+.admin-pagination-top {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.admin-pagination-bottom {
+  margin-top: 16px;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -410,6 +419,14 @@ body {
   .admin-table {
     display: block;
     overflow-x: auto;
+  }
+
+  .admin-pagination-bottom {
+    display: none;
+  }
+
+  .admin-pagination-top {
+    display: flex;
   }
 
   .admin-inline {

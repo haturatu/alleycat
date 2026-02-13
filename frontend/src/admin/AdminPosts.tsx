@@ -213,6 +213,22 @@ export default function AdminPosts() {
           </button>
         </div>
       </div>
+      <div className="admin-pagination admin-pagination-top">
+        <span>
+          Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
+        </span>
+        <div className="admin-toolbar-actions">
+          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Prev
+          </button>
+          <button
+            disabled={loading || page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
       <table className="admin-table">
         <thead>
           <tr>
@@ -252,7 +268,7 @@ export default function AdminPosts() {
           ))}
         </tbody>
       </table>
-      <div className="admin-pagination">
+      <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
