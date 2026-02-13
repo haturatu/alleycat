@@ -4,22 +4,53 @@ import { pb, PageRecord } from "../lib/pb";
 
 export default function AdminPages() {
   const [pages, setPages] = useState<PageRecord[]>([]);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  const load = () => {
-    pb.collection("pages")
-      .getFullList<PageRecord>({ sort: "menuOrder" })
-      .then(setPages)
-      .catch(() => setPages([]));
+  const buildFilter = (value: string) => {
+    const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return `title ~ "${safe}" || url ~ "${safe}" || slug ~ "${safe}"`;
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    let alive = true;
+    const loadPages = async () => {
+      setLoading(true);
+      const trimmed = query.trim();
+      const filter = trimmed ? buildFilter(trimmed) : undefined;
+      try {
+        const res = await pb.collection("pages").getList<PageRecord>(page, perPage, {
+          filter,
+          sort: "menuOrder",
+        });
+        if (!alive) return;
+        setPages(res.items);
+        setTotalPages(res.totalPages);
+        setTotalItems(res.totalItems);
+      } catch {
+        if (!alive) return;
+        setPages([]);
+        setTotalPages(1);
+        setTotalItems(0);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+    loadPages();
+    return () => {
+      alive = false;
+    };
+  }, [page, perPage, query, reloadToken]);
 
   const remove = async (id: string) => {
     if (!window.confirm("削除しますか？")) return;
     await pb.collection("pages").delete(id);
-    load();
+    setReloadToken((n) => n + 1);
   };
 
   return (
@@ -30,6 +61,46 @@ export default function AdminPages() {
           New
         </Link>
       </header>
+      <div className="admin-toolbar">
+        <input
+          className="admin-input"
+          type="search"
+          placeholder="Search title, url, slug..."
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(1);
+          }}
+        />
+        <select
+          className="admin-input"
+          value={perPage}
+          onChange={(e) => {
+            setPerPage(Number(e.target.value));
+            setPage(1);
+          }}
+        >
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
+      </div>
+      <div className="admin-pagination admin-pagination-top">
+        <span>
+          Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
+        </span>
+        <div className="admin-toolbar-actions">
+          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Prev
+          </button>
+          <button
+            disabled={loading || page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
       <table className="admin-table">
         <thead>
           <tr>
@@ -55,6 +126,22 @@ export default function AdminPages() {
           ))}
         </tbody>
       </table>
+      <div className="admin-pagination admin-pagination-bottom">
+        <span>
+          Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
+        </span>
+        <div className="admin-toolbar-actions">
+          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Prev
+          </button>
+          <button
+            disabled={loading || page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

@@ -404,6 +404,7 @@ body {
 @media (max-width: 600px) {
   .admin-main {
     padding: 16px;
+    padding-bottom: 96px;
   }
 
   .admin-header {
@@ -421,12 +422,8 @@ body {
     overflow-x: auto;
   }
 
-  .admin-pagination-bottom {
-    display: none;
-  }
-
-  .admin-pagination-top {
-    display: flex;
+  .admin-pagination {
+    padding-bottom: 8px;
   }
 
   .admin-inline {
