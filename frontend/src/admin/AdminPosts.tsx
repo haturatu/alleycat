@@ -244,7 +244,7 @@ export default function AdminPosts() {
             <th>Title</th>
             <th>Date</th>
             <th>Status</th>
-            <th></th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>

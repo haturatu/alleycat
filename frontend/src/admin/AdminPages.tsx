@@ -109,7 +109,7 @@ export default function AdminPages() {
             <th>URL</th>
             <th>Menu</th>
             <th>Status</th>
-            <th></th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
