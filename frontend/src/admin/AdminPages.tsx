@@ -114,12 +114,13 @@ export default function AdminPages() {
         <tbody>
           {pages.map((page) => (
             <tr key={page.id}>
-              <td>{page.title}</td>
+              <td>
+                <Link to={`/pages/${page.id}`}>{page.title}</Link>
+              </td>
               <td>{page.url}</td>
               <td>{page.menuVisible ? "visible" : "hidden"}</td>
               <td>{page.published ? "public" : "draft"}</td>
               <td className="admin-actions">
-                <Link to={`/pages/${page.id}`}>Edit</Link>
                 <button onClick={() => remove(page.id)}>Delete</button>
               </td>
             </tr>
