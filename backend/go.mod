@@ -1,4 +1,4 @@
-module lumeblog-cms-backend
+module alleycat-backend
 
 go 1.24.0
 

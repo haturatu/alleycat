@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [lumeblog-cms](#lumeblog-cms)
+- [alleycat](#alleycat)
   - [Structure](#structure)
   - [Usage](#usage)
     - [docker-compose (recommended)](#docker-compose-recommended)
@@ -16,7 +16,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# lumeblog-cms
+# alleycat
 
 This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 
@@ -26,7 +26,7 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 
 ## Usage
 ### docker-compose (recommended)
-1. `cd lumeblog-cms`
+1. `cd alleycat`
 2. `docker-compose up --build` (builds and starts services)
 3. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
 4. Complete initial setup (see "Initial Setup" below).
@@ -48,7 +48,7 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 
 ## Persistent Data
 - Docker: stored in the named volume `pb_data` mounted at `/pb/pb_data`.
-- Local (no Docker): stored in `lumeblog-cms/backend/pb_data`.
+- Local (no Docker): stored in `alleycat/backend/pb_data`.
 
 ## Initial Setup
 1. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
