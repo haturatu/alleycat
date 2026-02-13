@@ -185,9 +185,16 @@ body {
 .admin-table th,
 .admin-table td {
   padding: 10px;
-  border-bottom: 1px solid #eee;
   text-align: left;
   vertical-align: top;
+}
+
+.admin-table tbody tr {
+  border-bottom: 1px solid #eee;
+}
+
+.admin-table tbody tr:last-child {
+  border-bottom: none;
 }
 
 .admin-table th:last-child,
