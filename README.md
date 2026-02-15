@@ -93,6 +93,7 @@ The following settings are editable in the Admin UI:
 - Translation source locale
 - Translation target locales (multiple)
 - Gemini model
+- Translation requests/minute
 - Gemini API key
 - Feed items limit
 - Enable RSS/Atom feed

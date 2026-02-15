@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pocketbase/dbx"
@@ -20,6 +21,7 @@ import (
 
 const (
 	defaultTranslationModel = "gemini-1.5-flash"
+	defaultTranslationRPM   = 60
 	maxTranslateRetries     = 3
 )
 
@@ -29,6 +31,7 @@ type translationSettings struct {
 	Locales      []string
 	Model        string
 	APIKey       string
+	RequestsPM   int
 }
 
 type geminiResponse struct {
@@ -50,6 +53,13 @@ type geminiError struct {
 	Status int
 	Body   string
 }
+
+type geminiRateLimiter struct {
+	mu          sync.Mutex
+	nextAllowed time.Time
+}
+
+var sharedGeminiRateLimiter = &geminiRateLimiter{}
 
 func (e *geminiError) Error() string {
 	return fmt.Sprintf("gemini request failed: status=%d", e.Status)
@@ -131,6 +141,9 @@ func translateAllSourcePosts(app core.App) error {
 		if err := translateSourcePostForMigration(app, source, settings); err != nil {
 			failed++
 			log.Printf("translate-posts: failed source=%s slug=%s err=%v", source.Id, source.GetString("slug"), err)
+			if isGeminiRateLimitError(err) {
+				return fmt.Errorf("translate-posts stopped due to Gemini rate limit after retry exhaustion: %w", err)
+			}
 			continue
 		}
 		success++
@@ -160,6 +173,9 @@ func translateSourcePost(app core.App, source *core.Record, settings translation
 				firstErr = err
 			}
 			log.Printf("translation locale failed source=%s locale=%s err=%v", source.Id, locale, err)
+			if isGeminiRateLimitError(err) {
+				return err
+			}
 		}
 	}
 	return firstErr
@@ -182,6 +198,9 @@ func translateSourcePostForMigration(app core.App, source *core.Record, settings
 				firstErr = err
 			}
 			log.Printf("translation locale failed source=%s locale=%s err=%v", source.Id, locale, err)
+			if isGeminiRateLimitError(err) {
+				return err
+			}
 		}
 	}
 	return firstErr
@@ -220,6 +239,7 @@ func upsertTranslatedPost(
 		targetLocale,
 		settings.Model,
 		settings.APIKey,
+		settings.RequestsPM,
 	)
 	if err != nil {
 		return err
@@ -261,6 +281,7 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 			Locales:      []string{"en"},
 			Model:        defaultTranslationModel,
 			APIKey:       apiKey,
+			RequestsPM:   defaultTranslationRPM,
 		}, nil
 	}
 
@@ -288,6 +309,10 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 	if model == "" {
 		model = defaultTranslationModel
 	}
+	requestsPM := int(record.GetFloat("translation_requests_per_minute"))
+	if requestsPM <= 0 {
+		requestsPM = defaultTranslationRPM
+	}
 	apiKey, keyErr := loadGeminiAPIKey(app, record)
 	if keyErr != nil {
 		return translationSettings{}, keyErr
@@ -298,6 +323,7 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 		Locales:      filtered,
 		Model:        model,
 		APIKey:       apiKey,
+		RequestsPM:   requestsPM,
 	}, nil
 }
 
@@ -381,6 +407,7 @@ func translateWithGemini(
 	targetLocale string,
 	model string,
 	apiKey string,
+	requestsPerMinute int,
 ) (string, string, error) {
 	input := map[string]string{
 		"source_locale": sourceLocale,
@@ -420,6 +447,8 @@ func translateWithGemini(
 
 	var lastErr error
 	for attempt := 1; attempt <= maxTranslateRetries; attempt++ {
+		sharedGeminiRateLimiter.Wait(requestsPerMinute)
+
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
 		if err != nil {
 			return "", "", err
@@ -455,6 +484,26 @@ func translateWithGemini(
 	return "", "", lastErr
 }
 
+func (l *geminiRateLimiter) Wait(requestsPerMinute int) {
+	if requestsPerMinute <= 0 {
+		return
+	}
+
+	interval := time.Minute / time.Duration(requestsPerMinute)
+	if interval < time.Millisecond {
+		interval = time.Millisecond
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := time.Now()
+	if now.Before(l.nextAllowed) {
+		time.Sleep(l.nextAllowed.Sub(now))
+	}
+	l.nextAllowed = time.Now().Add(interval)
+}
+
 func parseGeminiTranslation(responseBody []byte) (translatedPayload, error) {
 	var res geminiResponse
 	if err := json.Unmarshal(responseBody, &res); err != nil {
@@ -479,4 +528,12 @@ func parseGeminiTranslation(responseBody []byte) (translatedPayload, error) {
 		return translatedPayload{}, errors.New("gemini translation returned empty title/body")
 	}
 	return payload, nil
+}
+
+func isGeminiRateLimitError(err error) bool {
+	var ge *geminiError
+	if errors.As(err, &ge) {
+		return ge.Status == http.StatusTooManyRequests
+	}
+	return false
 }

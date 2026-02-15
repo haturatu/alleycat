@@ -309,6 +309,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.TextField{Name: "translation_source_locale"})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_locales"})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_model"})
+		addFieldIfMissing(c, &core.NumberField{Name: "translation_requests_per_minute"})
 		existingGeminiKey := c.Fields.GetByName("gemini_api_key")
 		if existingGeminiKey == nil {
 			c.Fields.Add(&core.TextField{Name: "gemini_api_key", Hidden: true})

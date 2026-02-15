@@ -363,6 +363,26 @@ func renderPost(path string, settings SettingsRecord) string {
 	if post == nil {
 		return renderNotFound(settings)
 	}
+	sourceLocale := normalizeLocale(settings.TranslationSourceLocale)
+	if sourceLocale == "" {
+		sourceLocale = normalizeLocale(settings.SiteLanguage)
+	}
+	if sourceLocale == "" {
+		sourceLocale = "ja"
+	}
+	currentLocale := sourceLocale
+	sourcePost := post
+	translations := []PostTranslationRecord{}
+	if locale != "" {
+		currentLocale = normalizeLocale(locale)
+		translation := getPostTranslationBySlugLocale(slug, locale)
+		if translation != nil {
+			sourcePost = getPostByID(translation.SourcePost)
+			translations = getPostTranslationsBySource(translation.SourcePost)
+		}
+	} else {
+		translations = getPostTranslationsBySource(post.ID)
+	}
 	menu := getPagesMenu()
 	body := post.Body
 	if body == "" {
@@ -378,6 +398,7 @@ func renderPost(path string, settings SettingsRecord) string {
 		categoryHTML = fmt.Sprintf(`<p>%s</p>`, escapeHTML(post.Category))
 	}
 	postTags := renderPostTags(parseTags(post.Tags), settings.ShowTags)
+	languageHTML := renderLanguageLinks(sourceLocale, currentLocale, sourcePost, translations)
 	newer, older := getAdjacentPostsInLocale(post, locale)
 	postPathPrefix := "/posts/"
 	if locale != "" {
@@ -412,6 +433,7 @@ func renderPost(path string, settings SettingsRecord) string {
             <p>%d min</p>
             %s
             %s
+            %s
           </div>
         </header>
         <div class="post-body body">%s</div>
@@ -422,8 +444,60 @@ func renderPost(path string, settings SettingsRecord) string {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, body, navHTML) +
+		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, navHTML) +
 		renderFooter(settings)
+}
+
+func renderLanguageLinks(sourceLocale, currentLocale string, sourcePost *PostRecord, translations []PostTranslationRecord) string {
+	type linkItem struct {
+		locale string
+		href   string
+	}
+
+	items := make([]linkItem, 0, len(translations)+1)
+	seen := map[string]struct{}{}
+
+	if sourcePost != nil && strings.TrimSpace(sourcePost.Slug) != "" && sourceLocale != "" {
+		items = append(items, linkItem{
+			locale: sourceLocale,
+			href:   "/posts/" + url.PathEscape(sourcePost.Slug) + "/",
+		})
+		seen[sourceLocale] = struct{}{}
+	}
+
+	for _, t := range translations {
+		locale := normalizeLocale(t.Locale)
+		if locale == "" {
+			continue
+		}
+		if _, ok := seen[locale]; ok {
+			continue
+		}
+		slug := strings.TrimSpace(t.Slug)
+		if slug == "" {
+			continue
+		}
+		items = append(items, linkItem{
+			locale: locale,
+			href:   "/" + url.PathEscape(locale) + "/posts/" + url.PathEscape(slug) + "/",
+		})
+		seen[locale] = struct{}{}
+	}
+
+	if len(items) <= 1 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.locale == currentLocale {
+			parts = append(parts, fmt.Sprintf(`<strong>%s</strong>`, escapeHTML(item.locale)))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf(`<a class="badge" href="%s">%s</a>`, escapeHTML(item.href), escapeHTML(item.locale)))
+	}
+
+	return fmt.Sprintf(`<div class="post-languages">language: %s</div>`, strings.Join(parts, " "))
 }
 
 func renderPage(path string, settings SettingsRecord) string {

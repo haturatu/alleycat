@@ -36,6 +36,7 @@ const defaults = {
   translation_source_locale: "ja",
   translation_locales: "en",
   translation_model: "gemini-1.5-flash",
+  translation_requests_per_minute: 60,
 };
 
 type SettingsRecord = typeof defaults & { id?: string };
@@ -135,6 +136,7 @@ export default function AdminSettings() {
         translation_source_locale: settings.translation_source_locale.trim().toLowerCase(),
         translation_locales: settings.translation_locales.trim().toLowerCase(),
         translation_model: settings.translation_model.trim(),
+        translation_requests_per_minute: Number(settings.translation_requests_per_minute) || 60,
       };
       delete payload.id;
       const updated = await pb.collection("settings").update(settingsId, payload);
@@ -284,6 +286,16 @@ export default function AdminSettings() {
             value={settings.translation_model}
             onChange={(e) => update("translation_model", e.target.value)}
             placeholder="gemini-1.5-flash"
+          />
+        </label>
+        <label>
+          Translation requests/minute
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            value={settings.translation_requests_per_minute}
+            onChange={(e) => update("translation_requests_per_minute", Number(e.target.value))}
           />
         </label>
         {canManageSecrets && (

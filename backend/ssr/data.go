@@ -66,6 +66,47 @@ func getPostBySlugInLocale(slug string, locale string) *PostRecord {
 	return &post
 }
 
+func getPostByID(id string) *PostRecord {
+	if strings.TrimSpace(id) == "" {
+		return nil
+	}
+	post, err := fetchRecord[PostRecord](fmt.Sprintf("%s/api/collections/posts/records/%s", pbURL, url.PathEscape(id)))
+	if err != nil {
+		return nil
+	}
+	return &post
+}
+
+func getPostTranslationBySlugLocale(slug string, locale string) *PostTranslationRecord {
+	if strings.TrimSpace(slug) == "" || strings.TrimSpace(locale) == "" {
+		return nil
+	}
+	data, err := getPostTranslations(map[string]string{
+		"perPage": "1",
+		"filter":  fmt.Sprintf("slug = \"%s\" && locale = \"%s\" && published = true", escapeFilter(slug), escapeFilter(locale)),
+	})
+	if err != nil || len(data.Items) == 0 {
+		return nil
+	}
+	return &data.Items[0]
+}
+
+func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
+	if strings.TrimSpace(sourcePostID) == "" {
+		return nil
+	}
+	data, err := getPostTranslations(map[string]string{
+		"page":    "1",
+		"perPage": "200",
+		"filter":  fmt.Sprintf("source_post = \"%s\" && published = true", escapeFilter(sourcePostID)),
+		"sort":    "locale",
+	})
+	if err != nil {
+		return nil
+	}
+	return data.Items
+}
+
 func getAdjacentPosts(post *PostRecord) (newer *PostRecord, older *PostRecord) {
 	return getAdjacentPostsInLocale(post, "")
 }

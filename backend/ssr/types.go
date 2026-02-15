@@ -85,6 +85,7 @@ type SettingsRecord struct {
 	TranslationSourceLocale string `json:"translation_source_locale"`
 	TranslationLocales      string `json:"translation_locales"`
 	TranslationModel        string `json:"translation_model"`
+	TranslationRequestsPM   int    `json:"translation_requests_per_minute"`
 	GeminiAPIKey            string `json:"gemini_api_key"`
 }
 
