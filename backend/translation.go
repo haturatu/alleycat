@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,14 @@ type translatedPayload struct {
 type geminiError struct {
 	Status int
 	Body   string
+}
+
+type translationJob struct {
+	source *core.Record
+	locale string
+	title  string
+	body   string
+	force  bool
 }
 
 type geminiRateLimiter struct {
@@ -135,23 +144,19 @@ func translateAllSourcePosts(app core.App) error {
 		return err
 	}
 
-	success := 0
-	failed := 0
-	for _, source := range records {
-		if err := translateSourcePostForMigration(app, source, settings); err != nil {
-			failed++
-			log.Printf("translate-posts: failed source=%s slug=%s err=%v", source.Id, source.GetString("slug"), err)
-			if isGeminiRateLimitError(err) {
-				return fmt.Errorf("translate-posts stopped due to Gemini rate limit after retry exhaustion: %w", err)
-			}
-			continue
-		}
-		success++
+	jobs := buildTranslationJobs(records, settings, false)
+	if len(jobs) == 0 {
+		log.Printf("translate-posts finished: success=0 failed=0 total=0")
+		return nil
 	}
 
-	log.Printf("translate-posts finished: success=%d failed=%d total=%d", success, failed, len(records))
+	success, failed, fatalErr := runTranslationJobs(app, settings, jobs, true)
+	log.Printf("translate-posts finished: success=%d failed=%d total=%d", success, failed, len(jobs))
+	if fatalErr != nil {
+		return fatalErr
+	}
 	if failed > 0 {
-		return fmt.Errorf("translation failed for %d posts", failed)
+		return fmt.Errorf("translation failed for %d jobs", failed)
 	}
 	return nil
 }
@@ -536,4 +541,122 @@ func isGeminiRateLimitError(err error) bool {
 		return ge.Status == http.StatusTooManyRequests
 	}
 	return false
+}
+
+func buildTranslationJobs(records []*core.Record, settings translationSettings, force bool) []translationJob {
+	jobs := make([]translationJob, 0, len(records)*maxInt(1, len(settings.Locales)))
+	for _, source := range records {
+		title := strings.TrimSpace(source.GetString("title"))
+		body := strings.TrimSpace(source.GetString("body"))
+		if body == "" {
+			body = strings.TrimSpace(source.GetString("content"))
+		}
+		if title == "" || body == "" {
+			continue
+		}
+		for _, locale := range settings.Locales {
+			jobs = append(jobs, translationJob{
+				source: source,
+				locale: locale,
+				title:  title,
+				body:   body,
+				force:  force,
+			})
+		}
+	}
+	return jobs
+}
+
+func runTranslationJobs(
+	app core.App,
+	settings translationSettings,
+	jobs []translationJob,
+	stopOnRateLimit bool,
+) (int, int, error) {
+	if len(jobs) == 0 {
+		return 0, 0, nil
+	}
+
+	workerCount := settings.RequestsPM
+	if workerCount < 2 {
+		workerCount = 2
+	}
+	if workerCount > 32 {
+		workerCount = 32
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var mu sync.Mutex
+	successCount := 0
+	failedCount := 0
+	var fatalErr error
+	jobCh := make(chan translationJob)
+
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			defer workers.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case job, ok := <-jobCh:
+					if !ok {
+						return
+					}
+					err := upsertTranslatedPost(
+						app,
+						job.source,
+						job.locale,
+						settings,
+						job.title,
+						job.body,
+						job.force,
+					)
+
+					mu.Lock()
+					if err != nil {
+						failedCount++
+						log.Printf("translation locale failed source=%s locale=%s err=%v", job.source.Id, job.locale, err)
+						if stopOnRateLimit && fatalErr == nil && isGeminiRateLimitError(err) {
+							fatalErr = fmt.Errorf("translate-posts stopped due to Gemini rate limit after retry exhaustion: %w", err)
+							cancel()
+						}
+					} else {
+						successCount++
+					}
+					mu.Unlock()
+				}
+			}
+		}()
+	}
+
+dispatchLoop:
+	for _, job := range jobs {
+		if ctx.Err() != nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			break dispatchLoop
+		case jobCh <- job:
+		}
+	}
+
+	close(jobCh)
+	workers.Wait()
+
+	mu.Lock()
+	defer mu.Unlock()
+	return successCount, failedCount, fatalErr
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
