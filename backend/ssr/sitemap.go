@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 var localizedSitemapPattern = regexp.MustCompile(`^/sitemap-([a-z]{2,3}(?:-[a-z0-9]{2,8})*)\.xml$`)
@@ -254,7 +255,40 @@ func sitemapBaseURL(r *http.Request, settings SettingsRecord) string {
 }
 
 func sitemapDate(value string) string {
-	return strings.TrimSpace(value)
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+
+	layoutsWithTZ := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.000Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05.000Z",
+		"2006-01-02 15:04:05Z",
+	}
+	for _, layout := range layoutsWithTZ {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.UTC().Format(time.RFC3339)
+		}
+	}
+
+	layoutsNoTZ := []string{
+		"2006-01-02 15:04:05.000",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layoutsNoTZ {
+		if parsed, err := time.ParseInLocation(layout, trimmed, time.UTC); err == nil {
+			return parsed.UTC().Format(time.RFC3339)
+		}
+	}
+
+	if parsed, err := time.Parse("2006-01-02", trimmed); err == nil {
+		return parsed.Format("2006-01-02")
+	}
+
+	return ""
 }
 
 func writeSitemapXML(w http.ResponseWriter, urls []sitemapURL) {
