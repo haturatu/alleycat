@@ -120,6 +120,15 @@ The following settings are editable in the Admin UI:
 - This command reads translation options from `settings` and the Gemini API key from `app_secrets`.
 - Gemini retry behavior is capped at 3 attempts per translation request.
 
+### Sitemaps
+- Default sitemap:
+  - `/sitemap.xml`
+  - Includes home, archive, feeds, published pages, and published source posts.
+- Localized sitemaps:
+  - `/sitemap-<locale>.xml` (example: `/sitemap-en.xml`, `/sitemap-zh-cn.xml`)
+  - Generated for locales listed in `Translation locales`.
+  - Includes published translated posts for that locale.
+
 ### Backup Zip Import (CLI)
 - You can import a PocketBase backup zip directly via command line:
   - `cd backend`

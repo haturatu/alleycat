@@ -82,6 +82,14 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		writeRSSFeed(w, r, settings)
 		return
 	}
+	if path == "/sitemap.xml" {
+		writeSitemap(w, r, settings)
+		return
+	}
+	if locale, ok := extractSitemapLocale(path); ok {
+		writeLocalizedSitemap(w, r, settings, locale)
+		return
+	}
 
 	if strings.HasPrefix(path, "/archive/") {
 		html := renderArchive(path, settings)
