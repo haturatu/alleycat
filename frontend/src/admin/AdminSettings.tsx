@@ -2,7 +2,21 @@ import { useEffect, useState } from "react";
 import { ClientResponseError } from "pocketbase";
 import { hasRole, pb } from "../lib/pb";
 
-const translationLanguageOptions = ["en", "ja", "zh-cn", "zh-tw", "ko", "fr", "de", "es"];
+const translationLanguageOptions = [
+  "en",
+  "ja",
+  "zh-cn",
+  "zh-tw",
+  "ko",
+  "fr",
+  "de",
+  "es",
+  "hi",
+  "ar",
+  "bn",
+  "pt",
+  "ru",
+];
 
 const defaults = {
   site_name: "Example Blog",
