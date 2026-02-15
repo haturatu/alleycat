@@ -89,6 +89,11 @@ The following settings are editable in the Admin UI:
 - Theme (Ember, Terminal, Wiki, Docs, Minimal). Disabled when `frontend/public` has assets.
 - Site URL (feeds)
 - Site language
+- Enable post translation
+- Translation source locale
+- Translation target locales (multiple)
+- Gemini model
+- Gemini API key
 - Feed items limit
 - Enable RSS/Atom feed
 - Enable JSON feed
@@ -106,6 +111,33 @@ The following settings are editable in the Admin UI:
 - Analytics site id
 - Enable ads
 - Ads client
+
+### Post Translation Migration
+- Existing posts can be translated with:
+  - `cd backend`
+  - `go run . translate-posts`
+- This command reads translation options from `settings` and the Gemini API key from `app_secrets`.
+- Gemini retry behavior is capped at 3 attempts per translation request.
+
+### Backup Zip Import (CLI)
+- You can import a PocketBase backup zip directly via command line:
+  - `cd backend`
+  - `go run . import-backup /path/to/pb_backup_xxx.zip`
+- In Docker container:
+  - `docker exec -it alleycat-pocketbase-1 /pb/pocketbase import-backup /pb/pb_data/backups/pb_backup_xxx.zip`
+- The command replaces `pb_data` content from the specified zip (excluding `backups`, temp/cache internal dirs).
+- Run this while the main PocketBase server process is stopped.
+
+#### Docker Compose Import Steps
+From the repository root (`alleycat`):
+1. `docker compose stop pocketbase`
+2. `docker compose run --rm -v "$PWD:/work" pocketbase /pb/pocketbase import-backup /work/pb_backup_xxx.zip`
+3. `docker compose up -d pocketbase`
+
+#### Important Backup Note
+- PocketBase backup zip covers `pb_data` only.
+- Custom frontend assets such as `frontend/public` CSS, images, and other static files are **not included** in the DB backup zip.
+- Back up `frontend/public` separately (e.g. Git, tar/zip, or storage snapshot).
 
 ## Notes
 - Public API exposure is controlled by PocketBase rules.

@@ -1,6 +1,12 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -148,7 +154,7 @@ func ensureCollections(app core.App) error {
 		return err
 	}
 
-	_, err = ensureCollection(app, core.CollectionTypeBase, "posts", func(c *core.Collection) error {
+	postsCollection, err := ensureCollection(app, core.CollectionTypeBase, "posts", func(c *core.Collection) error {
 		setRuleIfNil(&c.ListRule, `@request.auth.id != "" || (published = true && published_at <= @now)`)
 		setRuleIfNil(&c.ViewRule, `@request.auth.id != "" || (published = true && published_at <= @now)`)
 		setRuleIfNil(&c.CreateRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
@@ -198,11 +204,70 @@ func ensureCollections(app core.App) error {
 			MaxSelect: 10,
 		})
 
+		removeIndexesByName(c, "idx_posts_slug_locale")
 		addIndexIfMissing(c, "CREATE UNIQUE INDEX `idx_posts_slug` ON `posts` (slug)")
 
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+
+	_, err = ensureCollection(app, core.CollectionTypeBase, "post_translations", func(c *core.Collection) error {
+		setRuleIfNil(&c.ListRule, `@request.auth.id != "" || (published = true && published_at <= @now)`)
+		setRuleIfNil(&c.ViewRule, `@request.auth.id != "" || (published = true && published_at <= @now)`)
+		setRuleIfNil(&c.CreateRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
+		setRuleIfNil(&c.UpdateRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
+		setRuleIfNil(&c.DeleteRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
+
+		addFieldIfMissing(c, &core.RelationField{
+			Name:         "source_post",
+			CollectionId: postsCollection.Id,
+			MaxSelect:    1,
+			MinSelect:    1,
+		})
+		addFieldIfMissing(c, &core.TextField{
+			Name:     "locale",
+			Required: true,
+			Max:      20,
+		})
+		addFieldIfMissing(c, &core.TextField{
+			Name:     "title",
+			Required: true,
+		})
+		addFieldIfMissing(c, &core.TextField{
+			Name:     "slug",
+			Required: true,
+		})
+		addFieldIfMissing(c, &core.EditorField{
+			Name:        "body",
+			Required:    true,
+			ConvertURLs: false,
+		})
+		addFieldIfMissing(c, &core.TextField{Name: "excerpt"})
+		addFieldIfMissing(c, &core.TextField{Name: "tags"})
+		addFieldIfMissing(c, &core.TextField{Name: "category"})
+		addFieldIfMissing(c, &core.RelationField{
+			Name:         "author",
+			CollectionId: cmsUsers.Id,
+			MaxSelect:    1,
+			MinSelect:    0,
+		})
+		addFieldIfMissing(c, &core.DateField{Name: "published_at"})
+		addFieldIfMissing(c, &core.BoolField{Name: "published"})
+		addFieldIfMissing(c, &core.BoolField{Name: "translation_done"})
+		addFieldIfMissing(c, &core.FileField{Name: "featured_image", MaxSelect: 1})
+		addFieldIfMissing(c, &core.FileField{Name: "attachments", MaxSelect: 10})
+
+		addIndexIfMissing(c, "CREATE UNIQUE INDEX `idx_post_translations_source_locale` ON `post_translations` (source_post, locale)")
+		addIndexIfMissing(c, "CREATE INDEX `idx_post_translations_slug_locale` ON `post_translations` (slug, locale)")
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := migrateLegacyPostTranslations(app, postsCollection); err != nil {
 		return err
 	}
 
@@ -240,6 +305,20 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_feed_xml"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_feed_json"})
 		addFieldIfMissing(c, &core.NumberField{Name: "feed_items_limit"})
+		addFieldIfMissing(c, &core.BoolField{Name: "enable_post_translation"})
+		addFieldIfMissing(c, &core.TextField{Name: "translation_source_locale"})
+		addFieldIfMissing(c, &core.TextField{Name: "translation_locales"})
+		addFieldIfMissing(c, &core.TextField{Name: "translation_model"})
+		existingGeminiKey := c.Fields.GetByName("gemini_api_key")
+		if existingGeminiKey == nil {
+			c.Fields.Add(&core.TextField{Name: "gemini_api_key", Hidden: true})
+		} else {
+			textField, ok := existingGeminiKey.(*core.TextField)
+			if !ok {
+				return fmt.Errorf("settings.gemini_api_key field must be a text field")
+			}
+			textField.Hidden = true
+		}
 
 		return nil
 	})
@@ -247,5 +326,157 @@ func ensureCollections(app core.App) error {
 		return err
 	}
 
+	_, err = ensureCollection(app, core.CollectionTypeBase, "app_secrets", func(c *core.Collection) error {
+		setRuleIfNil(&c.ListRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
+		setRuleIfNil(&c.ViewRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
+		setRuleIfNil(&c.CreateRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
+		setRuleIfNil(&c.UpdateRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
+		setRuleIfNil(&c.DeleteRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
+
+		addFieldIfMissing(c, &core.TextField{Name: "gemini_api_key"})
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := migrateGeminiAPIKeyToSecrets(app); err != nil {
+		return err
+	}
+	if err := ensureSettingsRecord(app); err != nil {
+		return err
+	}
+
 	return app.ReloadCachedCollections()
+}
+
+func migrateLegacyPostTranslations(app core.App, postsCollection *core.Collection) error {
+	sourceField := postsCollection.Fields.GetByName("source_post")
+	localeField := postsCollection.Fields.GetByName("locale")
+	if sourceField == nil || localeField == nil {
+		return nil
+	}
+
+	legacyRecords, err := app.FindRecordsByFilter(
+		postsCollection,
+		"source_post != ''",
+		"",
+		0,
+		0,
+	)
+	if err != nil {
+		return err
+	}
+	if len(legacyRecords) == 0 {
+		return nil
+	}
+
+	translationsCollection, err := app.FindCollectionByNameOrId("post_translations")
+	if err != nil {
+		return err
+	}
+
+	for _, legacy := range legacyRecords {
+		sourcePostID := strings.TrimSpace(legacy.GetString("source_post"))
+		locale := normalizeLocale(legacy.GetString("locale"))
+		if sourcePostID == "" || locale == "" {
+			continue
+		}
+
+		translated, findErr := app.FindFirstRecordByFilter(
+			translationsCollection,
+			"source_post = {:source} && locale = {:locale}",
+			dbx.Params{"source": sourcePostID, "locale": locale},
+		)
+		if findErr != nil && !errors.Is(findErr, sql.ErrNoRows) {
+			return findErr
+		}
+		if translated == nil {
+			translated = core.NewRecord(translationsCollection)
+		}
+
+		translated.Set("source_post", sourcePostID)
+		translated.Set("locale", locale)
+		translated.Set("title", legacy.GetString("title"))
+		translated.Set("slug", legacy.GetString("slug"))
+		translated.Set("body", legacy.GetString("body"))
+		translated.Set("excerpt", legacy.GetString("excerpt"))
+		translated.Set("tags", legacy.GetString("tags"))
+		translated.Set("category", legacy.GetString("category"))
+		translated.Set("author", legacy.GetString("author"))
+		translated.Set("published", legacy.GetBool("published"))
+		translated.Set("published_at", legacy.GetString("published_at"))
+		translated.Set("translation_done", legacy.GetBool("translation_done"))
+		translated.Set("featured_image", legacy.GetStringSlice("featured_image"))
+		translated.Set("attachments", legacy.GetStringSlice("attachments"))
+
+		if saveErr := app.Save(translated); saveErr != nil {
+			return saveErr
+		}
+		if deleteErr := app.Delete(legacy); deleteErr != nil {
+			return deleteErr
+		}
+	}
+
+	return nil
+}
+
+func migrateGeminiAPIKeyToSecrets(app core.App) error {
+	settings, err := app.FindFirstRecordByFilter("settings", "id != ''")
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) || settings == nil {
+		return nil
+	}
+
+	legacyKey := strings.TrimSpace(settings.GetString("gemini_api_key"))
+	secret, secretErr := app.FindFirstRecordByFilter("app_secrets", "id != ''")
+	if secretErr != nil && !errors.Is(secretErr, sql.ErrNoRows) {
+		return secretErr
+	}
+
+	if errors.Is(secretErr, sql.ErrNoRows) || secret == nil {
+		if legacyKey == "" {
+			return nil
+		}
+		collection, findErr := app.FindCollectionByNameOrId("app_secrets")
+		if findErr != nil {
+			return findErr
+		}
+		secret = core.NewRecord(collection)
+	}
+
+	currentSecret := strings.TrimSpace(secret.GetString("gemini_api_key"))
+	if currentSecret == "" && legacyKey != "" {
+		secret.Set("gemini_api_key", legacyKey)
+		if saveErr := app.Save(secret); saveErr != nil {
+			return saveErr
+		}
+	}
+
+	if legacyKey != "" {
+		settings.Set("gemini_api_key", "")
+		if saveErr := app.Save(settings); saveErr != nil {
+			return saveErr
+		}
+	}
+
+	return nil
+}
+
+func ensureSettingsRecord(app core.App) error {
+	record, err := app.FindFirstRecordByFilter("settings", "id != ''")
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if record != nil {
+		return nil
+	}
+	collection, err := app.FindCollectionByNameOrId("settings")
+	if err != nil {
+		return err
+	}
+	record = core.NewRecord(collection)
+	return app.Save(record)
 }

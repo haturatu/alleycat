@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { pb } from "../lib/pb";
+import { ClientResponseError } from "pocketbase";
+import { hasRole, pb } from "../lib/pb";
+
+const translationLanguageOptions = ["en", "ja", "zh-cn", "zh-tw", "ko", "fr", "de", "es"];
 
 const defaults = {
   site_name: "Example Blog",
@@ -29,6 +32,10 @@ const defaults = {
   show_tags: true,
   show_categories: true,
   show_archive_search: true,
+  enable_post_translation: false,
+  translation_source_locale: "ja",
+  translation_locales: "en",
+  translation_model: "gemini-1.5-flash",
 };
 
 type SettingsRecord = typeof defaults & { id?: string };
@@ -39,6 +46,10 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
   const [themeLocked, setThemeLocked] = useState(false);
   const [themeCheckDone, setThemeCheckDone] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
+  const [error, setError] = useState("");
+  const canManageSecrets = hasRole(["admin"]);
 
   useEffect(() => {
     const load = async () => {
@@ -48,17 +59,26 @@ export default function AdminSettings() {
           const merged = { ...defaults, ...res.items[0] };
           setSettings(merged);
         } else {
-          const created = await pb.collection("settings").create(defaults);
-          setSettings({ ...defaults, ...created });
+          setSettings(defaults);
         }
-      } catch {
+      } catch (err) {
+        console.error("settings load failed", err);
         setSettings(defaults);
       } finally {
+        if (canManageSecrets) {
+          try {
+            const secretRes = await pb.collection("app_secrets").getList(1, 1, { fields: "id,gemini_api_key" });
+            const storedKey = String(secretRes.items[0]?.gemini_api_key || "").trim();
+            setHasGeminiApiKey(storedKey !== "");
+          } catch {
+            setHasGeminiApiKey(false);
+          }
+        }
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [canManageSecrets]);
 
   useEffect(() => {
     const check = async () => {
@@ -81,16 +101,73 @@ export default function AdminSettings() {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const parseLocales = (value: string) =>
+    value
+      .split(/[,\s;]+/)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+
+  const toggleLocale = (locale: string) => {
+    const current = new Set(parseLocales(settings.translation_locales));
+    if (current.has(locale)) {
+      current.delete(locale);
+    } else {
+      current.add(locale);
+    }
+    update("translation_locales", Array.from(current).join(", "));
+  };
+
   const save = async () => {
-    if (!settings.id) return;
+    setError("");
     setSaving(true);
     try {
+      let settingsId = settings.id;
+      if (!settingsId) {
+        const res = await pb.collection("settings").getList(1, 1, { fields: "id" });
+        settingsId = res.items[0]?.id;
+      }
+      if (!settingsId) {
+        setError("Settings record is not initialized yet. Please restart PocketBase.");
+        return;
+      }
       const payload = {
         ...settings,
+        translation_source_locale: settings.translation_source_locale.trim().toLowerCase(),
+        translation_locales: settings.translation_locales.trim().toLowerCase(),
+        translation_model: settings.translation_model.trim(),
       };
       delete payload.id;
-      const updated = await pb.collection("settings").update(settings.id, payload);
+      const updated = await pb.collection("settings").update(settingsId, payload);
       setSettings({ ...defaults, ...updated });
+
+      const trimmedGeminiKey = geminiApiKey.trim();
+      if (canManageSecrets && trimmedGeminiKey !== "") {
+        const secretRes = await pb.collection("app_secrets").getList(1, 1, { fields: "id" });
+        if (secretRes.items.length > 0) {
+          await pb.collection("app_secrets").update(secretRes.items[0].id, {
+            gemini_api_key: trimmedGeminiKey,
+          });
+        } else {
+          await pb.collection("app_secrets").create({
+            gemini_api_key: trimmedGeminiKey,
+          });
+        }
+        setGeminiApiKey("");
+        setHasGeminiApiKey(true);
+      }
+    } catch (err) {
+      if (err instanceof ClientResponseError) {
+        const details = err.response?.data as Record<string, { message?: string }> | undefined;
+        const detailText = details
+          ? Object.entries(details)
+              .map(([field, value]) => `${field}: ${value?.message || "invalid"}`)
+              .join(", ")
+          : "";
+        setError(detailText ? `Save failed: ${detailText}` : "Save failed.");
+      } else {
+        setError("Save failed.");
+      }
+      console.error("settings save failed", err);
     } finally {
       setSaving(false);
     }
@@ -108,6 +185,7 @@ export default function AdminSettings() {
           {saving ? "Saving..." : "Save"}
         </button>
       </header>
+      {error && <p className="admin-error">{error}</p>}
       <div className="admin-form">
         <label>
           Site name
@@ -158,6 +236,67 @@ export default function AdminSettings() {
           Site language
           <input value={settings.site_language} onChange={(e) => update("site_language", e.target.value)} placeholder="ja" />
         </label>
+        <label className="admin-check admin-check-right">
+          <span>Enable post translation</span>
+          <input
+            type="checkbox"
+            checked={settings.enable_post_translation}
+            onChange={(e) => update("enable_post_translation", e.target.checked)}
+          />
+        </label>
+        <label>
+          Translation source locale
+          <input
+            value={settings.translation_source_locale}
+            onChange={(e) => update("translation_source_locale", e.target.value)}
+            placeholder="ja"
+          />
+        </label>
+        <div className="admin-field">
+          <span>Translation target locales</span>
+          <div className="admin-tag-suggestions">
+            {translationLanguageOptions.map((locale) => {
+              const selected = parseLocales(settings.translation_locales).includes(locale);
+              return (
+                <button
+                  type="button"
+                  key={locale}
+                  onClick={() => toggleLocale(locale)}
+                  style={{ opacity: selected ? 1 : 0.6 }}
+                >
+                  {locale}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <label>
+          Translation locales (comma separated)
+          <input
+            value={settings.translation_locales}
+            onChange={(e) => update("translation_locales", e.target.value)}
+            placeholder="en, zh-cn"
+          />
+        </label>
+        <label>
+          Gemini model
+          <input
+            value={settings.translation_model}
+            onChange={(e) => update("translation_model", e.target.value)}
+            placeholder="gemini-1.5-flash"
+          />
+        </label>
+        {canManageSecrets && (
+          <label>
+            Gemini API Key {hasGeminiApiKey ? "(saved)" : "(not set)"}
+            <input
+              type="password"
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+              placeholder="Leave blank to keep current key"
+            />
+          </label>
+        )}
         <label>
           Feed items limit
           <input

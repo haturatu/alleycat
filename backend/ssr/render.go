@@ -355,12 +355,11 @@ func renderArchive(path string, settings SettingsRecord) string {
 }
 
 func renderPost(path string, settings SettingsRecord) string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) < 2 {
+	locale, slug, ok := resolvePostPath(path)
+	if !ok {
 		return renderNotFound(settings)
 	}
-	slug := parts[1]
-	post := getPostBySlug(slug)
+	post := getPostBySlugInLocale(slug, locale)
 	if post == nil {
 		return renderNotFound(settings)
 	}
@@ -379,16 +378,20 @@ func renderPost(path string, settings SettingsRecord) string {
 		categoryHTML = fmt.Sprintf(`<p>%s</p>`, escapeHTML(post.Category))
 	}
 	postTags := renderPostTags(parseTags(post.Tags), settings.ShowTags)
-	newer, older := getAdjacentPosts(post)
+	newer, older := getAdjacentPostsInLocale(post, locale)
+	postPathPrefix := "/posts/"
+	if locale != "" {
+		postPathPrefix = "/" + locale + "/posts/"
+	}
 	navHTML := ""
 	if newer != nil || older != nil {
 		olderHTML := ""
 		newerHTML := ""
 		if older != nil {
-			olderHTML = fmt.Sprintf(`<li class="pagination-prev"><a href="/posts/%s/" rel="prev"><span>← Older post</span><strong>%s</strong></a></li>`, url.PathEscape(older.Slug), escapeHTML(defaultString(older.Title, "Post")))
+			olderHTML = fmt.Sprintf(`<li class="pagination-prev"><a href="%s%s/" rel="prev"><span>← Older post</span><strong>%s</strong></a></li>`, postPathPrefix, url.PathEscape(older.Slug), escapeHTML(defaultString(older.Title, "Post")))
 		}
 		if newer != nil {
-			newerHTML = fmt.Sprintf(`<li class="pagination-next"><a href="/posts/%s/" rel="next"><span>Newer post →</span><strong>%s</strong></a></li>`, url.PathEscape(newer.Slug), escapeHTML(defaultString(newer.Title, "Post")))
+			newerHTML = fmt.Sprintf(`<li class="pagination-next"><a href="%s%s/" rel="next"><span>Newer post →</span><strong>%s</strong></a></li>`, postPathPrefix, url.PathEscape(newer.Slug), escapeHTML(defaultString(newer.Title, "Post")))
 		}
 		navHTML = fmt.Sprintf(`<nav class="page-pagination pagination post-pagination">
       <ul>
@@ -461,4 +464,18 @@ func renderNotFound(settings SettingsRecord) string {
       </article>
     </main>` +
 		renderFooter(settings)
+}
+
+func resolvePostPath(path string) (locale string, slug string, ok bool) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) < 2 {
+		return "", "", false
+	}
+	if parts[0] == "posts" && len(parts) >= 2 {
+		return "", parts[1], true
+	}
+	if len(parts) >= 3 && parts[1] == "posts" {
+		return normalizeLocale(parts[0]), parts[2], true
+	}
+	return "", "", false
 }

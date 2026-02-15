@@ -12,6 +12,10 @@ func getPosts(params map[string]string) (PBList[PostRecord], error) {
 	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
 }
 
+func getPostTranslations(params map[string]string) (PBList[PostTranslationRecord], error) {
+	return fetchList[PostTranslationRecord](fmt.Sprintf("%s/api/collections/post_translations/records", pbURL), params)
+}
+
 func getPagesMenu() []PageRecord {
 	data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
 		"perPage": "200",
@@ -36,17 +40,37 @@ func getPageByURL(path string) *PageRecord {
 }
 
 func getPostBySlug(slug string) *PostRecord {
-	data, err := fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), map[string]string{
+	return getPostBySlugInLocale(slug, "")
+}
+
+func getPostBySlugInLocale(slug string, locale string) *PostRecord {
+	if locale == "" {
+		data, err := fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), map[string]string{
+			"perPage": "1",
+			"filter":  fmt.Sprintf("slug = \"%s\" && published = true", escapeFilter(slug)),
+		})
+		if err != nil || len(data.Items) == 0 {
+			return nil
+		}
+		return &data.Items[0]
+	}
+
+	data, err := getPostTranslations(map[string]string{
 		"perPage": "1",
-		"filter":  fmt.Sprintf("slug = \"%s\" && published = true", escapeFilter(slug)),
+		"filter":  fmt.Sprintf("slug = \"%s\" && locale = \"%s\" && published = true", escapeFilter(slug), escapeFilter(locale)),
 	})
 	if err != nil || len(data.Items) == 0 {
 		return nil
 	}
-	return &data.Items[0]
+	post := translationToPost(data.Items[0])
+	return &post
 }
 
 func getAdjacentPosts(post *PostRecord) (newer *PostRecord, older *PostRecord) {
+	return getAdjacentPostsInLocale(post, "")
+}
+
+func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
 	if post == nil {
 		return nil, nil
 	}
@@ -63,21 +87,39 @@ func getAdjacentPosts(post *PostRecord) (newer *PostRecord, older *PostRecord) {
 		return nil, nil
 	}
 
-	fetchNearest := func(op, sort string) *PostRecord {
-		data, err := getPosts(map[string]string{
+	if locale == "" {
+		fetchNearest := func(op, sort string) *PostRecord {
+			data, err := getPosts(map[string]string{
+				"page":    "1",
+				"perPage": "1",
+				"filter":  fmt.Sprintf("published = true && %s %s \"%s\"", field, op, escapeFilter(value)),
+				"sort":    sort,
+			})
+			if err != nil || len(data.Items) == 0 {
+				return nil
+			}
+			return &data.Items[0]
+		}
+		newer = fetchNearest(">", field)
+		older = fetchNearest("<", "-"+field)
+		return newer, older
+	}
+
+	fetchNearestTranslated := func(op, sort string) *PostRecord {
+		data, err := getPostTranslations(map[string]string{
 			"page":    "1",
 			"perPage": "1",
-			"filter":  fmt.Sprintf("published = true && %s %s \"%s\"", field, op, escapeFilter(value)),
+			"filter":  fmt.Sprintf("published = true && locale = \"%s\" && %s %s \"%s\"", escapeFilter(locale), field, op, escapeFilter(value)),
 			"sort":    sort,
 		})
 		if err != nil || len(data.Items) == 0 {
 			return nil
 		}
-		return &data.Items[0]
+		item := translationToPost(data.Items[0])
+		return &item
 	}
-
-	newer = fetchNearest(">", field)
-	older = fetchNearest("<", "-"+field)
+	newer = fetchNearestTranslated(">", field)
+	older = fetchNearestTranslated("<", "-"+field)
 	return newer, older
 }
 
@@ -157,6 +199,21 @@ func collectUnique(field string) []string {
 	}
 	sort.Strings(result)
 	return result
+}
+
+func translationToPost(item PostTranslationRecord) PostRecord {
+	return PostRecord{
+		ID:          item.ID,
+		Title:       item.Title,
+		Slug:        item.Slug,
+		Body:        item.Body,
+		Excerpt:     item.Excerpt,
+		Tags:        item.Tags,
+		Category:    item.Category,
+		Published:   item.Published,
+		PublishedAt: item.PublishedAt,
+		Date:        item.PublishedAt,
+	}
 }
 
 func escapeFilter(value string) string {

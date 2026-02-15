@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -45,6 +46,30 @@ func addIndexIfMissing(collection *core.Collection, index string) {
 		}
 	}
 	collection.Indexes = append(collection.Indexes, index)
+}
+
+func replaceIndex(collection *core.Collection, oldIndex, newIndex string) {
+	next := make([]string, 0, len(collection.Indexes))
+	for _, existing := range collection.Indexes {
+		if existing == oldIndex {
+			continue
+		}
+		next = append(next, existing)
+	}
+	collection.Indexes = next
+	addIndexIfMissing(collection, newIndex)
+}
+
+func removeIndexesByName(collection *core.Collection, indexName string) {
+	token := "`" + indexName + "`"
+	next := make([]string, 0, len(collection.Indexes))
+	for _, existing := range collection.Indexes {
+		if strings.Contains(existing, token) {
+			continue
+		}
+		next = append(next, existing)
+	}
+	collection.Indexes = next
 }
 
 func setRuleIfNil(ptr **string, rule string) {

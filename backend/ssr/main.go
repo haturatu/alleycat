@@ -7,8 +7,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var localePathPattern = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)
 
 func main() {
 	mux := http.NewServeMux()
@@ -91,9 +94,23 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		writeHTML(w, html)
 		return
 	}
+	if isLocalizedPostPath(path) {
+		html := renderPost(path, settings)
+		writeHTML(w, html)
+		return
+	}
 
 	html := renderPage(path, settings)
 	writeHTML(w, html)
+}
+
+func isLocalizedPostPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 3 || parts[1] != "posts" || strings.TrimSpace(parts[2]) == "" {
+		return false
+	}
+	locale := normalizeLocale(parts[0])
+	return locale == parts[0] && localePathPattern.MatchString(locale)
 }
 
 func proxyPocketBase(w http.ResponseWriter, r *http.Request) {

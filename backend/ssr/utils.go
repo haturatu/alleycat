@@ -87,3 +87,8 @@ func normalizeURL(value string) string {
 	}
 	return strings.TrimRight(trimmed, "/")
 }
+
+func normalizeLocale(value string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	return strings.ReplaceAll(trimmed, "_", "-")
+}

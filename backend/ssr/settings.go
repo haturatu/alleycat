@@ -33,30 +33,33 @@ func getSettings() SettingsRecord {
 
 func defaultSettings() SettingsRecord {
 	return SettingsRecord{
-		SiteName:            defaultSiteName,
-		Description:         defaultDescription,
-		WelcomeText:         defaultWelcome,
-		HomeTopImage:        defaultTopImage,
-		HomeTopImageAlt:     defaultTopImageAlt,
-		FooterHTML:          defaultFooterHTML,
-		Theme:               defaultTheme,
-		EnableFeedXML:       true,
-		EnableFeedJSON:      true,
-		FeedItemsLimit:      20,
-		EnableAnalytics:     defaultAnalyticsURL != "" && defaultAnalyticsSiteID != "",
-		AnalyticsURL:        defaultAnalyticsURL,
-		AnalyticsSiteID:     defaultAnalyticsSiteID,
-		EnableAds:           defaultAdsClient != "",
-		AdsClient:           defaultAdsClient,
-		ArchivePageSize:     10,
-		HomePageSize:        3,
-		ShowArchiveTags:     true,
-		ShowTags:            true,
-		ShowCategories:      true,
-		ShowArchiveSearch:   true,
-		EnableCodeHighlight: true,
-		HighlightTheme:      "github-dark",
-		SiteLanguage:        "ja",
+		SiteName:                defaultSiteName,
+		Description:             defaultDescription,
+		WelcomeText:             defaultWelcome,
+		HomeTopImage:            defaultTopImage,
+		HomeTopImageAlt:         defaultTopImageAlt,
+		FooterHTML:              defaultFooterHTML,
+		Theme:                   defaultTheme,
+		EnableFeedXML:           true,
+		EnableFeedJSON:          true,
+		FeedItemsLimit:          20,
+		EnableAnalytics:         defaultAnalyticsURL != "" && defaultAnalyticsSiteID != "",
+		AnalyticsURL:            defaultAnalyticsURL,
+		AnalyticsSiteID:         defaultAnalyticsSiteID,
+		EnableAds:               defaultAdsClient != "",
+		AdsClient:               defaultAdsClient,
+		ArchivePageSize:         10,
+		HomePageSize:            3,
+		ShowArchiveTags:         true,
+		ShowTags:                true,
+		ShowCategories:          true,
+		ShowArchiveSearch:       true,
+		EnableCodeHighlight:     true,
+		HighlightTheme:          "github-dark",
+		SiteLanguage:            "ja",
+		TranslationSourceLocale: "ja",
+		TranslationLocales:      "en",
+		TranslationModel:        "gemini-1.5-flash",
 	}
 }
 
@@ -93,5 +96,14 @@ func applySettingsDefaults(item *SettingsRecord) {
 	}
 	if item.SiteLanguage == "" {
 		item.SiteLanguage = "ja"
+	}
+	if strings.TrimSpace(item.TranslationSourceLocale) == "" {
+		item.TranslationSourceLocale = item.SiteLanguage
+	}
+	if strings.TrimSpace(item.TranslationLocales) == "" {
+		item.TranslationLocales = "en"
+	}
+	if strings.TrimSpace(item.TranslationModel) == "" {
+		item.TranslationModel = "gemini-1.5-flash"
 	}
 }

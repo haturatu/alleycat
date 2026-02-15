@@ -9,6 +9,8 @@ import (
 
 func main() {
 	app := pocketbase.New()
+	registerTranslationFeatures(app)
+	registerBackupImportCommand(app)
 
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
 		if err := e.Next(); err != nil {

@@ -129,27 +129,44 @@ export default function AdminPosts() {
   const remove = async (id: string) => {
     if (!window.confirm("削除しますか？")) return;
     let mediaIds: string[] = [];
+    let translationIds: string[] = [];
     try {
       const record = await pb.collection("posts").getOne(id);
       mediaIds = [
         ...extractMediaIds(record.body),
         ...extractMediaIds(record.content),
       ];
+      const safeId = id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      const translations = await pb.collection("post_translations").getFullList({
+        fields: "id,body,content",
+        filter: `source_post = "${safeId}"`,
+      });
+      translationIds = translations.map((item: any) => item.id);
+      translations.forEach((item: any) => {
+        mediaIds.push(...extractMediaIds(item.body));
+        mediaIds.push(...extractMediaIds(item.content));
+      });
     } catch {
       mediaIds = [];
+      translationIds = [];
     }
 
+    await Promise.all(
+      translationIds.map((translationId) => pb.collection("post_translations").delete(translationId))
+    );
     await pb.collection("posts").delete(id);
 
     if (mediaIds.length > 0) {
       try {
-        const [postsAll, pagesAll] = await Promise.all([
+        const [postsAll, pagesAll, translationsAll] = await Promise.all([
           pb.collection("posts").getFullList({ fields: "body,content" }),
           pb.collection("pages").getFullList({ fields: "body,content" }),
+          pb.collection("post_translations").getFullList({ fields: "body,content" }),
         ]);
         const blobs = [
           ...postsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
           ...pagesAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
+          ...translationsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
         ];
         for (const mediaId of mediaIds) {
           const marker = `/api/files/media/${mediaId}/`;

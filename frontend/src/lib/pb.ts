@@ -40,6 +40,24 @@ export type PostRecord = {
   published?: boolean;
 };
 
+export type PostTranslationRecord = {
+  id: string;
+  source_post: string;
+  locale: string;
+  title: string;
+  slug: string;
+  body: string;
+  excerpt?: string;
+  tags?: string;
+  category?: string;
+  author?: string;
+  featured_image?: string;
+  attachments?: string[];
+  published_at?: string;
+  published?: boolean;
+  translation_done?: boolean;
+};
+
 export type PageRecord = {
   id: string;
   title: string;
