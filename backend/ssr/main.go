@@ -82,6 +82,10 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		writeRSSFeed(w, r, settings)
 		return
 	}
+	if path == "/robots.txt" {
+		writeRobotsTXT(w, r, settings)
+		return
+	}
 	if path == "/sitemap.xml" {
 		writeSitemap(w, r, settings)
 		return

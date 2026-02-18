@@ -129,6 +129,15 @@ The following settings are editable in the Admin UI:
   - Generated for locales listed in `Translation locales`.
   - Includes published translated posts for that locale.
 
+### robots.txt
+- Served dynamically at `/robots.txt` by SSR.
+- Default policy:
+  - `User-agent: *`
+  - `Allow: /`
+- `Sitemap` directives are added automatically:
+  - `/sitemap.xml`
+  - `/sitemap-<locale>.xml` for locales listed in `Translation locales`.
+
 ### Backup Zip Import (CLI)
 - You can import a PocketBase backup zip directly via command line:
   - `cd backend`
