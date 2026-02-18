@@ -24,6 +24,7 @@ pnpm-debug.log*
 *.out
 bin/
 tmp/
+.gocache
 
 # PocketBase data
 pb_data/
