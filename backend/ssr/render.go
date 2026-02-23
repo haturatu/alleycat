@@ -502,14 +502,6 @@ func renderArchive(path string, settings SettingsRecord) string {
 		renderFooter(settings)
 }
 
-func renderPost(path string, settings SettingsRecord) (string, bool) {
-	input, ok := prefetchPostRenderInput(path)
-	if !ok {
-		return renderNotFound(settings), false
-	}
-	return renderPostFromInput(input, settings)
-}
-
 func prefetchPostRenderInput(path string) (*postRenderInput, bool) {
 	locale, slug, ok := resolvePostPath(path)
 	if !ok {
@@ -886,14 +878,6 @@ func renderLanguageLinks(sourceLocale, currentLocale string, sourcePost *PostRec
 	}
 
 	return fmt.Sprintf(`<div class="post-languages">language: %s</div>`, strings.Join(parts, " "))
-}
-
-func renderPage(path string, settings SettingsRecord) (string, bool) {
-	page := getPageByURL(path)
-	if page == nil {
-		return renderNotFound(settings), false
-	}
-	return renderPageFromRecord(page, settings)
 }
 
 func renderPageFromRecord(page *PageRecord, settings SettingsRecord) (string, bool) {

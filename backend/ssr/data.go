@@ -70,10 +70,6 @@ func getPageByURL(path string) *PageRecord {
 	return &data.Items[0]
 }
 
-func getPostBySlug(slug string) *PostRecord {
-	return getPostBySlugInLocale(slug, "")
-}
-
 func getPostBySlugInLocale(slug string, locale string) *PostRecord {
 	if locale == "" {
 		data, err := fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), map[string]string{
@@ -136,10 +132,6 @@ func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
 		return nil
 	}
 	return data.Items
-}
-
-func getAdjacentPosts(post *PostRecord) (newer *PostRecord, older *PostRecord) {
-	return getAdjacentPostsInLocale(post, "")
 }
 
 func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
@@ -209,7 +201,7 @@ func getRelatedPostsInLocale(post *PostRecord, locale string, limit int) []PostR
 	}
 	targetCategory := strings.ToLower(strings.TrimSpace(post.Category))
 
-	candidates := []PostRecord{}
+	var candidates []PostRecord
 	if locale == "" {
 		items, err := getPosts(map[string]string{
 			"page":    "1",
@@ -315,14 +307,6 @@ func postPublishedTime(post PostRecord) time.Time {
 		return parsed
 	}
 	return time.Time{}
-}
-
-func getMediaByID(id string) *MediaRecord {
-	media, err := fetchRecord[MediaRecord](fmt.Sprintf("%s/api/collections/media/records/%s", pbURL, id))
-	if err != nil {
-		return nil
-	}
-	return &media
 }
 
 func getMediaByIDs(ids []string) map[string]MediaRecord {

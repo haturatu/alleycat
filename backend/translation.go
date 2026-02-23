@@ -186,31 +186,6 @@ func translateSourcePost(app core.App, source *core.Record, settings translation
 	return firstErr
 }
 
-func translateSourcePostForMigration(app core.App, source *core.Record, settings translationSettings) error {
-	title := strings.TrimSpace(source.GetString("title"))
-	body := strings.TrimSpace(source.GetString("body"))
-	if body == "" {
-		body = strings.TrimSpace(source.GetString("content"))
-	}
-	if title == "" || body == "" {
-		return nil
-	}
-
-	var firstErr error
-	for _, locale := range settings.Locales {
-		if err := upsertTranslatedPost(app, source, locale, settings, title, body, false); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			log.Printf("translation locale failed source=%s locale=%s err=%v", source.Id, locale, err)
-			if isGeminiRateLimitError(err) {
-				return err
-			}
-		}
-	}
-	return firstErr
-}
-
 func upsertTranslatedPost(
 	app core.App,
 	source *core.Record,

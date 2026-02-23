@@ -335,15 +335,6 @@ func sitemapDate(value string) string {
 	return ""
 }
 
-func writeSitemapXML(w http.ResponseWriter, urls []sitemapURL) {
-	body, err := buildSitemapXML(urls)
-	if err != nil {
-		http.Error(w, "failed to generate sitemap", http.StatusInternalServerError)
-		return
-	}
-	writeSitemapBody(w, body)
-}
-
 func buildSitemapXML(urls []sitemapURL) ([]byte, error) {
 	payload := sitemapURLSet{
 		Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9",
