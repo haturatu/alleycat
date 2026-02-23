@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
-import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
+import { normalizeMarkdownLinksInHtml, slugify, stripHtml } from "../utils/text";
+import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
 import RichEditor from "./RichEditor";
 import SaveButton from "./components/SaveButton";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
@@ -25,6 +26,8 @@ export default function AdminPageEditor() {
   const [menuOrder, setMenuOrder] = useState(0);
   const [menuTitle, setMenuTitle] = useState("");
   const [body, setBody] = useState("");
+  const [markdownBody, setMarkdownBody] = useState("");
+  const [editorMode, setEditorMode] = useState<"rich" | "markdown">("rich");
   const [publishedAt, setPublishedAt] = useState("");
   const [published, setPublished] = useState(true);
   const [error, setError] = useState("");
@@ -63,6 +66,9 @@ export default function AdminPageEditor() {
     if (!id || id === "new") {
       setSlugEditedManually(false);
       setFieldErrors({});
+      setBody("");
+      setMarkdownBody("");
+      setEditorMode("rich");
       markSaved();
       return;
     }
@@ -76,7 +82,11 @@ export default function AdminPageEditor() {
         setMenuVisible(Boolean(record.menuVisible));
         setMenuOrder(record.menuOrder || 0);
         setMenuTitle(record.menuTitle || "");
-        setBody(record.body || "");
+        const loadedBody = String(record.body || "");
+        const markdownMode = !looksLikeHtml(loadedBody) && loadedBody.trim() !== "";
+        setBody(loadedBody);
+        setMarkdownBody(markdownMode ? loadedBody : "");
+        setEditorMode(markdownMode ? "markdown" : "rich");
         setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
         setPublished(Boolean(record.published));
         setSlugEditedManually(true);
@@ -98,8 +108,12 @@ export default function AdminPageEditor() {
 
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
-    const normalizedBody = normalizeMarkdownLinksInHtml(body);
-    const trimmedBody = normalizedBody.trim();
+    const sourceBody = editorMode === "markdown" ? markdownBody : body;
+    const normalizedBody =
+      editorMode === "markdown"
+        ? renderMarkdownToHtml(sourceBody)
+        : normalizeMarkdownLinksInHtml(sourceBody);
+    const trimmedBody = sourceBody.trim();
     const resolvedUrl = url || `/${slug}/`;
     const nextErrors: FieldErrors = {
       title: validateTitle(trimmedTitle),
@@ -121,7 +135,7 @@ export default function AdminPageEditor() {
       menuVisible,
       menuOrder,
       menuTitle,
-      body: trimmedBody,
+      body: normalizedBody,
       published_at: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
       published,
     };
@@ -230,6 +244,23 @@ export default function AdminPageEditor() {
           />
         </label>
         {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
+        <label>
+          Editor mode
+          <select
+            value={editorMode}
+            onChange={(e) => {
+              const next = e.target.value as "rich" | "markdown";
+              setEditorMode(next);
+              if (next === "markdown" && markdownBody.trim() === "") {
+                setMarkdownBody(looksLikeHtml(body) ? stripHtml(body) : body);
+              }
+              markDirty();
+            }}
+          >
+            <option value="rich">Rich editor (HTML)</option>
+            <option value="markdown">Markdown (RFC 7763)</option>
+          </select>
+        </label>
         <label className="admin-check admin-check-right">
           <span>Show in menu</span>
           <input
@@ -286,15 +317,37 @@ export default function AdminPageEditor() {
         </label>
         <div className="admin-field">
           <span>Content</span>
-          <RichEditor
-            value={body}
-            onChange={(value) => {
-              setBody(value);
-              markDirty();
-              setFieldError("body", validateBody(value));
-            }}
-          />
+          {editorMode === "rich" ? (
+            <RichEditor
+              value={body}
+              onChange={(value) => {
+                setBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+            />
+          ) : (
+            <textarea
+              value={markdownBody}
+              rows={14}
+              onChange={(e) => {
+                setMarkdownBody(e.target.value);
+                markDirty();
+                setFieldError("body", validateBody(e.target.value));
+              }}
+              placeholder="Write Markdown here..."
+            />
+          )}
         </div>
+        {editorMode === "markdown" && (
+          <div className="admin-field">
+            <span>Markdown preview</span>
+            <div
+              className="admin-markdown-preview"
+              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
+            />
+          </div>
+        )}
         {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>
     </section>

@@ -403,6 +403,29 @@ body {
   height: auto;
 }
 
+.admin-markdown-preview {
+  border: 1px solid #ccc;
+  background: #fafafa;
+  padding: 12px;
+  min-height: 120px;
+}
+
+.admin-markdown-preview pre {
+  white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
+  max-width: 100%;
+  background: #141311;
+  color: #f7f2e9;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #2b2b2b;
+}
+
+.admin-markdown-preview code {
+  font-family: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", Menlo, monospace;
+}
+
 @media (max-width: 900px) {
   .admin-shell {
     grid-template-columns: 1fr;
