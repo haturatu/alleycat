@@ -19,7 +19,7 @@ const criticalBaseStyles = `<style>
     </style>`
 
 var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\s*=\s*['"]([^'"]+)['"][^>]*>\s*</script>\s*$`)
-var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(['"])([^'"]+)\1`)
+var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(?:"([^"]+)"|'([^']+)')`)
 var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
 func themeStylesheet(themeOverride string) string {
@@ -643,6 +643,9 @@ func headingIDFromAttrs(attrs string) string {
 	parts := headingIDAttrPattern.FindStringSubmatch(attrs)
 	if len(parts) < 3 {
 		return ""
+	}
+	if strings.TrimSpace(parts[1]) != "" {
+		return strings.TrimSpace(parts[1])
 	}
 	return strings.TrimSpace(parts[2])
 }
