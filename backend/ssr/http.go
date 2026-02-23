@@ -17,7 +17,9 @@ func fetchJSON[T any](target string) (T, error) {
 	if err != nil {
 		return zero, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return zero, fmt.Errorf("http %d: %s", resp.StatusCode, string(body))

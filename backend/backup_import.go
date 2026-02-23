@@ -29,12 +29,12 @@ func registerBackupImportCommand(app *pocketbase.PocketBase) {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
 			zipPath := args[0]
-			fmt.Fprintf(command.OutOrStdout(), "Importing backup zip: %s\n", zipPath)
-			fmt.Fprintf(command.OutOrStdout(), "Target data dir: %s\n", app.DataDir())
+			_, _ = fmt.Fprintf(command.OutOrStdout(), "Importing backup zip: %s\n", zipPath)
+			_, _ = fmt.Fprintf(command.OutOrStdout(), "Target data dir: %s\n", app.DataDir())
 			if err := importBackupZip(app, zipPath); err != nil {
 				return err
 			}
-			fmt.Fprintln(command.OutOrStdout(), "Backup import completed.")
+			_, _ = fmt.Fprintln(command.OutOrStdout(), "Backup import completed.")
 			return nil
 		},
 	}
@@ -72,7 +72,9 @@ func importBackupZip(app core.App, zipPath string) error {
 
 	extractedDir := filepath.Join(localTempDir, "pb_import_"+security.PseudorandomString(8))
 	oldTempDataDir := filepath.Join(localTempDir, "old_pb_data_"+security.PseudorandomString(8))
-	defer os.RemoveAll(extractedDir)
+	defer func() {
+		_ = os.RemoveAll(extractedDir)
+	}()
 
 	if err := archive.Extract(cleanZipPath, extractedDir); err != nil {
 		return fmt.Errorf("failed to extract backup zip: %w", err)
