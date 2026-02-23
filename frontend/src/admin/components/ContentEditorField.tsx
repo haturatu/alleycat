@@ -31,7 +31,7 @@ export default function ContentEditorField({
 
   const handleEditorModeChange = (next: EditorMode) => {
     if (editorMode === "markdown" && next === "rich") {
-      onBodyChange(renderMarkdownToHtml(markdownBody));
+      onBodyChange(renderMarkdownToHtml(markdownBody, { highlightCode: false }));
     }
     if (editorMode === "rich" && next === "markdown") {
       onMarkdownBodyChange(renderHtmlToMarkdown(body));
@@ -115,7 +115,7 @@ export default function ContentEditorField({
           ) : (
             <div
               className="admin-markdown-preview"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody, { highlightCode: true }) }}
             />
           )}
         </div>

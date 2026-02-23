@@ -466,7 +466,7 @@ export default function AdminPostEditor() {
     const isMarkdownMode = editorMode === "markdown";
     const sourceBody = isMarkdownMode ? markdownBody : body;
     const normalizedBody = isMarkdownMode
-      ? renderMarkdownToHtml(sourceBody)
+      ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
       : normalizeMarkdownLinksInHtml(sourceBody);
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
@@ -709,7 +709,7 @@ export default function AdminPostEditor() {
             value={
               excerptLength > 0
                 ? buildExcerpt(
-                    editorMode === "markdown" ? renderMarkdownToHtml(markdownBody) : body,
+                    editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
                     excerptLength
                   )
                 : excerpt

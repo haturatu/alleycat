@@ -55,19 +55,53 @@ export const normalizeMarkdownLinksInHtml = (value?: string) => {
   const input = value ?? "";
   if (!input) return input;
 
-  // Convert markdown links in text nodes while keeping existing HTML tags untouched.
   const markdownLinkRe = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
-  return input
-    .split(/(<[^>]+>)/g)
-    .map((part) => {
-      if (part.startsWith("<") && part.endsWith(">")) return part;
-      return part.replace(markdownLinkRe, (_full, label: string, href: string) => {
+  if (!/<[a-z][^>]*>/i.test(input)) {
+    return input.replace(markdownLinkRe, (_full, label: string, href: string) => {
+      const safeHref = href.trim();
+      if (!/^https?:\/\//i.test(safeHref)) return _full;
+      return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+        label.trim()
+      )}</a>`;
+    });
+  }
+
+  const doc = new DOMParser().parseFromString(input, "text/html");
+  const skipTags = new Set(["a", "code", "pre", "script", "style", "textarea"]);
+
+  const walk = (node: Node, skip: boolean) => {
+    if (node.nodeType === Node.TEXT_NODE && !skip) {
+      const text = node.textContent || "";
+      markdownLinkRe.lastIndex = 0;
+      if (!markdownLinkRe.test(text)) return;
+      markdownLinkRe.lastIndex = 0;
+      const replaced = text.replace(markdownLinkRe, (_full, label: string, href: string) => {
         const safeHref = href.trim();
         if (!/^https?:\/\//i.test(safeHref)) return _full;
         return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
           label.trim()
         )}</a>`;
       });
-    })
-    .join("");
+      if (replaced === text) return;
+
+      const frag = doc.createElement("span");
+      frag.innerHTML = replaced;
+      const parent = node.parentNode;
+      if (!parent) return;
+      while (frag.firstChild) parent.insertBefore(frag.firstChild, node);
+      parent.removeChild(node);
+      return;
+    }
+
+    if (!(node instanceof HTMLElement)) {
+      Array.from(node.childNodes).forEach((child) => walk(child, skip));
+      return;
+    }
+
+    const nextSkip = skip || skipTags.has(node.tagName.toLowerCase());
+    Array.from(node.childNodes).forEach((child) => walk(child, nextSkip));
+  };
+
+  walk(doc.body, false);
+  return doc.body.innerHTML;
 };

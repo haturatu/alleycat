@@ -6,9 +6,14 @@ marked.setOptions({
   breaks: true,
 });
 
-export const renderMarkdownToHtml = (value?: string) => {
+type RenderMarkdownOptions = {
+  highlightCode?: boolean;
+};
+
+export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
   const input = value ?? "";
   if (!input.trim()) return "";
+  const { highlightCode = true } = options;
 
   const rendered = marked.parse(input) as string;
   const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
@@ -19,7 +24,12 @@ export const renderMarkdownToHtml = (value?: string) => {
     const classNames = (codeBlock.getAttribute("class") || "").split(/\s+/);
     const languageClass = classNames.find((className) => className.startsWith("language-"));
     const language = languageClass?.slice("language-".length);
-    const source = codeBlock.textContent || "";
+    const source = (codeBlock.textContent || "").replace(/\r\n?/g, "\n").replace(/\n$/, "");
+
+    if (!highlightCode) {
+      codeBlock.textContent = source;
+      return;
+    }
 
     if (language && hljs.getLanguage(language)) {
       codeBlock.innerHTML = hljs.highlight(source, { language }).value;
@@ -32,11 +42,83 @@ export const renderMarkdownToHtml = (value?: string) => {
   return root.innerHTML;
 };
 
-export const looksLikeHtml = (value?: string) => /<[a-z][^>]*>/i.test(value ?? "");
+const htmlTagRe = /<\s*\/?\s*([a-z][a-z0-9-]*)\b[^>]*>/i;
+const htmlLikeTags = new Set([
+  "p",
+  "div",
+  "span",
+  "a",
+  "img",
+  "ul",
+  "ol",
+  "li",
+  "pre",
+  "code",
+  "blockquote",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "hr",
+  "br",
+]);
+
+export const looksLikeHtml = (value?: string) => {
+  const input = value ?? "";
+  if (!input.trim()) return false;
+  const match = input.match(htmlTagRe);
+  if (!match) return false;
+  return htmlLikeTags.has(match[1].toLowerCase());
+};
 
 const normalizeText = (value: string) => value.replace(/\u00a0/g, " ");
 
 const escapeText = (value: string) => value.replace(/([\\`*_{}#+!>])/g, "\\$1");
+
+const renderListItemMarkdown = (li: HTMLElement, ordered: boolean, index: number, depth: number): string => {
+  const indent = "  ".repeat(depth);
+  const marker = ordered ? `${index + 1}. ` : "- ";
+
+  const inlineParts: string[] = [];
+  const nestedParts: string[] = [];
+
+  Array.from(li.childNodes).forEach((child) => {
+    if (child instanceof HTMLElement) {
+      const tag = child.tagName.toLowerCase();
+      if (tag === "ul") {
+        nestedParts.push(renderListMarkdown(child, false, depth + 1));
+        return;
+      }
+      if (tag === "ol") {
+        nestedParts.push(renderListMarkdown(child, true, depth + 1));
+        return;
+      }
+    }
+    inlineParts.push(nodeToMarkdown(child));
+  });
+
+  const inlineText = inlineParts.join("").replace(/\n+/g, " ").trim();
+  const head = `${indent}${marker}${inlineText}`.trimEnd();
+  if (nestedParts.length === 0) return head;
+
+  const nested = nestedParts.filter(Boolean).join("\n");
+  return nested ? `${head}\n${nested}` : head;
+};
+
+const renderListMarkdown = (list: HTMLElement, ordered: boolean, depth: number): string => {
+  return Array.from(list.children)
+    .filter((child): child is HTMLElement => child.tagName.toLowerCase() === "li")
+    .map((li, index) => renderListItemMarkdown(li, ordered, index, depth))
+    .join("\n");
+};
 
 const nodeToMarkdown = (node: Node): string => {
   if (node.nodeType === Node.TEXT_NODE) {
@@ -62,8 +144,15 @@ const nodeToMarkdown = (node: Node): string => {
       if (node.closest("pre")) return children;
       return `\`${(node.textContent || "").replace(/`/g, "\\`")}\``;
     case "pre": {
-      const code = (node.textContent || "").replace(/\n+$/g, "");
-      return `\n\`\`\`\n${code}\n\`\`\`\n\n`;
+      const codeNode = node.querySelector("code");
+      const classNames = `${node.getAttribute("class") || ""} ${codeNode?.getAttribute("class") || ""}`;
+      const langClass = classNames.split(/\s+/).find((className) => className.startsWith("language-"));
+      const language = langClass ? langClass.slice("language-".length) : "";
+      const source = (codeNode?.textContent || node.textContent || "")
+        .replace(/\r\n?/g, "\n")
+        .replace(/\n+$/g, "");
+      const fence = language ? `\`\`\`${language}` : "```";
+      return `\n${fence}\n${source}\n\`\`\`\n\n`;
     }
     case "h1":
       return `# ${children.trim()}\n\n`;
@@ -95,21 +184,11 @@ const nodeToMarkdown = (node: Node): string => {
       return `![${alt}](${src})`;
     }
     case "li":
-      return children.trim();
-    case "ul": {
-      const items = Array.from(node.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((li) => `- ${nodeToMarkdown(li)}`)
-        .join("\n");
-      return `${items}\n\n`;
-    }
-    case "ol": {
-      const items = Array.from(node.children)
-        .filter((child) => child.tagName.toLowerCase() === "li")
-        .map((li, i) => `${i + 1}. ${nodeToMarkdown(li)}`)
-        .join("\n");
-      return `${items}\n\n`;
-    }
+      return renderListItemMarkdown(node, false, 0, 0);
+    case "ul":
+      return `${renderListMarkdown(node, false, 0)}\n\n`;
+    case "ol":
+      return `${renderListMarkdown(node, true, 0)}\n\n`;
     case "hr":
       return `---\n\n`;
     default:

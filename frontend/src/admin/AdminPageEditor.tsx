@@ -120,7 +120,7 @@ export default function AdminPageEditor() {
     const sourceBody = isMarkdownMode ? markdownBody : body;
     const normalizedBody =
       isMarkdownMode
-        ? renderMarkdownToHtml(sourceBody)
+        ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
         : normalizeMarkdownLinksInHtml(sourceBody);
     const trimmedBody = sourceBody.trim();
     const resolvedUrl = url || `/${slug}/`;
