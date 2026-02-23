@@ -388,6 +388,20 @@ export default function AdminPostEditor() {
     setFieldError("tags", validateTags(merged));
   };
 
+  const addTagFromInput = () => {
+    if (activeTagSuggestion >= 0 && tagSuggestions[activeTagSuggestion]) {
+      addTag(tagSuggestions[activeTagSuggestion]);
+      return;
+    }
+    addTag(tagInput);
+  };
+
+  const applyCategoryInput = () => {
+    setCategory((prev) => prev.trim());
+    markDirty();
+    setActiveCategorySuggestion(-1);
+  };
+
   const removeTag = (tag: string) => {
     const merged = currentTags
       .filter((item) => item.toLowerCase() !== tag.toLowerCase())
@@ -579,15 +593,21 @@ export default function AdminPostEditor() {
         />
         <label>
           Category
-          <input
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-              markDirty();
-              setActiveCategorySuggestion(-1);
-            }}
-            onKeyDown={onCategoryInputKeyDown}
-          />
+          <div className="admin-inline">
+            <input
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                markDirty();
+                setActiveCategorySuggestion(-1);
+              }}
+              onKeyDown={onCategoryInputKeyDown}
+              enterKeyHint="done"
+            />
+            <button type="button" onClick={applyCategoryInput}>
+              Apply
+            </button>
+          </div>
         </label>
         {categorySuggestions.length > 0 && (
           <div className="admin-tag-suggestions">
@@ -626,17 +646,23 @@ export default function AdminPostEditor() {
         </label>
         <label>
           Tags
-          <input
-            value={tagInput}
-            onChange={(e) => {
-              const next = e.target.value;
-              setTagInput(next);
-              markDirty();
-              setActiveTagSuggestion(-1);
-            }}
-            onKeyDown={onTagInputKeyDown}
-            placeholder="Type tag and press Enter"
-          />
+          <div className="admin-inline">
+            <input
+              value={tagInput}
+              onChange={(e) => {
+                const next = e.target.value;
+                setTagInput(next);
+                markDirty();
+                setActiveTagSuggestion(-1);
+              }}
+              onKeyDown={onTagInputKeyDown}
+              placeholder="Type tag and press Enter"
+              enterKeyHint="done"
+            />
+            <button type="button" onClick={addTagFromInput}>
+              Add
+            </button>
+          </div>
         </label>
         {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
         {currentTags.length > 0 && (

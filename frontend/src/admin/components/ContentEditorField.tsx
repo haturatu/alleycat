@@ -78,7 +78,7 @@ export default function ContentEditorField({
             value={editorMode}
             onChange={(e) => handleEditorModeChange(e.target.value as EditorMode)}
           >
-            <option value="rich">Rich editor (HTML)</option>
+            <option value="rich">Rich editor</option>
             <option value="markdown">Markdown</option>
           </select>
         </label>
