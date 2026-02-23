@@ -53,6 +53,7 @@ func defaultSettings() SettingsRecord {
 		ShowArchiveTags:         true,
 		ShowTags:                true,
 		ShowCategories:          true,
+		ShowRelatedPosts:        false,
 		ShowArchiveSearch:       true,
 		EnableCodeHighlight:     true,
 		HighlightTheme:          "github-dark",

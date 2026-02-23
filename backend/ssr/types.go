@@ -80,6 +80,7 @@ type SettingsRecord struct {
 	ShowArchiveTags         bool   `json:"show_archive_tags"`
 	ShowTags                bool   `json:"show_tags"`
 	ShowCategories          bool   `json:"show_categories"`
+	ShowRelatedPosts        bool   `json:"show_related_posts"`
 	ShowArchiveSearch       bool   `json:"show_archive_search"`
 	EnablePostTranslation   bool   `json:"enable_post_translation"`
 	TranslationSourceLocale string `json:"translation_source_locale"`

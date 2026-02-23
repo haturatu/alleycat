@@ -68,6 +68,23 @@ func renderHead(title string, settings SettingsRecord) string {
       overflow-wrap: normal;
       word-break: normal;
     }
+    .post-related {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border: 1px solid rgba(127, 127, 127, 0.24);
+      border-radius: 10px;
+    }
+    .post-related-list {
+      margin: 0;
+      padding-left: 1.25rem;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .post-related-list li p {
+      margin: 0.2rem 0 0;
+      opacity: 0.75;
+      font-size: 0.9rem;
+    }
     </style>`
 	themeStyles := asyncStylesheetTag(styles)
 	fontStyles := ""
@@ -479,6 +496,10 @@ func renderPost(path string, settings SettingsRecord) string {
       </ul>
     </nav>`, olderHTML, newerHTML)
 	}
+	relatedHTML := ""
+	if settings.ShowRelatedPosts {
+		relatedHTML = renderRelatedPosts(getRelatedPostsInLocale(post, locale, 4), postPathPrefix)
+	}
 
 	return renderHead(defaultString(post.Title, "Post"), settings) +
 		renderNav(menu, settings) +
@@ -497,13 +518,41 @@ func renderPost(path string, settings SettingsRecord) string {
         <div class="post-body body">%s</div>
       </article>
       %s
+      %s
     </main>`, escapeHTML(post.Title), func() string {
 			if date == "" {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, navHTML) +
+		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, relatedHTML, navHTML) +
 		renderFooter(settings)
+}
+
+func renderRelatedPosts(items []PostRecord, postPathPrefix string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	list := strings.Builder{}
+	for _, post := range items {
+		date := strings.TrimSpace(post.PublishedAt)
+		if date == "" {
+			date = strings.TrimSpace(post.Date)
+		}
+		dateHTML := ""
+		if date != "" {
+			dateHTML = fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
+		}
+		list.WriteString(fmt.Sprintf(`<li>
+          <a href="%s%s/">%s</a>
+          %s
+        </li>`, postPathPrefix, url.PathEscape(post.Slug), escapeHTML(defaultString(post.Title, "Post")), dateHTML))
+	}
+	return fmt.Sprintf(`<section class="post-related">
+      <h2>関連記事</h2>
+      <ul class="post-related-list">
+        %s
+      </ul>
+    </section>`, list.String())
 }
 
 func renderLanguageLinks(sourceLocale, currentLocale string, sourcePost *PostRecord, translations []PostTranslationRecord) string {

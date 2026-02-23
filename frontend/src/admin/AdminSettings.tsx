@@ -45,6 +45,7 @@ const defaults = {
   show_archive_tags: true,
   show_tags: true,
   show_categories: true,
+  show_related_posts: false,
   show_archive_search: true,
   enable_post_translation: false,
   translation_source_locale: "ja",
@@ -428,6 +429,14 @@ export default function AdminSettings() {
             type="checkbox"
             checked={settings.show_categories}
             onChange={(e) => update("show_categories", e.target.checked)}
+          />
+        </label>
+        <label className="admin-check admin-check-right">
+          <span>Show related posts</span>
+          <input
+            type="checkbox"
+            checked={settings.show_related_posts}
+            onChange={(e) => update("show_related_posts", e.target.checked)}
           />
         </label>
         <label className="admin-check admin-check-right">

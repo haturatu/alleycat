@@ -295,6 +295,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.BoolField{Name: "show_archive_tags"})
 		addFieldIfMissing(c, &core.BoolField{Name: "show_tags"})
 		addFieldIfMissing(c, &core.BoolField{Name: "show_categories"})
+		addFieldIfMissing(c, &core.BoolField{Name: "show_related_posts"})
 		addFieldIfMissing(c, &core.BoolField{Name: "show_archive_search"})
 		addFieldIfMissing(c, &core.TextField{Name: "home_top_image"})
 		addFieldIfMissing(c, &core.TextField{Name: "home_top_image_alt"})

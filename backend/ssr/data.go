@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func getPosts(params map[string]string) (PBList[PostRecord], error) {
@@ -162,6 +163,128 @@ func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecor
 	newer = fetchNearestTranslated(">", field)
 	older = fetchNearestTranslated("<", "-"+field)
 	return newer, older
+}
+
+func getRelatedPostsInLocale(post *PostRecord, locale string, limit int) []PostRecord {
+	if post == nil {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 4
+	}
+
+	targetTags := make(map[string]struct{})
+	for _, tag := range parseTags(post.Tags) {
+		targetTags[strings.ToLower(tag)] = struct{}{}
+	}
+	targetCategory := strings.ToLower(strings.TrimSpace(post.Category))
+
+	candidates := []PostRecord{}
+	if locale == "" {
+		items, err := getPosts(map[string]string{
+			"page":    "1",
+			"perPage": "120",
+			"filter":  fmt.Sprintf("published = true && id != \"%s\"", escapeFilter(post.ID)),
+			"sort":    "-published_at",
+		})
+		if err != nil {
+			items, err = getPosts(map[string]string{
+				"page":    "1",
+				"perPage": "120",
+				"filter":  fmt.Sprintf("published = true && id != \"%s\"", escapeFilter(post.ID)),
+				"sort":    "-date",
+			})
+			if err != nil {
+				return nil
+			}
+		}
+		candidates = items.Items
+	} else {
+		items, err := getPostTranslations(map[string]string{
+			"page":    "1",
+			"perPage": "120",
+			"filter":  fmt.Sprintf("published = true && locale = \"%s\" && id != \"%s\"", escapeFilter(locale), escapeFilter(post.ID)),
+			"sort":    "-published_at",
+		})
+		if err != nil {
+			return nil
+		}
+		candidates = make([]PostRecord, 0, len(items.Items))
+		for _, item := range items.Items {
+			candidates = append(candidates, translationToPost(item))
+		}
+	}
+
+	type scoredPost struct {
+		post  PostRecord
+		score int
+		date  time.Time
+	}
+
+	scored := make([]scoredPost, 0, len(candidates))
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.Slug) == "" || candidate.Slug == post.Slug {
+			continue
+		}
+
+		score := 0
+		if targetCategory != "" && strings.ToLower(strings.TrimSpace(candidate.Category)) == targetCategory {
+			score += 2
+		}
+
+		for _, tag := range parseTags(candidate.Tags) {
+			if _, ok := targetTags[strings.ToLower(tag)]; ok {
+				score++
+			}
+		}
+
+		if score == 0 {
+			continue
+		}
+
+		scored = append(scored, scoredPost{
+			post:  candidate,
+			score: score,
+			date:  postPublishedTime(candidate),
+		})
+	}
+
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
+		}
+		if !scored[i].date.Equal(scored[j].date) {
+			return scored[i].date.After(scored[j].date)
+		}
+		return scored[i].post.Slug < scored[j].post.Slug
+	})
+
+	if len(scored) > limit {
+		scored = scored[:limit]
+	}
+
+	related := make([]PostRecord, 0, len(scored))
+	for _, item := range scored {
+		related = append(related, item.post)
+	}
+	return related
+}
+
+func postPublishedTime(post PostRecord) time.Time {
+	value := strings.TrimSpace(post.PublishedAt)
+	if value == "" {
+		value = strings.TrimSpace(post.Date)
+	}
+	if value == "" {
+		return time.Time{}
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return parsed
+	}
+	if parsed, err := time.Parse("2006-01-02", value); err == nil {
+		return parsed
+	}
+	return time.Time{}
 }
 
 func getMediaByID(id string) *MediaRecord {
