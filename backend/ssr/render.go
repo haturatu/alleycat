@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+const criticalBaseStyles = `<style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{line-height:1.6;text-rendering:optimizeLegibility}
+    img{max-width:100%;height:auto;display:block}
+    .navbar{display:flex;justify-content:space-between;align-items:center}
+    main{max-width:1100px;margin:0 auto;padding:24px 6vw 80px}
+    .postList{display:grid;gap:16px}
+    </style>`
+
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
 		return "/styles.css"
@@ -18,10 +28,36 @@ func themeStylesheet(themeOverride string) string {
 	return "/themes/" + url.PathEscape(strings.ToLower(theme)) + "/styles.css"
 }
 
+func asyncStylesheetTag(href string) string {
+	safeHref := escapeHTML(href)
+	return fmt.Sprintf("<link rel=\"preload\" href=\"%s\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\" />\n    <noscript><link rel=\"stylesheet\" href=\"%s\" /></noscript>", safeHref, safeHref)
+}
+
+func themeFontStylesheet(themeOverride string) string {
+	theme := strings.TrimSpace(themeOverride)
+	if theme == "" {
+		theme = defaultTheme
+	}
+	switch strings.ToLower(theme) {
+	case "wiki":
+		return "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
+	case "ember":
+		return "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@300;400;500;600;700&display=swap"
+	case "docs":
+		return "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap"
+	case "terminal":
+		return "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap"
+	default:
+		return ""
+	}
+}
+
 func renderHead(title string, settings SettingsRecord) string {
 	pageTitle := escapeHTML(title) + " - " + escapeHTML(settings.SiteName)
 	styles := themeStylesheet(settings.Theme)
-	commonContentStyles := `<style>
+	fontStylesheet := themeFontStylesheet(settings.Theme)
+	commonContentStyles := criticalBaseStyles + `
+    <style>
     .body code {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -33,6 +69,11 @@ func renderHead(title string, settings SettingsRecord) string {
       word-break: normal;
     }
     </style>`
+	themeStyles := asyncStylesheetTag(styles)
+	fontStyles := ""
+	if fontStylesheet != "" {
+		fontStyles = "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />\n    " + asyncStylesheetTag(fontStylesheet)
+	}
 	metaDesc := escapeHTML(settings.Description)
 	analytics := ""
 	if settings.EnableAnalytics && settings.AnalyticsURL != "" && settings.AnalyticsSiteID != "" {
@@ -48,7 +89,10 @@ func renderHead(title string, settings SettingsRecord) string {
 		if theme == "" {
 			theme = "github-dark"
 		}
-		codeHighlight = fmt.Sprintf("<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/%s.min.css\" />\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>", escapeHTML(theme))
+		highlightCSS := fmt.Sprintf("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/%s.min.css", escapeHTML(theme))
+		codeHighlight = "<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    " +
+			asyncStylesheetTag(highlightCSS) +
+			"\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>"
 	}
 
 	return fmt.Sprintf(`<!doctype html>
@@ -60,7 +104,8 @@ func renderHead(title string, settings SettingsRecord) string {
     <meta name="supported-color-schemes" content="light dark" />
     <meta name="theme-color" content="hsl(220, 20%%, 100%%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%%, 10%%)" media="(prefers-color-scheme: dark)" />
-    <link rel="stylesheet" href="%s" />
+    %s
+    %s
     %s
     <link rel="alternate" href="/feed.xml" type="application/atom+xml" title="%s" />
     <link rel="alternate" href="/feed.json" type="application/json" title="%s" />
@@ -70,7 +115,7 @@ func renderHead(title string, settings SettingsRecord) string {
     %s
     %s
   </head>
-  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, styles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight)
+  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight)
 }
 
 func renderNav(menu []PageRecord, settings SettingsRecord) string {

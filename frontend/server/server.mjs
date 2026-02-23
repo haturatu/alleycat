@@ -51,6 +51,16 @@ const mimeTypes = {
   ".json": "application/json",
 };
 
+const criticalBaseStyles = `<style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{line-height:1.6;text-rendering:optimizeLegibility}
+    img{max-width:100%;height:auto;display:block}
+    .navbar{display:flex;justify-content:space-between;align-items:center}
+    main{max-width:1100px;margin:0 auto;padding:24px 6vw 80px}
+    .postList{display:grid;gap:16px}
+    </style>`;
+
 const escapeHtml = (value = "") =>
   value
     .replace(/&/g, "&amp;")
@@ -221,6 +231,29 @@ const themeStylesheet = (themeOverride) => {
   return `/themes/${encodeURIComponent(theme)}/styles.css`;
 };
 
+const asyncStylesheetTag = (href) => {
+  const safeHref = escapeHtml(href);
+  return `<link rel="preload" href="${safeHref}" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="${safeHref}" /></noscript>`;
+};
+
+const themeFontStylesheet = (themeOverride = "") => {
+  const raw = themeOverride || process.env.THEME || "ember";
+  const theme = raw.trim().toLowerCase();
+  switch (theme) {
+    case "wiki":
+      return "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap";
+    case "ember":
+      return "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@300;400;500;600;700&display=swap";
+    case "docs":
+      return "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap";
+    case "terminal":
+      return "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap";
+    default:
+      return "";
+  }
+};
+
 const renderHead = (title = "Home", themeOverride = "") => `<!doctype html>
 <html lang="ja">
   <head>
@@ -230,7 +263,15 @@ const renderHead = (title = "Home", themeOverride = "") => `<!doctype html>
     <meta name="supported-color-schemes" content="light dark" />
     <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)" />
-    <link rel="stylesheet" href="${themeStylesheet(themeOverride)}" />
+    ${asyncStylesheetTag(themeStylesheet(themeOverride))}
+    ${
+      themeFontStylesheet(themeOverride)
+        ? `<link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    ${asyncStylesheetTag(themeFontStylesheet(themeOverride))}`
+        : ""
+    }
+    ${criticalBaseStyles}
     <link rel="alternate" href="/feed.xml" type="application/atom+xml" title="${escapeHtml(DEFAULT_SITE_NAME)}" />
     <link rel="alternate" href="/feed.json" type="application/json" title="${escapeHtml(DEFAULT_SITE_NAME)}" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
