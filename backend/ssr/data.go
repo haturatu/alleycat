@@ -11,6 +11,7 @@ import (
 )
 
 const taxonomyCacheTTL = 60 * time.Second
+const mediaPathCacheTTL = 60 * time.Second
 
 type taxonomyCacheEntry struct {
 	expiresAt  time.Time
@@ -18,10 +19,25 @@ type taxonomyCacheEntry struct {
 	categories []string
 }
 
+type mediaPathCacheEntry struct {
+	expiresAt time.Time
+	found     bool
+	media     MediaRecord
+}
+
 var taxonomyCache = struct {
 	mu    sync.RWMutex
 	entry taxonomyCacheEntry
 }{}
+
+var mediaPathCache = struct {
+	mu    sync.RWMutex
+	items map[string]mediaPathCacheEntry
+}{
+	items: map[string]mediaPathCacheEntry{},
+}
+
+var filterEscapeReplacer = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 
 func getPosts(params map[string]string) (PBList[PostRecord], error) {
 	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
@@ -361,15 +377,41 @@ func getMediaByIDs(ids []string) map[string]MediaRecord {
 }
 
 func getMediaByPath(path string) *MediaRecord {
+	now := time.Now()
+	mediaPathCache.mu.RLock()
+	cached, ok := mediaPathCache.items[path]
+	mediaPathCache.mu.RUnlock()
+	if ok && now.Before(cached.expiresAt) {
+		if !cached.found {
+			return nil
+		}
+		item := cached.media
+		return &item
+	}
+
 	data, err := fetchList[MediaRecord](fmt.Sprintf("%s/api/collections/media/records", pbURL), map[string]string{
 		"page":    "1",
 		"perPage": "1",
 		"filter":  fmt.Sprintf("path = \"%s\"", escapeFilter(path)),
 	})
 	if err != nil || len(data.Items) == 0 {
+		mediaPathCache.mu.Lock()
+		mediaPathCache.items[path] = mediaPathCacheEntry{
+			expiresAt: now.Add(mediaPathCacheTTL),
+			found:     false,
+		}
+		mediaPathCache.mu.Unlock()
 		return nil
 	}
-	return &data.Items[0]
+	item := data.Items[0]
+	mediaPathCache.mu.Lock()
+	mediaPathCache.items[path] = mediaPathCacheEntry{
+		expiresAt: now.Add(mediaPathCacheTTL),
+		found:     true,
+		media:     item,
+	}
+	mediaPathCache.mu.Unlock()
+	return &item
 }
 
 func collectTags() []string {
@@ -467,8 +509,7 @@ func translationToPost(item PostTranslationRecord) PostRecord {
 }
 
 func escapeFilter(value string) string {
-	replacer := strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
-	return replacer.Replace(value)
+	return filterEscapeReplacer.Replace(value)
 }
 
 func decodePathSegment(value string) string {
