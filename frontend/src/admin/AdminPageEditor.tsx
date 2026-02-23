@@ -6,10 +6,14 @@ import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
 import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
+import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
 import TitleSlugFields from "./components/TitleSlugFields";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
+import usePublishState from "./hooks/usePublishState";
+import useTitleSlugState from "./hooks/useTitleSlugState";
+import { validateBody, validateSlug, validateTitle, validateURL } from "./validation";
 
 type FieldErrors = {
   title?: string;
@@ -48,22 +52,21 @@ export default function AdminPageEditor() {
     });
   };
 
-  const validateTitle = (value: string) => (value.trim() ? undefined : "Title is required.");
-  const validateSlug = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "Slug is required.";
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed)) {
-      return "Use lowercase letters, numbers, and hyphens.";
-    }
-    return undefined;
-  };
-  const validateURL = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    if (!trimmed.startsWith("/")) return "URL must start with '/'.";
-    return undefined;
-  };
-  const validateBody = (value: string) => (value.trim() ? undefined : "Content is required.");
+  const { onTitleChange, onSlugChange, onAutoSlug } = useTitleSlugState({
+    title,
+    slugEditedManually,
+    setTitle,
+    setSlug,
+    setSlugEditedManually,
+    markDirty,
+    setFieldError,
+  });
+
+  const { onPublishedAtChange, onPublishedChange } = usePublishState({
+    setPublishedAt,
+    setPublished,
+    markDirty,
+  });
 
   useEffect(() => {
     if (!id || id === "new") {
@@ -179,8 +182,7 @@ export default function AdminPageEditor() {
         <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
         <SaveButton onClick={save} saving={saving} />
       </header>
-      {error && <p className="admin-error">{error}</p>}
-      {saveMessage && <p className="admin-success">{saveMessage}</p>}
+      <FormStatusMessage error={error} success={saveMessage} />
       <div className="admin-form">
         <TitleSlugFields
           title={title}
@@ -189,29 +191,9 @@ export default function AdminPageEditor() {
           titleError={fieldErrors.title}
           slugError={fieldErrors.slug}
           autoDisabled={saving}
-          onTitleChange={(next) => {
-            setTitle(next);
-            markDirty();
-            setFieldError("title", validateTitle(next));
-            if (!slugEditedManually) {
-              const nextSlug = slugify(next);
-              setSlug(nextSlug);
-              setFieldError("slug", validateSlug(nextSlug));
-            }
-          }}
-          onSlugChange={(next) => {
-            setSlug(next);
-            setSlugEditedManually(true);
-            markDirty();
-            setFieldError("slug", validateSlug(next));
-          }}
-          onAutoSlug={() => {
-            const auto = slugify(title);
-            setSlug(auto);
-            setSlugEditedManually(false);
-            markDirty();
-            setFieldError("slug", validateSlug(auto));
-          }}
+          onTitleChange={onTitleChange}
+          onSlugChange={onSlugChange}
+          onAutoSlug={onAutoSlug}
         />
         <label>
           URL
@@ -242,14 +224,8 @@ export default function AdminPageEditor() {
         <PublishFields
           publishedAt={publishedAt}
           published={published}
-          onPublishedAtChange={(value) => {
-            setPublishedAt(value);
-            markDirty();
-          }}
-          onPublishedChange={(checked) => {
-            setPublished(checked);
-            markDirty();
-          }}
+          onPublishedAtChange={onPublishedAtChange}
+          onPublishedChange={onPublishedChange}
         />
         <label>
           Menu order

@@ -1,6 +1,5 @@
 import { useRef, type ClipboardEvent } from "react";
-import { looksLikeHtml, renderMarkdownToHtml } from "../../utils/markdown";
-import { stripHtml } from "../../utils/text";
+import { renderHtmlToMarkdown, renderMarkdownToHtml } from "../../utils/markdown";
 import { uploadImageAndGetURL } from "../mediaUpload";
 import RichEditor from "../RichEditor";
 
@@ -34,8 +33,8 @@ export default function ContentEditorField({
     if (editorMode === "markdown" && next === "rich") {
       onBodyChange(renderMarkdownToHtml(markdownBody));
     }
-    if (next === "markdown" && markdownBody.trim() === "") {
-      onMarkdownBodyChange(looksLikeHtml(body) ? stripHtml(body) : body);
+    if (editorMode === "rich" && next === "markdown") {
+      onMarkdownBodyChange(renderHtmlToMarkdown(body));
     }
     onEditorModeChange(next);
     onMarkdownViewModeChange("write");
@@ -80,7 +79,7 @@ export default function ContentEditorField({
             onChange={(e) => handleEditorModeChange(e.target.value as EditorMode)}
           >
             <option value="rich">Rich editor (HTML)</option>
-            <option value="markdown">Markdown (RFC 7763)</option>
+            <option value="markdown">Markdown</option>
           </select>
         </label>
       </div>

@@ -2,14 +2,18 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
-import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify } from "../utils/text";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "../utils/text";
 import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
+import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
 import TitleSlugFields from "./components/TitleSlugFields";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
+import usePublishState from "./hooks/usePublishState";
+import useTitleSlugState from "./hooks/useTitleSlugState";
+import { validateBody, validateSlug, validateTitle } from "./validation";
 
 type EditorPostRecord = {
   id: string;
@@ -133,21 +137,27 @@ export default function AdminPostEditor() {
     });
   };
 
-  const validateTitle = (value: string) => (value.trim() ? undefined : "Title is required.");
-  const validateSlug = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "Slug is required.";
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed)) {
-      return "Use lowercase letters, numbers, and hyphens.";
-    }
-    return undefined;
-  };
-  const validateBody = (value: string) => (value.trim() ? undefined : "Content is required.");
   const validateTags = (value: string) => {
     const duplicates = findDuplicateTags(parseTags(value));
     if (duplicates.length > 0) return `Duplicate tags: ${duplicates.join(", ")}`;
     return undefined;
   };
+
+  const { onTitleChange, onSlugChange, onAutoSlug } = useTitleSlugState({
+    title,
+    slugEditedManually,
+    setTitle,
+    setSlug,
+    setSlugEditedManually,
+    markDirty,
+    setFieldError,
+  });
+
+  const { onPublishedAtChange, onPublishedChange } = usePublishState({
+    setPublishedAt,
+    setPublished,
+    markDirty,
+  });
 
   const applyRecordToForm = (record: EditorPostRecord) => {
     const loadedBody = record.body || "";
@@ -528,8 +538,7 @@ export default function AdminPostEditor() {
         <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
         <SaveButton onClick={save} saving={saving} />
       </header>
-      {error && <p className="admin-error">{error}</p>}
-      {saveMessage && <p className="admin-success">{saveMessage}</p>}
+      <FormStatusMessage error={error} success={saveMessage} />
       <div className="admin-form">
         {id !== "new" && localeOptions.length > 0 && (
           <div className="admin-field">
@@ -558,41 +567,15 @@ export default function AdminPostEditor() {
           slugEditedManually={slugEditedManually}
           titleError={fieldErrors.title}
           slugError={fieldErrors.slug}
-          onTitleChange={(next) => {
-            setTitle(next);
-            markDirty();
-            setFieldError("title", validateTitle(next));
-            if (!slugEditedManually) {
-              const nextSlug = slugify(next);
-              setSlug(nextSlug);
-              setFieldError("slug", validateSlug(nextSlug));
-            }
-          }}
-          onSlugChange={(next) => {
-            setSlug(next);
-            setSlugEditedManually(true);
-            markDirty();
-            setFieldError("slug", validateSlug(next));
-          }}
-          onAutoSlug={() => {
-            const auto = slugify(title);
-            setSlug(auto);
-            setSlugEditedManually(false);
-            markDirty();
-            setFieldError("slug", validateSlug(auto));
-          }}
+          onTitleChange={onTitleChange}
+          onSlugChange={onSlugChange}
+          onAutoSlug={onAutoSlug}
         />
         <PublishFields
           publishedAt={publishedAt}
           published={published}
-          onPublishedAtChange={(value) => {
-            setPublishedAt(value);
-            markDirty();
-          }}
-          onPublishedChange={(checked) => {
-            setPublished(checked);
-            markDirty();
-          }}
+          onPublishedAtChange={onPublishedAtChange}
+          onPublishedChange={onPublishedChange}
         />
         <label>
           Category
