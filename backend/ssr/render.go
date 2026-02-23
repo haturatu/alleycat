@@ -19,6 +19,8 @@ const criticalBaseStyles = `<style>
     </style>`
 
 var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\s*=\s*['"]([^'"]+)['"][^>]*>\s*</script>\s*$`)
+var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(['"])([^'"]+)\1`)
+var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
@@ -92,6 +94,26 @@ func renderHead(title string, settings SettingsRecord) string {
     .post-comments {
       margin-top: 1.5rem;
       padding-top: 0.5rem;
+    }
+    .post-toc {
+      margin: 1rem 0 1.2rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(127, 127, 127, 0.24);
+      border-radius: 10px;
+    }
+    .post-toc h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+    .post-toc ul {
+      margin: 0;
+      padding-left: 1.15rem;
+      display: grid;
+      gap: 0.3rem;
+    }
+    .post-toc li[data-level="3"] {
+      margin-left: 0.75rem;
+      opacity: 0.9;
     }
     </style>`
 	fontStyles := ""
@@ -482,6 +504,7 @@ func renderPost(path string, settings SettingsRecord) string {
 		body = post.Content
 	}
 	body = rewriteMediaURLs(body)
+	body, tocHTML := buildTOC(body, settings.ShowToc)
 	date := post.PublishedAt
 	if date == "" {
 		date = post.Date
@@ -534,6 +557,7 @@ func renderPost(path string, settings SettingsRecord) string {
             %s
           </div>
         </header>
+        %s
         <div class="post-body body">%s</div>
       </article>
       %s
@@ -544,8 +568,102 @@ func renderPost(path string, settings SettingsRecord) string {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, commentsHTML, relatedHTML, navHTML) +
+		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, tocHTML, body, commentsHTML, relatedHTML, navHTML) +
 		renderFooter(settings)
+}
+
+func buildTOC(body string, enabled bool) (string, string) {
+	if !enabled || strings.TrimSpace(body) == "" {
+		return body, ""
+	}
+
+	type tocItem struct {
+		level int
+		id    string
+		text  string
+	}
+
+	seen := map[string]int{}
+	items := []tocItem{}
+	updated := headingRe.ReplaceAllStringFunc(body, func(match string) string {
+		parts := headingRe.FindStringSubmatch(match)
+		if len(parts) < 4 {
+			return match
+		}
+
+		levelRaw := parts[1]
+		level := 2
+		if levelRaw == "3" {
+			level = 3
+		}
+		attrs := parts[2]
+		content := parts[3]
+		title := strings.TrimSpace(stripHTML(content))
+		if title == "" {
+			return match
+		}
+
+		anchorID := headingIDFromAttrs(attrs)
+		if anchorID == "" {
+			baseID := slugifyHeading(title)
+			anchorID = uniqueHeadingID(baseID, seen)
+			attrs = attrs + ` id="` + anchorID + `"`
+		} else {
+			seen[anchorID]++
+		}
+
+		items = append(items, tocItem{
+			level: level,
+			id:    anchorID,
+			text:  title,
+		})
+
+		return fmt.Sprintf("<h%s%s>%s</h%s>", levelRaw, attrs, content, levelRaw)
+	})
+
+	if len(items) == 0 {
+		return updated, ""
+	}
+
+	list := strings.Builder{}
+	for _, item := range items {
+		list.WriteString(fmt.Sprintf(`<li data-level="%d"><a href="#%s">%s</a></li>`, item.level, escapeHTML(item.id), escapeHTML(item.text)))
+	}
+
+	toc := fmt.Sprintf(`<nav class="post-toc" aria-label="Table of contents">
+      <h2>目次</h2>
+      <ul>
+        %s
+      </ul>
+    </nav>`, list.String())
+	return updated, toc
+}
+
+func headingIDFromAttrs(attrs string) string {
+	parts := headingIDAttrPattern.FindStringSubmatch(attrs)
+	if len(parts) < 3 {
+		return ""
+	}
+	return strings.TrimSpace(parts[2])
+}
+
+func slugifyHeading(text string) string {
+	base := strings.ToLower(strings.TrimSpace(text))
+	base = nonAlnumPattern.ReplaceAllString(base, "-")
+	base = strings.Trim(base, "-")
+	if base == "" {
+		return "section"
+	}
+	return base
+}
+
+func uniqueHeadingID(base string, seen map[string]int) string {
+	count := seen[base]
+	seen[base] = count + 1
+	if count == 0 {
+		return base
+	}
+	return fmt.Sprintf("%s-%d", base, count+1)
 }
 
 func renderCommentsSection(settings SettingsRecord) string {
