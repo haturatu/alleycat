@@ -5,8 +5,23 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
+
+const feedCacheTTL = 60 * time.Second
+
+type feedCacheEntry struct {
+	expiresAt time.Time
+	items     []feedItem
+}
+
+var feedItemsCache = struct {
+	mu    sync.RWMutex
+	items map[string]feedCacheEntry
+}{
+	items: map[string]feedCacheEntry{},
+}
 
 func writeJSONFeed(w http.ResponseWriter, r *http.Request, settings SettingsRecord) {
 	items := fetchFeedItems(settings)
@@ -76,6 +91,20 @@ type feedItem struct {
 }
 
 func fetchFeedItems(settings SettingsRecord) []feedItem {
+	key := fmt.Sprintf(
+		"limit=%d|excerpt=%d|site=%s",
+		settings.FeedItemsLimit,
+		settings.ExcerptLength,
+		normalizeURL(settings.SiteURL),
+	)
+	now := time.Now()
+	feedItemsCache.mu.RLock()
+	cached, ok := feedItemsCache.items[key]
+	feedItemsCache.mu.RUnlock()
+	if ok && now.Before(cached.expiresAt) {
+		return append([]feedItem(nil), cached.items...)
+	}
+
 	limit := settings.FeedItemsLimit
 	if limit <= 0 {
 		limit = 20
@@ -126,5 +155,12 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 			Summary: excerpt,
 		})
 	}
+
+	feedItemsCache.mu.Lock()
+	feedItemsCache.items[key] = feedCacheEntry{
+		expiresAt: now.Add(feedCacheTTL),
+		items:     append([]feedItem(nil), items...),
+	}
+	feedItemsCache.mu.Unlock()
 	return items
 }

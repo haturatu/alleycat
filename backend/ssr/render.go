@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const criticalBaseStyles = `<style>
@@ -469,15 +470,12 @@ func renderArchive(path string, settings SettingsRecord) string {
 		renderFooter(settings)
 }
 
-func renderPost(path string, settings SettingsRecord) string {
+func renderPost(path string, settings SettingsRecord) (string, bool) {
 	locale, slug, ok := resolvePostPath(path)
 	if !ok {
-		return renderNotFound(settings)
+		return renderNotFound(settings), false
 	}
-	post := getPostBySlugInLocale(slug, locale)
-	if post == nil {
-		return renderNotFound(settings)
-	}
+
 	sourceLocale := normalizeLocale(settings.TranslationSourceLocale)
 	if sourceLocale == "" {
 		sourceLocale = normalizeLocale(settings.SiteLanguage)
@@ -486,19 +484,71 @@ func renderPost(path string, settings SettingsRecord) string {
 		sourceLocale = "ja"
 	}
 	currentLocale := sourceLocale
-	sourcePost := post
+	var post *PostRecord
+	var sourcePost *PostRecord
 	translations := []PostTranslationRecord{}
+
 	if locale != "" {
 		currentLocale = normalizeLocale(locale)
 		translation := getPostTranslationBySlugLocale(slug, locale)
-		if translation != nil {
-			sourcePost = getPostByID(translation.SourcePost)
-			translations = getPostTranslationsBySource(translation.SourcePost)
+		if translation == nil {
+			return renderNotFound(settings), false
+		}
+		translatedPost := translationToPost(*translation)
+		post = &translatedPost
+		sourceID := translation.SourcePost
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			sourcePost = getPostByID(sourceID)
+		}()
+		go func() {
+			defer wg.Done()
+			translations = getPostTranslationsBySource(sourceID)
+		}()
+		wg.Wait()
+		if sourcePost == nil {
+			sourcePost = post
 		}
 	} else {
-		translations = getPostTranslationsBySource(post.ID)
+		post = getPostBySlugInLocale(slug, "")
+		if post == nil {
+			return renderNotFound(settings), false
+		}
+		sourcePost = post
 	}
-	menu := getPagesMenu()
+
+	var menu []PageRecord
+	var newer *PostRecord
+	var older *PostRecord
+	related := []PostRecord{}
+	var wg sync.WaitGroup
+	if locale == "" {
+		wg.Add(1)
+		go func(sourceID string) {
+			defer wg.Done()
+			translations = getPostTranslationsBySource(sourceID)
+		}(post.ID)
+	}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		menu = getPagesMenu()
+	}()
+	go func() {
+		defer wg.Done()
+		newer, older = getAdjacentPostsInLocale(post, locale)
+	}()
+	if settings.ShowRelatedPosts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			related = getRelatedPostsInLocale(post, locale, 4)
+		}()
+	}
+	wg.Wait()
+
 	body := post.Body
 	if body == "" {
 		body = post.Content
@@ -515,7 +565,6 @@ func renderPost(path string, settings SettingsRecord) string {
 	}
 	postTags := renderPostTags(parseTags(post.Tags), settings.ShowTags)
 	languageHTML := renderLanguageLinks(sourceLocale, currentLocale, sourcePost, translations)
-	newer, older := getAdjacentPostsInLocale(post, locale)
 	postPathPrefix := "/posts/"
 	if locale != "" {
 		postPathPrefix = "/" + locale + "/posts/"
@@ -539,7 +588,7 @@ func renderPost(path string, settings SettingsRecord) string {
 	}
 	relatedHTML := ""
 	if settings.ShowRelatedPosts {
-		relatedHTML = renderRelatedPosts(getRelatedPostsInLocale(post, locale, 4), postPathPrefix)
+		relatedHTML = renderRelatedPosts(related, postPathPrefix)
 	}
 	commentsHTML := renderCommentsSection(settings)
 
@@ -569,7 +618,7 @@ func renderPost(path string, settings SettingsRecord) string {
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
 		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, tocHTML, body, commentsHTML, relatedHTML, navHTML) +
-		renderFooter(settings)
+		renderFooter(settings), true
 }
 
 func buildTOC(body string, enabled bool) (string, string) {
@@ -775,10 +824,10 @@ func renderLanguageLinks(sourceLocale, currentLocale string, sourcePost *PostRec
 	return fmt.Sprintf(`<div class="post-languages">language: %s</div>`, strings.Join(parts, " "))
 }
 
-func renderPage(path string, settings SettingsRecord) string {
+func renderPage(path string, settings SettingsRecord) (string, bool) {
 	page := getPageByURL(path)
 	if page == nil {
-		return renderNotFound(settings)
+		return renderNotFound(settings), false
 	}
 	menu := getPagesMenu()
 	body := page.Body
@@ -797,7 +846,7 @@ func renderPage(path string, settings SettingsRecord) string {
         <div class="post-body body">%s</div>
       </article>
     </main>`, escapeHTML(page.Title), body) +
-		renderFooter(settings)
+		renderFooter(settings), true
 }
 
 func renderNotFound(settings SettingsRecord) string {

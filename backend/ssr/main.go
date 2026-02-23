@@ -102,29 +102,30 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/posts/") {
-		locale, slug, ok := resolvePostPath(path)
-		if !ok || getPostBySlugInLocale(slug, locale) == nil {
-			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+		html, found := renderPost(path, settings)
+		if !found {
+			writeHTMLStatus(w, html, http.StatusNotFound)
 			return
 		}
-		writeHTML(w, renderPost(path, settings))
+		writeHTML(w, html)
 		return
 	}
 	if isLocalizedPostPath(path) {
-		locale, slug, ok := resolvePostPath(path)
-		if !ok || getPostBySlugInLocale(slug, locale) == nil {
-			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+		html, found := renderPost(path, settings)
+		if !found {
+			writeHTMLStatus(w, html, http.StatusNotFound)
 			return
 		}
-		writeHTML(w, renderPost(path, settings))
+		writeHTML(w, html)
 		return
 	}
 
-	if getPageByURL(path) == nil {
-		writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+	html, found := renderPage(path, settings)
+	if !found {
+		writeHTMLStatus(w, html, http.StatusNotFound)
 		return
 	}
-	writeHTML(w, renderPage(path, settings))
+	writeHTML(w, html)
 }
 
 func isLocalizedPostPath(path string) bool {

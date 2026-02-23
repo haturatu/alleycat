@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 var (
@@ -18,16 +20,43 @@ var (
 	defaultTheme           = getEnv("THEME", "ember")
 )
 
+const settingsCacheTTL = 30 * time.Second
+
+type settingsCacheEntry struct {
+	expiresAt time.Time
+	value     SettingsRecord
+}
+
+var settingsCache = struct {
+	mu    sync.RWMutex
+	entry settingsCacheEntry
+}{}
+
 func getSettings() SettingsRecord {
+	now := time.Now()
+	settingsCache.mu.RLock()
+	cached := settingsCache.entry
+	settingsCache.mu.RUnlock()
+	if now.Before(cached.expiresAt) {
+		return cached.value
+	}
+
+	item := defaultSettings()
 	settings, err := fetchList[SettingsRecord](fmt.Sprintf("%s/api/collections/settings/records", pbURL), map[string]string{
 		"page":    "1",
 		"perPage": "1",
 	})
-	if err != nil || len(settings.Items) == 0 {
-		return defaultSettings()
+	if err == nil && len(settings.Items) > 0 {
+		item = settings.Items[0]
+		item.ApplyDefaults()
 	}
-	item := settings.Items[0]
-	item.ApplyDefaults()
+
+	settingsCache.mu.Lock()
+	settingsCache.entry = settingsCacheEntry{
+		expiresAt: now.Add(settingsCacheTTL),
+		value:     item,
+	}
+	settingsCache.mu.Unlock()
 	return item
 }
 

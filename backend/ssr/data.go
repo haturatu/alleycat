@@ -6,8 +6,22 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+const taxonomyCacheTTL = 60 * time.Second
+
+type taxonomyCacheEntry struct {
+	expiresAt  time.Time
+	tags       []string
+	categories []string
+}
+
+var taxonomyCache = struct {
+	mu    sync.RWMutex
+	entry taxonomyCacheEntry
+}{}
 
 func getPosts(params map[string]string) (PBList[PostRecord], error) {
 	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
@@ -295,6 +309,57 @@ func getMediaByID(id string) *MediaRecord {
 	return &media
 }
 
+func getMediaByIDs(ids []string) map[string]MediaRecord {
+	result := make(map[string]MediaRecord, len(ids))
+	if len(ids) == 0 {
+		return result
+	}
+
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		unique = append(unique, trimmed)
+	}
+	if len(unique) == 0 {
+		return result
+	}
+
+	const chunkSize = 40
+	for start := 0; start < len(unique); start += chunkSize {
+		end := start + chunkSize
+		if end > len(unique) {
+			end = len(unique)
+		}
+		chunk := unique[start:end]
+		parts := make([]string, 0, len(chunk))
+		for _, id := range chunk {
+			parts = append(parts, fmt.Sprintf("id = \"%s\"", escapeFilter(id)))
+		}
+		filter := strings.Join(parts, " || ")
+		data, err := fetchList[MediaRecord](fmt.Sprintf("%s/api/collections/media/records", pbURL), map[string]string{
+			"page":    "1",
+			"perPage": strconv.Itoa(len(chunk)),
+			"filter":  filter,
+		})
+		if err != nil {
+			continue
+		}
+		for _, item := range data.Items {
+			result[item.ID] = item
+		}
+	}
+
+	return result
+}
+
 func getMediaByPath(path string) *MediaRecord {
 	data, err := fetchList[MediaRecord](fmt.Sprintf("%s/api/collections/media/records", pbURL), map[string]string{
 		"page":    "1",
@@ -308,15 +373,26 @@ func getMediaByPath(path string) *MediaRecord {
 }
 
 func collectTags() []string {
-	return collectUnique("tags")
+	tags, _ := collectTaxonomies()
+	return tags
 }
 
 func collectCategories() []string {
-	return collectUnique("category")
+	_, categories := collectTaxonomies()
+	return categories
 }
 
-func collectUnique(field string) []string {
-	values := map[string]struct{}{}
+func collectTaxonomies() ([]string, []string) {
+	now := time.Now()
+	taxonomyCache.mu.RLock()
+	cached := taxonomyCache.entry
+	taxonomyCache.mu.RUnlock()
+	if now.Before(cached.expiresAt) {
+		return append([]string(nil), cached.tags...), append([]string(nil), cached.categories...)
+	}
+
+	tagValues := map[string]struct{}{}
+	categoryValues := map[string]struct{}{}
 	page := 1
 	perPage := 200
 	for {
@@ -338,18 +414,12 @@ func collectUnique(field string) []string {
 			}
 		}
 		for _, post := range data.Items {
-			var value string
-			switch field {
-			case "tags":
-				for _, tag := range parseTags(post.Tags) {
-					values[tag] = struct{}{}
-				}
-				continue
-			case "category":
-				value = strings.TrimSpace(post.Category)
+			for _, tag := range parseTags(post.Tags) {
+				tagValues[tag] = struct{}{}
 			}
-			if value != "" {
-				values[value] = struct{}{}
+			category := strings.TrimSpace(post.Category)
+			if category != "" {
+				categoryValues[category] = struct{}{}
 			}
 		}
 		if len(data.Items) < perPage {
@@ -357,12 +427,28 @@ func collectUnique(field string) []string {
 		}
 		page++
 	}
-	result := make([]string, 0, len(values))
-	for value := range values {
-		result = append(result, value)
+
+	tags := make([]string, 0, len(tagValues))
+	for value := range tagValues {
+		tags = append(tags, value)
 	}
-	sort.Strings(result)
-	return result
+	sort.Strings(tags)
+
+	categories := make([]string, 0, len(categoryValues))
+	for value := range categoryValues {
+		categories = append(categories, value)
+	}
+	sort.Strings(categories)
+
+	taxonomyCache.mu.Lock()
+	taxonomyCache.entry = taxonomyCacheEntry{
+		expiresAt:  now.Add(taxonomyCacheTTL),
+		tags:       append([]string(nil), tags...),
+		categories: append([]string(nil), categories...),
+	}
+	taxonomyCache.mu.Unlock()
+
+	return tags, categories
 }
 
 func translationToPost(item PostTranslationRecord) PostRecord {

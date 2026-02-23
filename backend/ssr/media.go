@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,7 +13,8 @@ func rewriteMediaURLs(body string) string {
 	if len(matches) == 0 {
 		return body
 	}
-	cache := map[string]string{}
+	ids := make([]string, 0, len(matches))
+	seenIDs := map[string]struct{}{}
 	for _, match := range matches {
 		if len(match) < 4 {
 			continue
@@ -22,19 +24,26 @@ func rewriteMediaURLs(body string) string {
 		if collection != "media" && collection != "pbc_2708086759" {
 			continue
 		}
-		if _, ok := cache[id]; ok {
+		if _, ok := seenIDs[id]; ok {
 			continue
 		}
-		media := getMediaByID(id)
-		if media == nil {
-			continue
-		}
+		seenIDs[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	mediaByID := getMediaByIDs(ids)
+	cache := map[string]string{}
+	for id, media := range mediaByID {
 		path := strings.TrimSpace(media.Path)
 		if path == "" {
 			path = strings.TrimSpace(media.Caption)
 		}
+		if path == "" {
+			continue
+		}
 		cache[id] = path
 	}
+
 	return mediaFileRe.ReplaceAllStringFunc(body, func(match string) string {
 		sub := mediaFileRe.FindStringSubmatch(match)
 		if len(sub) < 4 {
@@ -62,10 +71,11 @@ func serveMediaUpload(w http.ResponseWriter, r *http.Request, clean string) bool
 		return false
 	}
 	fileURL := fmt.Sprintf("%s/api/files/media/%s/%s", pbURL, media.ID, url.PathEscape(media.File))
-	resp, body, err := proxyFile(fileURL)
+	resp, err := httpClient.Get(fileURL)
 	if err != nil {
 		return false
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false
 	}
@@ -78,6 +88,6 @@ func serveMediaUpload(w http.ResponseWriter, r *http.Request, clean string) bool
 		w.Header().Set("Cache-Control", cache)
 	}
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(body)
-	return true
+	_, err = io.Copy(w, resp.Body)
+	return err == nil
 }

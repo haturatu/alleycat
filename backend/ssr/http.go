@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -49,19 +48,4 @@ func fetchList[T any](base string, params map[string]string) (PBList[T], error) 
 
 func fetchRecord[T any](target string) (T, error) {
 	return fetchJSON[T](target)
-}
-
-func proxyFile(url string) (*http.Response, []byte, error) {
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return resp, nil, err
-	}
-	copyResp := *resp
-	copyResp.Body = io.NopCloser(bytes.NewReader(body))
-	return &copyResp, body, nil
 }

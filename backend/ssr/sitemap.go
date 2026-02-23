@@ -7,10 +7,24 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 var localizedSitemapPattern = regexp.MustCompile(`^/sitemap-([a-z]{2,3}(?:-[a-z0-9]{2,8})*)\.xml$`)
+const sitemapCacheTTL = 60 * time.Second
+
+type sitemapCacheEntry struct {
+	expiresAt time.Time
+	body      []byte
+}
+
+var sitemapCache = struct {
+	mu    sync.RWMutex
+	items map[string]sitemapCacheEntry
+}{
+	items: map[string]sitemapCacheEntry{},
+}
 
 type sitemapURLSet struct {
 	XMLName xml.Name     `xml:"urlset"`
@@ -30,53 +44,60 @@ func writeSitemap(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 		return
 	}
 
-	urls := make([]sitemapURL, 0, 256)
-	urls = append(urls,
-		sitemapURL{Loc: baseURL + "/"},
-		sitemapURL{Loc: baseURL + "/archive/"},
-	)
+	key := fmt.Sprintf("main|%s|%t|%t", baseURL, settings.EnableFeedXML, settings.EnableFeedJSON)
+	body, err := cachedSitemapBody(key, func() ([]byte, error) {
+		urls := make([]sitemapURL, 0, 256)
+		urls = append(urls,
+			sitemapURL{Loc: baseURL + "/"},
+			sitemapURL{Loc: baseURL + "/archive/"},
+		)
 
-	if settings.EnableFeedXML {
-		urls = append(urls, sitemapURL{Loc: baseURL + "/feed.xml"})
-	}
-	if settings.EnableFeedJSON {
-		urls = append(urls, sitemapURL{Loc: baseURL + "/feed.json"})
-	}
+		if settings.EnableFeedXML {
+			urls = append(urls, sitemapURL{Loc: baseURL + "/feed.xml"})
+		}
+		if settings.EnableFeedJSON {
+			urls = append(urls, sitemapURL{Loc: baseURL + "/feed.json"})
+		}
 
-	for _, page := range listPublishedPages() {
-		pageURL := strings.TrimSpace(page.URL)
-		if pageURL == "" {
-			continue
+		for _, page := range listPublishedPages() {
+			pageURL := strings.TrimSpace(page.URL)
+			if pageURL == "" {
+				continue
+			}
+			if !strings.HasPrefix(pageURL, "/") {
+				pageURL = "/" + pageURL
+			}
+			date := strings.TrimSpace(page.PublishedAt)
+			if date == "" {
+				date = strings.TrimSpace(page.Date)
+			}
+			urls = append(urls, sitemapURL{
+				Loc:     baseURL + pageURL,
+				LastMod: sitemapDate(date),
+			})
 		}
-		if !strings.HasPrefix(pageURL, "/") {
-			pageURL = "/" + pageURL
-		}
-		date := strings.TrimSpace(page.PublishedAt)
-		if date == "" {
-			date = strings.TrimSpace(page.Date)
-		}
-		urls = append(urls, sitemapURL{
-			Loc:     baseURL + pageURL,
-			LastMod: sitemapDate(date),
-		})
-	}
 
-	for _, post := range listPublishedPosts() {
-		slug := strings.TrimSpace(post.Slug)
-		if slug == "" {
-			continue
+		for _, post := range listPublishedPosts() {
+			slug := strings.TrimSpace(post.Slug)
+			if slug == "" {
+				continue
+			}
+			date := strings.TrimSpace(post.PublishedAt)
+			if date == "" {
+				date = strings.TrimSpace(post.Date)
+			}
+			urls = append(urls, sitemapURL{
+				Loc:     fmt.Sprintf("%s/posts/%s/", baseURL, slug),
+				LastMod: sitemapDate(date),
+			})
 		}
-		date := strings.TrimSpace(post.PublishedAt)
-		if date == "" {
-			date = strings.TrimSpace(post.Date)
-		}
-		urls = append(urls, sitemapURL{
-			Loc:     fmt.Sprintf("%s/posts/%s/", baseURL, slug),
-			LastMod: sitemapDate(date),
-		})
+		return buildSitemapXML(urls)
+	})
+	if err != nil {
+		http.Error(w, "failed to generate sitemap", http.StatusInternalServerError)
+		return
 	}
-
-	writeSitemapXML(w, urls)
+	writeSitemapBody(w, body)
 }
 
 func writeLocalizedSitemap(w http.ResponseWriter, r *http.Request, settings SettingsRecord, locale string) {
@@ -91,20 +112,28 @@ func writeLocalizedSitemap(w http.ResponseWriter, r *http.Request, settings Sett
 		return
 	}
 
-	translations := listPublishedTranslationsByLocale(locale)
-	urls := make([]sitemapURL, 0, len(translations))
-	for _, item := range translations {
-		slug := strings.TrimSpace(item.Slug)
-		if slug == "" {
-			continue
+	key := fmt.Sprintf("locale|%s|%s", baseURL, locale)
+	body, err := cachedSitemapBody(key, func() ([]byte, error) {
+		translations := listPublishedTranslationsByLocale(locale)
+		urls := make([]sitemapURL, 0, len(translations))
+		for _, item := range translations {
+			slug := strings.TrimSpace(item.Slug)
+			if slug == "" {
+				continue
+			}
+			date := strings.TrimSpace(item.PublishedAt)
+			urls = append(urls, sitemapURL{
+				Loc:     fmt.Sprintf("%s/%s/posts/%s/", baseURL, locale, slug),
+				LastMod: sitemapDate(date),
+			})
 		}
-		date := strings.TrimSpace(item.PublishedAt)
-		urls = append(urls, sitemapURL{
-			Loc:     fmt.Sprintf("%s/%s/posts/%s/", baseURL, locale, slug),
-			LastMod: sitemapDate(date),
-		})
+		return buildSitemapXML(urls)
+	})
+	if err != nil {
+		http.Error(w, "failed to generate sitemap", http.StatusInternalServerError)
+		return
 	}
-	writeSitemapXML(w, urls)
+	writeSitemapBody(w, body)
 }
 
 func extractSitemapLocale(path string) (string, bool) {
@@ -292,16 +321,50 @@ func sitemapDate(value string) string {
 }
 
 func writeSitemapXML(w http.ResponseWriter, urls []sitemapURL) {
+	body, err := buildSitemapXML(urls)
+	if err != nil {
+		http.Error(w, "failed to generate sitemap", http.StatusInternalServerError)
+		return
+	}
+	writeSitemapBody(w, body)
+}
+
+func buildSitemapXML(urls []sitemapURL) ([]byte, error) {
 	payload := sitemapURLSet{
 		Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9",
 		URLs:  urls,
 	}
 	body, err := xml.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		http.Error(w, "failed to generate sitemap", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
+	return append([]byte(xml.Header), body...), nil
+}
+
+func writeSitemapBody(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-	_, _ = w.Write([]byte(xml.Header))
 	_, _ = w.Write(body)
+}
+
+func cachedSitemapBody(key string, build func() ([]byte, error)) ([]byte, error) {
+	now := time.Now()
+	sitemapCache.mu.RLock()
+	cached, ok := sitemapCache.items[key]
+	sitemapCache.mu.RUnlock()
+	if ok && now.Before(cached.expiresAt) {
+		return append([]byte(nil), cached.body...), nil
+	}
+
+	body, err := build()
+	if err != nil {
+		return nil, err
+	}
+
+	sitemapCache.mu.Lock()
+	sitemapCache.items[key] = sitemapCacheEntry{
+		expiresAt: now.Add(sitemapCacheTTL),
+		body:      append([]byte(nil), body...),
+	}
+	sitemapCache.mu.Unlock()
+	return body, nil
 }
