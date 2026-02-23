@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
-import { buildExcerpt, parseTags, slugify } from "../utils/text";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify } from "../utils/text";
 import RichEditor from "./RichEditor";
 
 type EditorPostRecord = {
@@ -252,11 +252,12 @@ export default function AdminPostEditor() {
   const save = async () => {
     setError("");
     setSaveMessage("");
+    const normalizedBody = normalizeMarkdownLinksInHtml(body);
     const autoExcerpt = excerptLength > 0;
-    const finalExcerpt = autoExcerpt ? buildExcerpt(body, excerptLength) : excerpt;
+    const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
-    const trimmedBody = body.trim();
+    const trimmedBody = normalizedBody.trim();
     if (!trimmedTitle || !trimmedSlug || !trimmedBody) {
       setError("Title / Slug / Content は必須です。");
       return;
@@ -265,8 +266,8 @@ export default function AdminPostEditor() {
     const form = new FormData();
     form.set("title", trimmedTitle);
     form.set("slug", trimmedSlug);
-    form.set("body", body);
-    form.set("excerpt", (finalExcerpt || buildExcerpt(body)).trim());
+    form.set("body", normalizedBody);
+    form.set("excerpt", (finalExcerpt || buildExcerpt(normalizedBody)).trim());
     if (tags.trim() !== "") form.set("tags", tags.trim());
     if (category.trim() !== "") form.set("category", category.trim());
     if (author.trim() !== "") form.set("author", author.trim());

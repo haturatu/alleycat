@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { pb } from "../lib/pb";
-import { slugify } from "../utils/text";
+import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
 import RichEditor from "./RichEditor";
 
 export default function AdminPageEditor() {
@@ -42,6 +42,7 @@ export default function AdminPageEditor() {
 
   const save = async () => {
     const resolvedUrl = url || `/${slug}/`;
+    const normalizedBody = normalizeMarkdownLinksInHtml(body);
     const payload = {
       title,
       slug,
@@ -49,7 +50,7 @@ export default function AdminPageEditor() {
       menuVisible,
       menuOrder,
       menuTitle,
-      body,
+      body: normalizedBody,
       published_at: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
       published,
     };

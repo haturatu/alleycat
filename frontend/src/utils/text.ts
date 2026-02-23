@@ -42,3 +42,32 @@ export const parseTags = (value?: string) =>
         .map((tag) => tag.trim())
         .filter(Boolean)
     : [];
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+export const normalizeMarkdownLinksInHtml = (value?: string) => {
+  const input = value ?? "";
+  if (!input) return input;
+
+  // Convert markdown links in text nodes while keeping existing HTML tags untouched.
+  const markdownLinkRe = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  return input
+    .split(/(<[^>]+>)/g)
+    .map((part) => {
+      if (part.startsWith("<") && part.endsWith(">")) return part;
+      return part.replace(markdownLinkRe, (_full, label: string, href: string) => {
+        const safeHref = href.trim();
+        if (!/^https?:\/\//i.test(safeHref)) return _full;
+        return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+          label.trim()
+        )}</a>`;
+      });
+    })
+    .join("");
+};
