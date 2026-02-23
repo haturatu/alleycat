@@ -27,7 +27,7 @@ func getSettings() SettingsRecord {
 		return defaultSettings()
 	}
 	item := settings.Items[0]
-	applySettingsDefaults(&item)
+	item.ApplyDefaults()
 	return item
 }
 
@@ -66,47 +66,40 @@ func defaultSettings() SettingsRecord {
 	}
 }
 
-func applySettingsDefaults(item *SettingsRecord) {
-	if strings.TrimSpace(item.SiteName) == "" {
-		item.SiteName = defaultSiteName
+func (item *SettingsRecord) ApplyDefaults() {
+	item.SiteName = defaultIfTrimmedBlank(item.SiteName, defaultSiteName)
+	item.Description = defaultIfTrimmedBlank(item.Description, defaultDescription)
+	item.WelcomeText = defaultIfTrimmedBlank(item.WelcomeText, defaultWelcome)
+	item.HomeTopImage = defaultIfTrimmedBlank(item.HomeTopImage, defaultTopImage)
+	item.HomeTopImageAlt = defaultIfTrimmedBlank(item.HomeTopImageAlt, defaultTopImageAlt)
+	item.FooterHTML = defaultIfBlank(item.FooterHTML, defaultFooterHTML)
+	item.Theme = defaultIfTrimmedBlank(item.Theme, defaultTheme)
+	item.FeedItemsLimit = defaultIfZero(item.FeedItemsLimit, 20)
+	item.ArchivePageSize = defaultIfZero(item.ArchivePageSize, 10)
+	item.HomePageSize = defaultIfZero(item.HomePageSize, 3)
+	item.SiteLanguage = defaultIfBlank(item.SiteLanguage, "ja")
+	item.TranslationSourceLocale = defaultIfTrimmedBlank(item.TranslationSourceLocale, item.SiteLanguage)
+	item.TranslationLocales = defaultIfTrimmedBlank(item.TranslationLocales, "en")
+	item.TranslationModel = defaultIfTrimmedBlank(item.TranslationModel, "gemini-1.5-flash")
+}
+
+func defaultIfTrimmedBlank(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
 	}
-	if strings.TrimSpace(item.Description) == "" {
-		item.Description = defaultDescription
+	return value
+}
+
+func defaultIfBlank(value, fallback string) string {
+	if value == "" {
+		return fallback
 	}
-	if strings.TrimSpace(item.WelcomeText) == "" {
-		item.WelcomeText = defaultWelcome
+	return value
+}
+
+func defaultIfZero(value, fallback int) int {
+	if value == 0 {
+		return fallback
 	}
-	if strings.TrimSpace(item.HomeTopImage) == "" {
-		item.HomeTopImage = defaultTopImage
-	}
-	if strings.TrimSpace(item.HomeTopImageAlt) == "" {
-		item.HomeTopImageAlt = defaultTopImageAlt
-	}
-	if item.FooterHTML == "" {
-		item.FooterHTML = defaultFooterHTML
-	}
-	if strings.TrimSpace(item.Theme) == "" {
-		item.Theme = defaultTheme
-	}
-	if item.FeedItemsLimit == 0 {
-		item.FeedItemsLimit = 20
-	}
-	if item.ArchivePageSize == 0 {
-		item.ArchivePageSize = 10
-	}
-	if item.HomePageSize == 0 {
-		item.HomePageSize = 3
-	}
-	if item.SiteLanguage == "" {
-		item.SiteLanguage = "ja"
-	}
-	if strings.TrimSpace(item.TranslationSourceLocale) == "" {
-		item.TranslationSourceLocale = item.SiteLanguage
-	}
-	if strings.TrimSpace(item.TranslationLocales) == "" {
-		item.TranslationLocales = "en"
-	}
-	if strings.TrimSpace(item.TranslationModel) == "" {
-		item.TranslationModel = "gemini-1.5-flash"
-	}
+	return value
 }
