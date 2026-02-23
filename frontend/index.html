@@ -8,6 +8,18 @@
     <meta name="theme-color" content="hsl(220, 20%, 100%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%, 10%)" media="(prefers-color-scheme: dark)" />
     <link rel="stylesheet" href="/themes/ember/styles.css" />
+    <style>
+      .body code {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .body pre code {
+        white-space: inherit;
+        overflow-wrap: normal;
+        word-break: normal;
+      }
+    </style>
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <!-- analytics/ads loaded dynamically in main.tsx to avoid blocking --> 
   </head>

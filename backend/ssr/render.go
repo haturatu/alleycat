@@ -21,6 +21,18 @@ func themeStylesheet(themeOverride string) string {
 func renderHead(title string, settings SettingsRecord) string {
 	pageTitle := escapeHTML(title) + " - " + escapeHTML(settings.SiteName)
 	styles := themeStylesheet(settings.Theme)
+	commonContentStyles := `<style>
+    .body code {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .body pre code {
+      white-space: inherit;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+    </style>`
 	metaDesc := escapeHTML(settings.Description)
 	analytics := ""
 	if settings.EnableAnalytics && settings.AnalyticsURL != "" && settings.AnalyticsSiteID != "" {
@@ -49,6 +61,7 @@ func renderHead(title string, settings SettingsRecord) string {
     <meta name="theme-color" content="hsl(220, 20%%, 100%%)" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="hsl(220, 20%%, 10%%)" media="(prefers-color-scheme: dark)" />
     <link rel="stylesheet" href="%s" />
+    %s
     <link rel="alternate" href="/feed.xml" type="application/atom+xml" title="%s" />
     <link rel="alternate" href="/feed.json" type="application/json" title="%s" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
@@ -57,7 +70,7 @@ func renderHead(title string, settings SettingsRecord) string {
     %s
     %s
   </head>
-  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, styles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight)
+  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, styles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight)
 }
 
 func renderNav(menu []PageRecord, settings SettingsRecord) string {
