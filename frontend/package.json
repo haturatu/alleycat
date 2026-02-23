@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tiptap/extension-image": "^2.6.6",
+    "@tiptap/extension-link": "^2.6.6",
     "@tiptap/react": "^2.6.6",
     "@tiptap/starter-kit": "^2.6.6",
     "gray-matter": "^4.0.3",

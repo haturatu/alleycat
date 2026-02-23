@@ -1,6 +1,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
 import { useEffect, useRef } from "react";
 import { pb } from "../lib/pb";
 import { uploadImageAndGetURL } from "./mediaUpload";
@@ -69,6 +70,12 @@ export default function RichEditor({
         inline: false,
         allowBase64: false,
       }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        protocols: ["http", "https"],
+      }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -109,6 +116,21 @@ export default function RichEditor({
 
   if (!editor) return null;
 
+  const setLink = () => {
+    const previousUrl = editor.getAttributes("link").href as string | undefined;
+    const url = window.prompt("URL", previousUrl ?? "https://");
+    if (url === null) return;
+
+    const trimmed = url.trim();
+    if (!trimmed) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: normalized }).run();
+  };
+
   useEffect(() => {
     if (!editor) return;
     const hasFocus = editor.view?.hasFocus?.() ?? false;
@@ -142,6 +164,12 @@ export default function RichEditor({
         </button>
         <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} type="button">
           Code Block
+        </button>
+        <button onClick={setLink} type="button">
+          Link
+        </button>
+        <button onClick={() => editor.chain().focus().unsetLink().run()} type="button">
+          Unlink
         </button>
       </div>
       <EditorContent editor={editor} />

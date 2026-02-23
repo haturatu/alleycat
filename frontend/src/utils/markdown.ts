@@ -36,7 +36,7 @@ export const looksLikeHtml = (value?: string) => /<[a-z][^>]*>/i.test(value ?? "
 
 const normalizeText = (value: string) => value.replace(/\u00a0/g, " ");
 
-const escapeText = (value: string) => value.replace(/([\\`*_{}\[\]()#+!>])/g, "\\$1");
+const escapeText = (value: string) => value.replace(/([\\`*_{}#+!>])/g, "\\$1");
 
 const nodeToMarkdown = (node: Node): string => {
   if (node.nodeType === Node.TEXT_NODE) {

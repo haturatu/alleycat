@@ -427,6 +427,12 @@ body {
   height: auto;
 }
 
+.editor .ProseMirror a {
+  color: #0b57d0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .admin-markdown-preview {
   border: 1px solid #ccc;
   background: #fafafa;
