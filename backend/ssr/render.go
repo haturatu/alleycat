@@ -55,8 +55,9 @@ func themeFontStylesheet(themeOverride string) string {
 func renderHead(title string, settings SettingsRecord) string {
 	pageTitle := escapeHTML(title) + " - " + escapeHTML(settings.SiteName)
 	styles := themeStylesheet(settings.Theme)
+	themeStyles, splitCriticalStyles := splitThemeStylesheetForHead(styles)
 	fontStylesheet := themeFontStylesheet(settings.Theme)
-	commonContentStyles := criticalBaseStyles + `
+	commonContentStyles := criticalBaseStyles + splitCriticalStyles + `
     <style>
     .body code {
       white-space: pre-wrap;
@@ -86,7 +87,6 @@ func renderHead(title string, settings SettingsRecord) string {
       font-size: 0.9rem;
     }
     </style>`
-	themeStyles := asyncStylesheetTag(styles)
 	fontStyles := ""
 	if fontStylesheet != "" {
 		fontStyles = "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />\n    " + asyncStylesheetTag(fontStylesheet)

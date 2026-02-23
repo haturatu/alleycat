@@ -164,6 +164,14 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 			return true
 		}
 	}
+	if strings.HasSuffix(strings.ToLower(clean), ".css") && r.URL.Query().Get("defer") == "1" {
+		if deferredCSS, ok := deferredStylesheetContent(clean); ok {
+			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(deferredCSS))
+			return true
+		}
+	}
 
 	filePath := filepath.Join(activePublicDir, clean)
 	info, err := os.Stat(filePath)
