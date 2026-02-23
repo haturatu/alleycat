@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
 import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
 import RichEditor from "./RichEditor";
+import SaveButton from "./components/SaveButton";
+import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
+
+type FieldErrors = {
+  title?: string;
+  slug?: string;
+  url?: string;
+  body?: string;
+};
 
 export default function AdminPageEditor() {
   const { id } = useParams();
@@ -17,9 +27,45 @@ export default function AdminPageEditor() {
   const [publishedAt, setPublishedAt] = useState("");
   const [published, setPublished] = useState(true);
   const [error, setError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [slugEditedManually, setSlugEditedManually] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const setFieldError = (field: keyof FieldErrors, message?: string) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[field] = message;
+      else delete next[field];
+      return next;
+    });
+  };
+
+  const validateTitle = (value: string) => (value.trim() ? undefined : "Title is required.");
+  const validateSlug = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Slug is required.";
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed)) {
+      return "Use lowercase letters, numbers, and hyphens.";
+    }
+    return undefined;
+  };
+  const validateURL = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    if (!trimmed.startsWith("/")) return "URL must start with '/'.";
+    return undefined;
+  };
+  const validateBody = (value: string) => (value.trim() ? undefined : "Content is required.");
 
   useEffect(() => {
-    if (!id || id === "new") return;
+    if (!id || id === "new") {
+      setSlugEditedManually(false);
+      setFieldErrors({});
+      setIsDirty(false);
+      return;
+    }
     pb.collection("pages")
       .getOne(id)
       .then((record) => {
@@ -33,6 +79,9 @@ export default function AdminPageEditor() {
         setBody(record.body || "");
         setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
         setPublished(Boolean(record.published));
+        setSlugEditedManually(true);
+        setFieldErrors({});
+        setIsDirty(false);
       })
       .catch((err) => {
         setError("ページの取得に失敗しました。権限またはIDを確認してください。");
@@ -40,84 +89,224 @@ export default function AdminPageEditor() {
       });
   }, [id, navigate]);
 
+  useUnsavedChangesGuard(isDirty);
+
   const save = async () => {
-    const resolvedUrl = url || `/${slug}/`;
+    if (saving) return;
+    setError("");
+    setSaveMessage("");
+
+    const trimmedTitle = title.trim();
+    const trimmedSlug = slug.trim();
     const normalizedBody = normalizeMarkdownLinksInHtml(body);
+    const trimmedBody = normalizedBody.trim();
+    const resolvedUrl = url || `/${slug}/`;
+    const nextErrors: FieldErrors = {
+      title: validateTitle(trimmedTitle),
+      slug: validateSlug(trimmedSlug),
+      url: validateURL(resolvedUrl),
+      body: validateBody(trimmedBody),
+    };
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+    setFieldErrors(nextErrors);
+    if (hasErrors) {
+      setError("Please fix validation errors.");
+      return;
+    }
+
     const payload = {
-      title,
-      slug,
+      title: trimmedTitle,
+      slug: trimmedSlug,
       url: resolvedUrl,
       menuVisible,
       menuOrder,
       menuTitle,
-      body: normalizedBody,
+      body: trimmedBody,
       published_at: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
       published,
     };
 
-    if (!id || id === "new") {
-      await pb.collection("pages").create(payload);
-    } else {
-      await pb.collection("pages").update(id, payload);
+    setSaving(true);
+    try {
+      if (!id || id === "new") {
+        await pb.collection("pages").create(payload);
+      } else {
+        await pb.collection("pages").update(id, payload);
+      }
+      setIsDirty(false);
+      setSaveMessage("Page saved.");
+      navigate("/pages");
+    } catch (err) {
+      if (err instanceof ClientResponseError) {
+        const details = err.response?.data as Record<string, { message?: string }> | undefined;
+        const detailText = details
+          ? Object.entries(details)
+              .map(([field, value]) => `${field}: ${value?.message || "invalid"}`)
+              .join(", ")
+          : "";
+        setError(detailText ? `Save failed: ${detailText}` : "Save failed.");
+      } else {
+        setError("Save failed.");
+      }
+      console.error(err);
+    } finally {
+      setSaving(false);
     }
-    navigate("/pages");
   };
 
   return (
     <section>
       <header className="admin-header">
         <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
-        <button className="admin-primary" onClick={save}>
-          Save
-        </button>
+        <SaveButton onClick={save} saving={saving} />
       </header>
       {error && <p className="admin-error">{error}</p>}
+      {saveMessage && <p className="admin-success">{saveMessage}</p>}
       <div className="admin-form">
         <label>
           Title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            value={title}
+            onChange={(e) => {
+              const next = e.target.value;
+              setTitle(next);
+              setSaveMessage("");
+              setIsDirty(true);
+              setFieldError("title", validateTitle(next));
+              if (!slugEditedManually) {
+                const nextSlug = slugify(next);
+                setSlug(nextSlug);
+                setFieldError("slug", validateSlug(nextSlug));
+              }
+            }}
+          />
         </label>
+        {fieldErrors.title && <p className="admin-error-inline">{fieldErrors.title}</p>}
         <label>
           Slug
           <div className="admin-inline">
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} />
-            <button type="button" onClick={() => setSlug(slugify(title))}>
+            <input
+              value={slug}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSlug(next);
+                setSlugEditedManually(true);
+                setSaveMessage("");
+                setIsDirty(true);
+                setFieldError("slug", validateSlug(next));
+              }}
+            />
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                const auto = slugify(title);
+                setSlug(auto);
+                setSlugEditedManually(false);
+                setSaveMessage("");
+                setIsDirty(true);
+                setFieldError("slug", validateSlug(auto));
+              }}
+            >
               Auto
             </button>
           </div>
         </label>
+        {fieldErrors.slug ? (
+          <p className="admin-error-inline">{fieldErrors.slug}</p>
+        ) : (
+          <p className="admin-note">
+            {slugEditedManually ? "Slug is locked (manual)." : "Slug follows title automatically."}
+          </p>
+        )}
         <label>
           URL
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/ab/" />
+          <input
+            value={url}
+            onChange={(e) => {
+              const next = e.target.value;
+              setUrl(next);
+              setSaveMessage("");
+              setIsDirty(true);
+              const previewURL = next.trim() || `/${slugify(title)}/`;
+              setFieldError("url", validateURL(previewURL));
+            }}
+            placeholder="/ab/"
+          />
         </label>
+        {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
         <label className="admin-check admin-check-right">
           <span>Show in menu</span>
-          <input type="checkbox" checked={menuVisible} onChange={(e) => setMenuVisible(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={menuVisible}
+            onChange={(e) => {
+              setMenuVisible(e.target.checked);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          />
         </label>
         <label>
           Published at
           <input
             type="datetime-local"
             value={publishedAt}
-            onChange={(e) => setPublishedAt(e.target.value)}
+            onChange={(e) => {
+              setPublishedAt(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
           />
         </label>
         <label>
           Menu order
-          <input type="number" value={menuOrder} onChange={(e) => setMenuOrder(Number(e.target.value))} />
+          <input
+            type="number"
+            value={menuOrder}
+            onChange={(e) => {
+              setMenuOrder(Number(e.target.value));
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          />
         </label>
         <label>
           Menu title
-          <input value={menuTitle} onChange={(e) => setMenuTitle(e.target.value)} />
+          <input
+            value={menuTitle}
+            onChange={(e) => {
+              setMenuTitle(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          />
         </label>
         <label className="admin-check admin-check-right">
           <span>Published</span>
-          <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={published}
+            onChange={(e) => {
+              setPublished(e.target.checked);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          />
         </label>
         <div className="admin-field">
           <span>Content</span>
-          <RichEditor value={body} onChange={setBody} />
+          <RichEditor
+            value={body}
+            onChange={(value) => {
+              setBody(value);
+              setSaveMessage("");
+              setIsDirty(true);
+              setFieldError("body", validateBody(value));
+            }}
+          />
         </div>
+        {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>
     </section>
   );

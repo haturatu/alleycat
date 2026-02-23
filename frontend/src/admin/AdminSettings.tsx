@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ClientResponseError } from "pocketbase";
 import { hasRole, pb } from "../lib/pb";
+import SaveButton from "./components/SaveButton";
 
 const translationLanguageOptions = [
   "en",
@@ -200,9 +201,7 @@ export default function AdminSettings() {
     <section>
       <header className="admin-header">
         <h1>Settings</h1>
-        <button className="admin-primary" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
-        </button>
+        <SaveButton onClick={save} saving={saving} />
       </header>
       {error && <p className="admin-error">{error}</p>}
       <div className="admin-form">
