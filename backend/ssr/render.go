@@ -23,6 +23,14 @@ var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\
 var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(?:"([^"]+)"|'([^']+)')`)
 var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
+type postRenderInput struct {
+	path        string
+	locale      string
+	slug        string
+	post        *PostRecord
+	translation *PostTranslationRecord
+}
+
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
 		return "/styles.css"
@@ -344,21 +352,33 @@ func renderPostList(items []PostRecord, showTags bool, excerptLength int) string
 }
 
 func renderHome(settings SettingsRecord) string {
-	menu := getPagesMenu()
-	posts, err := getPosts(map[string]string{
-		"page":    "1",
-		"perPage": strconv.Itoa(settings.HomePageSize),
-		"filter":  "published = true",
-		"sort":    "-published_at",
-	})
-	if err != nil {
-		posts, _ = getPosts(map[string]string{
+	var menu []PageRecord
+	var posts PBList[PostRecord]
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		menu = getPagesMenu()
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		posts, err = getPosts(map[string]string{
 			"page":    "1",
 			"perPage": strconv.Itoa(settings.HomePageSize),
 			"filter":  "published = true",
-			"sort":    "-date",
+			"sort":    "-published_at",
 		})
-	}
+		if err != nil {
+			posts, _ = getPosts(map[string]string{
+				"page":    "1",
+				"perPage": strconv.Itoa(settings.HomePageSize),
+				"filter":  "published = true",
+				"sort":    "-date",
+			})
+		}
+	}()
+	wg.Wait()
 	items := posts.Items
 
 	topImage := strings.TrimSpace(settings.HomeTopImage)
@@ -382,7 +402,6 @@ func renderHome(settings SettingsRecord) string {
 }
 
 func renderArchive(path string, settings SettingsRecord) string {
-	menu := getPagesMenu()
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	pageNumber := 1
 	basePath := "/archive"
@@ -425,20 +444,33 @@ func renderArchive(path string, settings SettingsRecord) string {
 		showCategoriesNav = settings.ShowCategories && pageNumber == 1
 	}
 
-	posts, err := getPosts(map[string]string{
-		"page":    strconv.Itoa(pageNumber),
-		"perPage": strconv.Itoa(settings.ArchivePageSize),
-		"filter":  filter,
-		"sort":    "-published_at",
-	})
-	if err != nil {
-		posts, _ = getPosts(map[string]string{
+	var menu []PageRecord
+	var posts PBList[PostRecord]
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		menu = getPagesMenu()
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		posts, err = getPosts(map[string]string{
 			"page":    strconv.Itoa(pageNumber),
 			"perPage": strconv.Itoa(settings.ArchivePageSize),
 			"filter":  filter,
-			"sort":    "-date",
+			"sort":    "-published_at",
 		})
-	}
+		if err != nil {
+			posts, _ = getPosts(map[string]string{
+				"page":    strconv.Itoa(pageNumber),
+				"perPage": strconv.Itoa(settings.ArchivePageSize),
+				"filter":  filter,
+				"sort":    "-date",
+			})
+		}
+	}()
+	wg.Wait()
 	pagination := renderPagination(basePath, pageNumber, posts.TotalPages)
 	searchHTML := ""
 	if settings.ShowArchiveSearch {
@@ -471,11 +503,49 @@ func renderArchive(path string, settings SettingsRecord) string {
 }
 
 func renderPost(path string, settings SettingsRecord) (string, bool) {
-	locale, slug, ok := resolvePostPath(path)
+	input, ok := prefetchPostRenderInput(path)
 	if !ok {
 		return renderNotFound(settings), false
 	}
+	return renderPostFromInput(input, settings)
+}
 
+func prefetchPostRenderInput(path string) (*postRenderInput, bool) {
+	locale, slug, ok := resolvePostPath(path)
+	if !ok {
+		return nil, false
+	}
+	if locale == "" {
+		post := getPostBySlugInLocale(slug, "")
+		if post == nil {
+			return nil, false
+		}
+		return &postRenderInput{
+			path:   path,
+			locale: "",
+			slug:   slug,
+			post:   post,
+		}, true
+	}
+	translation := getPostTranslationBySlugLocale(slug, locale)
+	if translation == nil {
+		return nil, false
+	}
+	post := translationToPost(*translation)
+	return &postRenderInput{
+		path:        path,
+		locale:      locale,
+		slug:        slug,
+		post:        &post,
+		translation: translation,
+	}, true
+}
+
+func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (string, bool) {
+	if input == nil || input.post == nil {
+		return renderNotFound(settings), false
+	}
+	locale := input.locale
 	sourceLocale := normalizeLocale(settings.TranslationSourceLocale)
 	if sourceLocale == "" {
 		sourceLocale = normalizeLocale(settings.SiteLanguage)
@@ -484,18 +554,16 @@ func renderPost(path string, settings SettingsRecord) (string, bool) {
 		sourceLocale = "ja"
 	}
 	currentLocale := sourceLocale
-	var post *PostRecord
+	post := input.post
 	var sourcePost *PostRecord
 	translations := []PostTranslationRecord{}
 
 	if locale != "" {
 		currentLocale = normalizeLocale(locale)
-		translation := getPostTranslationBySlugLocale(slug, locale)
+		translation := input.translation
 		if translation == nil {
 			return renderNotFound(settings), false
 		}
-		translatedPost := translationToPost(*translation)
-		post = &translatedPost
 		sourceID := translation.SourcePost
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -512,10 +580,6 @@ func renderPost(path string, settings SettingsRecord) (string, bool) {
 			sourcePost = post
 		}
 	} else {
-		post = getPostBySlugInLocale(slug, "")
-		if post == nil {
-			return renderNotFound(settings), false
-		}
 		sourcePost = post
 	}
 
@@ -826,6 +890,13 @@ func renderLanguageLinks(sourceLocale, currentLocale string, sourcePost *PostRec
 
 func renderPage(path string, settings SettingsRecord) (string, bool) {
 	page := getPageByURL(path)
+	if page == nil {
+		return renderNotFound(settings), false
+	}
+	return renderPageFromRecord(page, settings)
+}
+
+func renderPageFromRecord(page *PageRecord, settings SettingsRecord) (string, bool) {
 	if page == nil {
 		return renderNotFound(settings), false
 	}

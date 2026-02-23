@@ -12,6 +12,7 @@ import (
 )
 
 var localizedSitemapPattern = regexp.MustCompile(`^/sitemap-([a-z]{2,3}(?:-[a-z0-9]{2,8})*)\.xml$`)
+
 const sitemapCacheTTL = 60 * time.Second
 
 type sitemapCacheEntry struct {
@@ -46,6 +47,20 @@ func writeSitemap(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 
 	key := fmt.Sprintf("main|%s|%t|%t", baseURL, settings.EnableFeedXML, settings.EnableFeedJSON)
 	body, err := cachedSitemapBody(key, func() ([]byte, error) {
+		var pages []PageRecord
+		var posts []PostRecord
+		var fetchWG sync.WaitGroup
+		fetchWG.Add(2)
+		go func() {
+			defer fetchWG.Done()
+			pages = listPublishedPages()
+		}()
+		go func() {
+			defer fetchWG.Done()
+			posts = listPublishedPosts()
+		}()
+		fetchWG.Wait()
+
 		urls := make([]sitemapURL, 0, 256)
 		urls = append(urls,
 			sitemapURL{Loc: baseURL + "/"},
@@ -59,7 +74,7 @@ func writeSitemap(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 			urls = append(urls, sitemapURL{Loc: baseURL + "/feed.json"})
 		}
 
-		for _, page := range listPublishedPages() {
+		for _, page := range pages {
 			pageURL := strings.TrimSpace(page.URL)
 			if pageURL == "" {
 				continue
@@ -77,7 +92,7 @@ func writeSitemap(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 			})
 		}
 
-		for _, post := range listPublishedPosts() {
+		for _, post := range posts {
 			slug := strings.TrimSpace(post.Slug)
 			if slug == "" {
 				continue
