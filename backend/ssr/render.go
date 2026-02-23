@@ -109,14 +109,9 @@ func renderHead(title string, settings SettingsRecord) string {
 	}
 	codeHighlight := ""
 	if settings.EnableCodeHighlight {
-		theme := settings.HighlightTheme
-		if theme == "" {
-			theme = "github-dark"
-		}
-		highlightCSS := fmt.Sprintf("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/%s.min.css", escapeHTML(theme))
-		codeHighlight = "<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    " +
-			asyncStylesheetTag(highlightCSS) +
-			"\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>"
+		highlightDarkCSS := "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+		highlightLightCSS := "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+		codeHighlight = fmt.Sprintf("<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link id=\"hljs-theme-link\" rel=\"stylesheet\" href=\"%s\" data-theme-dark=\"%s\" data-theme-light=\"%s\" />\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>", highlightDarkCSS, highlightLightCSS, highlightDarkCSS, highlightDarkCSS, highlightLightCSS)
 	}
 
 	return fmt.Sprintf(`<!doctype html>
@@ -159,19 +154,30 @@ func renderNav(menu []PageRecord, settings SettingsRecord) string {
       <ul class="navbar-links">
         <li><a href="/archive/">Archive</a></li>
         %s
-        <li>
-          <script>
-            (() => {
-              const root = document.documentElement;
-              const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-              let theme = localStorage.getItem("theme") || (prefersDark ? "dark" : "light");
-              const applyTheme = (nextTheme) => {
-                root.dataset.theme = nextTheme;
-              };
-              applyTheme(theme);
-              window.changeTheme = () => {
-                theme = theme === "dark" ? "light" : "dark";
-                localStorage.setItem("theme", theme);
+	        <li>
+	          <script>
+	            (() => {
+	              const root = document.documentElement;
+	              const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+	              let theme = localStorage.getItem("theme") || (prefersDark ? "dark" : "light");
+	              const applyTheme = (nextTheme) => {
+	                root.dataset.theme = nextTheme;
+	                const hljsThemeLink = document.getElementById("hljs-theme-link");
+	                if (hljsThemeLink) {
+	                  const darkHref = hljsThemeLink.getAttribute("data-theme-dark");
+	                  const lightHref = hljsThemeLink.getAttribute("data-theme-light");
+	                  if (nextTheme === "dark" && darkHref) {
+	                    hljsThemeLink.setAttribute("href", darkHref);
+	                  }
+	                  if (nextTheme === "light" && lightHref) {
+	                    hljsThemeLink.setAttribute("href", lightHref);
+	                  }
+	                }
+	              };
+	              applyTheme(theme);
+	              window.changeTheme = () => {
+	                theme = theme === "dark" ? "light" : "dark";
+	                localStorage.setItem("theme", theme);
                 applyTheme(theme);
               };
             })();

@@ -307,6 +307,17 @@ const renderNav = (menuPages = []) => {
               let theme = localStorage.getItem("theme") || (prefersDark ? "dark" : "light");
               const applyTheme = (nextTheme) => {
                 root.dataset.theme = nextTheme;
+                const hljsThemeLink = document.getElementById("hljs-theme-link");
+                if (hljsThemeLink) {
+                  const darkHref = hljsThemeLink.getAttribute("data-theme-dark");
+                  const lightHref = hljsThemeLink.getAttribute("data-theme-light");
+                  if (nextTheme === "dark" && darkHref) {
+                    hljsThemeLink.setAttribute("href", darkHref);
+                  }
+                  if (nextTheme === "light" && lightHref) {
+                    hljsThemeLink.setAttribute("href", lightHref);
+                  }
+                }
               };
               applyTheme(theme);
               window.changeTheme = () => {
