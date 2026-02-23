@@ -102,18 +102,29 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/posts/") {
-		html := renderPost(path, settings)
-		writeHTML(w, html)
+		locale, slug, ok := resolvePostPath(path)
+		if !ok || getPostBySlugInLocale(slug, locale) == nil {
+			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+			return
+		}
+		writeHTML(w, renderPost(path, settings))
 		return
 	}
 	if isLocalizedPostPath(path) {
-		html := renderPost(path, settings)
-		writeHTML(w, html)
+		locale, slug, ok := resolvePostPath(path)
+		if !ok || getPostBySlugInLocale(slug, locale) == nil {
+			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+			return
+		}
+		writeHTML(w, renderPost(path, settings))
 		return
 	}
 
-	html := renderPage(path, settings)
-	writeHTML(w, html)
+	if getPageByURL(path) == nil {
+		writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+		return
+	}
+	writeHTML(w, renderPage(path, settings))
 }
 
 func isLocalizedPostPath(path string) bool {
@@ -143,8 +154,12 @@ func proxyPocketBase(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeHTML(w http.ResponseWriter, content string) {
+	writeHTMLStatus(w, content, http.StatusOK)
+}
+
+func writeHTMLStatus(w http.ResponseWriter, content string, status int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(status)
 	_, _ = w.Write([]byte(content))
 }
 
