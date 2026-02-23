@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
@@ -23,6 +23,29 @@ type EditorPostTranslationRecord = EditorPostRecord & {
   locale?: string;
   source_post?: string;
   translation_done?: boolean;
+};
+
+type FieldErrors = {
+  title?: string;
+  slug?: string;
+  body?: string;
+  tags?: string;
+};
+
+const findDuplicateTags = (values: string[]) => {
+  const seen = new Map<string, string>();
+  const duplicates = new Set<string>();
+  values.forEach((tag) => {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized) return;
+    const first = seen.get(normalized);
+    if (first) {
+      duplicates.add(first);
+      return;
+    }
+    seen.set(normalized, tag);
+  });
+  return Array.from(duplicates);
 };
 
 const normalizeLocale = (value: string) =>
@@ -59,6 +82,11 @@ export default function AdminPostEditor() {
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [slugEditedManually, setSlugEditedManually] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [activeTagSuggestion, setActiveTagSuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
 
   const [sourcePostId, setSourcePostId] = useState("");
@@ -67,6 +95,45 @@ export default function AdminPostEditor() {
   const [localeOptions, setLocaleOptions] = useState<string[]>(["ja"]);
   const [sourceRecord, setSourceRecord] = useState<EditorPostRecord | null>(null);
   const [localeRecords, setLocaleRecords] = useState<Record<string, EditorPostTranslationRecord>>({});
+
+  const currentTags = useMemo(() => parseTags(tags), [tags]);
+  const lastTagInput = useMemo(() => {
+    const fragments = tags.split(",");
+    return (fragments[fragments.length - 1] || "").trim().toLowerCase();
+  }, [tags]);
+  const tagSuggestions = useMemo(
+    () =>
+      tagOptions
+        .filter((tag) => !currentTags.some((item) => item.toLowerCase() === tag.toLowerCase()))
+        .filter((tag) => (lastTagInput ? tag.toLowerCase().includes(lastTagInput) : true))
+        .slice(0, 20),
+    [currentTags, lastTagInput, tagOptions]
+  );
+
+  const setFieldError = (field: keyof FieldErrors, message?: string) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[field] = message;
+      else delete next[field];
+      return next;
+    });
+  };
+
+  const validateTitle = (value: string) => (value.trim() ? undefined : "Title is required.");
+  const validateSlug = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Slug is required.";
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed)) {
+      return "Use lowercase letters, numbers, and hyphens.";
+    }
+    return undefined;
+  };
+  const validateBody = (value: string) => (value.trim() ? undefined : "Content is required.");
+  const validateTags = (value: string) => {
+    const duplicates = findDuplicateTags(parseTags(value));
+    if (duplicates.length > 0) return `Duplicate tags: ${duplicates.join(", ")}`;
+    return undefined;
+  };
 
   const applyRecordToForm = (record: EditorPostRecord) => {
     setError("");
@@ -81,6 +148,9 @@ export default function AdminPostEditor() {
     setPublished(Boolean(record.published));
     setFeaturedImage(null);
     setAttachments([]);
+    setFieldErrors({});
+    setActiveTagSuggestion(-1);
+    setIsDirty(false);
   };
 
   const applyDraftFromSource = (locale: string, source: EditorPostRecord, sourceId: string) => {
@@ -138,6 +208,10 @@ export default function AdminPostEditor() {
         setLocaleOptions(Array.from(new Set([localeConfig.src, ...localeConfig.targets])));
         setLocaleRecords({});
         setSourceRecord(null);
+        setSlugEditedManually(false);
+        setFieldErrors({});
+        setActiveTagSuggestion(-1);
+        setIsDirty(false);
         return;
       }
 
@@ -169,6 +243,7 @@ export default function AdminPostEditor() {
         setLocaleRecords(byLocale);
         setLocaleOptions(options);
         setSelectedLocale(initialLocale);
+        setSlugEditedManually(true);
 
         applyRecordToForm(source);
       } catch (err) {
@@ -184,6 +259,43 @@ export default function AdminPostEditor() {
       alive = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (activeTagSuggestion < tagSuggestions.length) return;
+    setActiveTagSuggestion(-1);
+  }, [activeTagSuggestion, tagSuggestions.length]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [isDirty]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const onClickCapture = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      const next = new URL(anchor.href, window.location.href);
+      if (next.origin !== window.location.origin) return;
+      const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const nextPath = `${next.pathname}${next.search}${next.hash}`;
+      if (currentPath === nextPath) return;
+      if (window.confirm("You have unsaved changes. Leave without saving?")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener("click", onClickCapture, true);
+    return () => document.removeEventListener("click", onClickCapture, true);
+  }, [isDirty]);
 
   useEffect(() => {
     const state = location.state as { saved?: boolean; created?: boolean } | null;
@@ -232,6 +344,9 @@ export default function AdminPostEditor() {
   const switchLocale = (nextLocaleRaw: string) => {
     const nextLocale = normalizeLocale(nextLocaleRaw);
     if (!nextLocale || nextLocale === selectedLocale) return;
+    if (isDirty && !window.confirm("You have unsaved changes. Switch locale without saving?")) {
+      return;
+    }
     setSelectedLocale(nextLocale);
     if (nextLocale === sourceLocale) {
       if (sourceRecord) {
@@ -249,7 +364,42 @@ export default function AdminPostEditor() {
     }
   };
 
+  const addTag = (tag: string) => {
+    const segments = tags.split(",");
+    const confirmed = segments
+      .slice(0, -1)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const merged = [...confirmed, tag]
+      .filter((item, index, arr) => arr.findIndex((ref) => ref.toLowerCase() === item.toLowerCase()) === index)
+      .join(", ");
+    setTags(merged);
+    setSaveMessage("");
+    setIsDirty(true);
+    setActiveTagSuggestion(-1);
+    setFieldError("tags", validateTags(merged));
+  };
+
+  const onTagInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (tagSuggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveTagSuggestion((prev) => (prev + 1) % tagSuggestions.length);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveTagSuggestion((prev) => (prev <= 0 ? tagSuggestions.length - 1 : prev - 1));
+      return;
+    }
+    if (event.key === "Enter" && activeTagSuggestion >= 0) {
+      event.preventDefault();
+      addTag(tagSuggestions[activeTagSuggestion]);
+    }
+  };
+
   const save = async () => {
+    if (saving) return;
     setError("");
     setSaveMessage("");
     const normalizedBody = normalizeMarkdownLinksInHtml(body);
@@ -258,8 +408,16 @@ export default function AdminPostEditor() {
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
     const trimmedBody = normalizedBody.trim();
-    if (!trimmedTitle || !trimmedSlug || !trimmedBody) {
-      setError("Title / Slug / Content は必須です。");
+    const nextErrors: FieldErrors = {
+      title: validateTitle(trimmedTitle),
+      slug: validateSlug(trimmedSlug),
+      body: validateBody(trimmedBody),
+      tags: validateTags(tags),
+    };
+    const hasErrors = Object.values(nextErrors).some(Boolean);
+    setFieldErrors(nextErrors);
+    if (hasErrors) {
+      setError("Please fix validation errors.");
       return;
     }
 
@@ -280,9 +438,11 @@ export default function AdminPostEditor() {
       attachments.forEach((file) => form.append("attachments", file));
     }
 
+    setSaving(true);
     try {
       if (!id || id === "new" || sourcePostId === "") {
         const created = (await pb.collection("posts").create(form)) as unknown as EditorPostRecord;
+        setIsDirty(false);
         navigate(`/posts/${created.id}`, { state: { saved: true, created: true } });
         return;
       }
@@ -302,6 +462,7 @@ export default function AdminPostEditor() {
         setLocaleRecords((prev) => ({ ...prev, [selectedLocale]: saved }));
         setLocaleOptions((prev) => (prev.includes(selectedLocale) ? prev : [...prev, selectedLocale]));
       }
+      setIsDirty(false);
       setSaveMessage("Post saved.");
     } catch (err) {
       if (err instanceof ClientResponseError) {
@@ -316,6 +477,8 @@ export default function AdminPostEditor() {
         setError("保存に失敗しました。");
       }
       console.error(err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -323,8 +486,8 @@ export default function AdminPostEditor() {
     <section>
       <header className="admin-header">
         <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
-        <button className="admin-primary" onClick={save}>
-          Save
+        <button className="admin-primary" onClick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
         </button>
       </header>
       {error && <p className="admin-error">{error}</p>}
@@ -341,6 +504,7 @@ export default function AdminPostEditor() {
                     type="button"
                     key={locale}
                     onClick={() => switchLocale(locale)}
+                    disabled={saving}
                     style={{ opacity: selected ? 1 : 0.6 }}
                   >
                     {locale === sourceLocale ? `${locale} (source)` : locale}
@@ -352,23 +516,69 @@ export default function AdminPostEditor() {
         )}
         <label>
           Title
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            value={title}
+            onChange={(e) => {
+              const next = e.target.value;
+              setTitle(next);
+              setSaveMessage("");
+              setIsDirty(true);
+              setFieldError("title", validateTitle(next));
+              if (!slugEditedManually) {
+                const nextSlug = slugify(next);
+                setSlug(nextSlug);
+                setFieldError("slug", validateSlug(nextSlug));
+              }
+            }}
+          />
         </label>
+        {fieldErrors.title && <p className="admin-error-inline">{fieldErrors.title}</p>}
         <label>
           Slug
           <div className="admin-inline">
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} />
-            <button type="button" onClick={() => setSlug(slugify(title))}>
+            <input
+              value={slug}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSlug(next);
+                setSlugEditedManually(true);
+                setSaveMessage("");
+                setIsDirty(true);
+                setFieldError("slug", validateSlug(next));
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const auto = slugify(title);
+                setSlug(auto);
+                setSlugEditedManually(false);
+                setSaveMessage("");
+                setIsDirty(true);
+                setFieldError("slug", validateSlug(auto));
+              }}
+            >
               Auto
             </button>
           </div>
         </label>
+        {fieldErrors.slug ? (
+          <p className="admin-error-inline">{fieldErrors.slug}</p>
+        ) : (
+          <p className="admin-note">
+            {slugEditedManually ? "Slug is locked (manual)." : "Slug follows title automatically."}
+          </p>
+        )}
         <label>
           Published at
           <input
             type="datetime-local"
             value={publishedAt}
-            onChange={(e) => setPublishedAt(e.target.value)}
+            onChange={(e) => {
+              setPublishedAt(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
           />
         </label>
         <label>
@@ -376,7 +586,11 @@ export default function AdminPostEditor() {
           <input
             list="category-list"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
           />
         </label>
         <datalist id="category-list">
@@ -386,7 +600,14 @@ export default function AdminPostEditor() {
         </datalist>
         <label>
           Author
-          <select value={author} onChange={(e) => setAuthor(e.target.value)}>
+          <select
+            value={author}
+            onChange={(e) => {
+              setAuthor(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          >
             <option value="">(none)</option>
             {authors.map((user) => (
               <option key={user.id} value={user.id}>
@@ -397,21 +618,29 @@ export default function AdminPostEditor() {
         </label>
         <label>
           Tags (comma separated)
-          <input value={tags} onChange={(e) => setTags(e.target.value)} />
+          <input
+            value={tags}
+            onChange={(e) => {
+              const next = e.target.value;
+              setTags(next);
+              setSaveMessage("");
+              setIsDirty(true);
+              setActiveTagSuggestion(-1);
+              setFieldError("tags", validateTags(next));
+            }}
+            onKeyDown={onTagInputKeyDown}
+          />
         </label>
+        {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
         {tagOptions.length > 0 && (
           <div className="admin-tag-suggestions">
-            {tagOptions
-              .filter((tag) => !parseTags(tags).includes(tag))
-              .slice(0, 20)
+            {tagSuggestions
               .map((tag) => (
                 <button
                   type="button"
                   key={tag}
-                  onClick={() => {
-                    const next = [...parseTags(tags), tag].join(", ");
-                    setTags(next);
-                  }}
+                  className={tagSuggestions[activeTagSuggestion] === tag ? "is-active" : ""}
+                  onClick={() => addTag(tag)}
                 >
                   {tag}
                 </button>
@@ -423,7 +652,11 @@ export default function AdminPostEditor() {
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setFeaturedImage(e.target.files ? e.target.files[0] : null)}
+            onChange={(e) => {
+              setFeaturedImage(e.target.files ? e.target.files[0] : null);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
           />
         </label>
         <label>
@@ -431,16 +664,22 @@ export default function AdminPostEditor() {
           <input
             type="file"
             multiple
-            onChange={(e) =>
-              setAttachments(e.target.files ? Array.from(e.target.files) : [])
-            }
+            onChange={(e) => {
+              setAttachments(e.target.files ? Array.from(e.target.files) : []);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
           />
         </label>
         <label>
           Excerpt
           <textarea
             value={excerptLength > 0 ? buildExcerpt(body, excerptLength) : excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
+            onChange={(e) => {
+              setExcerpt(e.target.value);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
             rows={3}
             disabled={excerptLength > 0}
           />
@@ -452,12 +691,29 @@ export default function AdminPostEditor() {
         )}
         <label className="admin-check admin-check-right">
           <span>Published</span>
-          <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={published}
+            onChange={(e) => {
+              setPublished(e.target.checked);
+              setSaveMessage("");
+              setIsDirty(true);
+            }}
+          />
         </label>
         <div className="admin-field">
           <span>Content</span>
-          <RichEditor value={body} onChange={setBody} />
+          <RichEditor
+            value={body}
+            onChange={(value) => {
+              setBody(value);
+              setSaveMessage("");
+              setIsDirty(true);
+              setFieldError("body", validateBody(value));
+            }}
+          />
         </div>
+        {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>
     </section>
   );
