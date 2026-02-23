@@ -10,6 +10,7 @@ import (
 )
 
 var tagStripper = regexp.MustCompile(`(?s)<[^>]*>`)
+
 const utilCacheMaxEntries = 2048
 
 var formatDateCache = struct {
