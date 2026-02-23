@@ -71,6 +71,7 @@ export default function AdminPostEditor() {
   const [body, setBody] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [tags, setTags] = useState("");
+  const [tagInput, setTagInput] = useState("");
   const [category, setCategory] = useState("");
   const [author, setAuthor] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
@@ -87,6 +88,7 @@ export default function AdminPostEditor() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [activeTagSuggestion, setActiveTagSuggestion] = useState(-1);
+  const [activeCategorySuggestion, setActiveCategorySuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
 
   const [sourcePostId, setSourcePostId] = useState("");
@@ -97,17 +99,21 @@ export default function AdminPostEditor() {
   const [localeRecords, setLocaleRecords] = useState<Record<string, EditorPostTranslationRecord>>({});
 
   const currentTags = useMemo(() => parseTags(tags), [tags]);
-  const lastTagInput = useMemo(() => {
-    const fragments = tags.split(",");
-    return (fragments[fragments.length - 1] || "").trim().toLowerCase();
-  }, [tags]);
   const tagSuggestions = useMemo(
     () =>
       tagOptions
         .filter((tag) => !currentTags.some((item) => item.toLowerCase() === tag.toLowerCase()))
-        .filter((tag) => (lastTagInput ? tag.toLowerCase().includes(lastTagInput) : true))
+        .filter((tag) => (tagInput.trim() ? tag.toLowerCase().includes(tagInput.trim().toLowerCase()) : true))
         .slice(0, 20),
-    [currentTags, lastTagInput, tagOptions]
+    [currentTags, tagInput, tagOptions]
+  );
+  const categorySuggestions = useMemo(
+    () =>
+      categories
+        .filter((item) => item.toLowerCase() !== category.trim().toLowerCase())
+        .filter((item) => (category.trim() ? item.toLowerCase().includes(category.trim().toLowerCase()) : true))
+        .slice(0, 20),
+    [categories, category]
   );
 
   const setFieldError = (field: keyof FieldErrors, message?: string) => {
@@ -142,6 +148,7 @@ export default function AdminPostEditor() {
     setBody(record.body || "");
     setExcerpt(record.excerpt || "");
     setTags(record.tags || "");
+    setTagInput("");
     setCategory(record.category || "");
     setAuthor(record.author || "");
     setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
@@ -150,6 +157,7 @@ export default function AdminPostEditor() {
     setAttachments([]);
     setFieldErrors({});
     setActiveTagSuggestion(-1);
+    setActiveCategorySuggestion(-1);
     setIsDirty(false);
   };
 
@@ -196,6 +204,7 @@ export default function AdminPostEditor() {
         setBody("");
         setExcerpt("");
         setTags("");
+        setTagInput("");
         setCategory("");
         setAuthor("");
         setPublishedAt("");
@@ -211,6 +220,7 @@ export default function AdminPostEditor() {
         setSlugEditedManually(false);
         setFieldErrors({});
         setActiveTagSuggestion(-1);
+        setActiveCategorySuggestion(-1);
         setIsDirty(false);
         return;
       }
@@ -264,6 +274,11 @@ export default function AdminPostEditor() {
     if (activeTagSuggestion < tagSuggestions.length) return;
     setActiveTagSuggestion(-1);
   }, [activeTagSuggestion, tagSuggestions.length]);
+
+  useEffect(() => {
+    if (activeCategorySuggestion < categorySuggestions.length) return;
+    setActiveCategorySuggestion(-1);
+  }, [activeCategorySuggestion, categorySuggestions.length]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -365,36 +380,75 @@ export default function AdminPostEditor() {
   };
 
   const addTag = (tag: string) => {
-    const segments = tags.split(",");
-    const confirmed = segments
-      .slice(0, -1)
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const merged = [...confirmed, tag]
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    const merged = [...currentTags, trimmed]
       .filter((item, index, arr) => arr.findIndex((ref) => ref.toLowerCase() === item.toLowerCase()) === index)
       .join(", ");
     setTags(merged);
+    setTagInput("");
     setSaveMessage("");
     setIsDirty(true);
     setActiveTagSuggestion(-1);
     setFieldError("tags", validateTags(merged));
   };
 
+  const removeTag = (tag: string) => {
+    const merged = currentTags
+      .filter((item) => item.toLowerCase() !== tag.toLowerCase())
+      .join(", ");
+    setTags(merged);
+    setSaveMessage("");
+    setIsDirty(true);
+    setFieldError("tags", validateTags(merged));
+  };
+
   const onTagInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (tagSuggestions.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      if (tagSuggestions.length === 0) return;
       setActiveTagSuggestion((prev) => (prev + 1) % tagSuggestions.length);
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      if (tagSuggestions.length === 0) return;
       setActiveTagSuggestion((prev) => (prev <= 0 ? tagSuggestions.length - 1 : prev - 1));
       return;
     }
-    if (event.key === "Enter" && activeTagSuggestion >= 0) {
+    if (event.key === "Enter") {
       event.preventDefault();
-      addTag(tagSuggestions[activeTagSuggestion]);
+      if (activeTagSuggestion >= 0 && tagSuggestions[activeTagSuggestion]) {
+        addTag(tagSuggestions[activeTagSuggestion]);
+        return;
+      }
+      addTag(tagInput);
+    }
+  };
+
+  const onCategoryInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (categorySuggestions.length === 0) return;
+      setActiveCategorySuggestion((prev) => (prev + 1) % categorySuggestions.length);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (categorySuggestions.length === 0) return;
+      setActiveCategorySuggestion((prev) => (prev <= 0 ? categorySuggestions.length - 1 : prev - 1));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const next =
+        activeCategorySuggestion >= 0 && categorySuggestions[activeCategorySuggestion]
+          ? categorySuggestions[activeCategorySuggestion]
+          : category.trim();
+      setCategory(next);
+      setSaveMessage("");
+      setIsDirty(true);
+      setActiveCategorySuggestion(-1);
     }
   };
 
@@ -584,20 +638,35 @@ export default function AdminPostEditor() {
         <label>
           Category
           <input
-            list="category-list"
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
               setSaveMessage("");
               setIsDirty(true);
+              setActiveCategorySuggestion(-1);
             }}
+            onKeyDown={onCategoryInputKeyDown}
           />
         </label>
-        <datalist id="category-list">
-          {categories.map((item) => (
-            <option key={item} value={item} />
-          ))}
-        </datalist>
+        {categorySuggestions.length > 0 && (
+          <div className="admin-tag-suggestions">
+            {categorySuggestions.map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={categorySuggestions[activeCategorySuggestion] === item ? "is-active" : ""}
+                onClick={() => {
+                  setCategory(item);
+                  setSaveMessage("");
+                  setIsDirty(true);
+                  setActiveCategorySuggestion(-1);
+                }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
         <label>
           Author
           <select
@@ -617,21 +686,30 @@ export default function AdminPostEditor() {
           </select>
         </label>
         <label>
-          Tags (comma separated)
+          Tags
           <input
-            value={tags}
+            value={tagInput}
             onChange={(e) => {
               const next = e.target.value;
-              setTags(next);
+              setTagInput(next);
               setSaveMessage("");
               setIsDirty(true);
               setActiveTagSuggestion(-1);
-              setFieldError("tags", validateTags(next));
             }}
             onKeyDown={onTagInputKeyDown}
+            placeholder="Type tag and press Enter"
           />
         </label>
         {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
+        {currentTags.length > 0 && (
+          <div className="admin-tag-suggestions">
+            {currentTags.map((tag) => (
+              <button type="button" key={`selected-${tag}`} onClick={() => removeTag(tag)}>
+                {tag} ×
+              </button>
+            ))}
+          </div>
+        )}
         {tagOptions.length > 0 && (
           <div className="admin-tag-suggestions">
             {tagSuggestions
