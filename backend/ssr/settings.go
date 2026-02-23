@@ -48,6 +48,8 @@ func defaultSettings() SettingsRecord {
 		AnalyticsSiteID:         defaultAnalyticsSiteID,
 		EnableAds:               defaultAdsClient != "",
 		AdsClient:               defaultAdsClient,
+		EnableComments:          false,
+		CommentsScriptTag:       "",
 		ArchivePageSize:         10,
 		HomePageSize:            3,
 		ShowArchiveTags:         true,

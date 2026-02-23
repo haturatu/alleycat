@@ -71,6 +71,8 @@ type SettingsRecord struct {
 	AnalyticsSiteID         string `json:"analytics_site_id"`
 	EnableAds               bool   `json:"enable_ads"`
 	AdsClient               string `json:"ads_client"`
+	EnableComments          bool   `json:"enable_comments"`
+	CommentsScriptTag       string `json:"comments_script_tag"`
 	EnableCodeHighlight     bool   `json:"enable_code_highlight"`
 	HighlightTheme          string `json:"highlight_theme"`
 	ArchivePageSize         int    `json:"archive_page_size"`

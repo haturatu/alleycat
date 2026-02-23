@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -16,6 +17,8 @@ const criticalBaseStyles = `<style>
     main{max-width:1100px;margin:0 auto;padding:24px 6vw 80px}
     .postList{display:grid;gap:16px}
     </style>`
+
+var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\s*=\s*['"]([^'"]+)['"][^>]*>\s*</script>\s*$`)
 
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
@@ -85,6 +88,10 @@ func renderHead(title string, settings SettingsRecord) string {
       margin: 0.2rem 0 0;
       opacity: 0.75;
       font-size: 0.9rem;
+    }
+    .post-comments {
+      margin-top: 1.5rem;
+      padding-top: 0.5rem;
     }
     </style>`
 	fontStyles := ""
@@ -505,6 +512,7 @@ func renderPost(path string, settings SettingsRecord) string {
 	if settings.ShowRelatedPosts {
 		relatedHTML = renderRelatedPosts(getRelatedPostsInLocale(post, locale, 4), postPathPrefix)
 	}
+	commentsHTML := renderCommentsSection(settings)
 
 	return renderHead(defaultString(post.Title, "Post"), settings) +
 		renderNav(menu, settings) +
@@ -524,13 +532,41 @@ func renderPost(path string, settings SettingsRecord) string {
       </article>
       %s
       %s
+      %s
     </main>`, escapeHTML(post.Title), func() string {
 			if date == "" {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, relatedHTML, navHTML) +
+		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, body, commentsHTML, relatedHTML, navHTML) +
 		renderFooter(settings)
+}
+
+func renderCommentsSection(settings SettingsRecord) string {
+	if !settings.EnableComments {
+		return ""
+	}
+	tag := sanitizeCommentsScriptTag(settings.CommentsScriptTag)
+	if tag == "" {
+		return ""
+	}
+	return fmt.Sprintf(`<section class="post-comments">%s</section>`, tag)
+}
+
+func sanitizeCommentsScriptTag(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	match := commentsScriptTagPattern.FindStringSubmatch(trimmed)
+	if len(match) < 2 {
+		return ""
+	}
+	src := strings.TrimSpace(strings.ToLower(match[1]))
+	if !strings.HasPrefix(src, "https://utteranc.es/") && !strings.HasPrefix(src, "https://giscus.app/") {
+		return ""
+	}
+	return trimmed
 }
 
 func renderRelatedPosts(items []PostRecord, postPathPrefix string) string {

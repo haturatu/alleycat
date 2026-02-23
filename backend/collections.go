@@ -286,6 +286,8 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.TextField{Name: "analytics_site_id"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_ads"})
 		addFieldIfMissing(c, &core.TextField{Name: "ads_client"})
+		addFieldIfMissing(c, &core.BoolField{Name: "enable_comments"})
+		addFieldIfMissing(c, &core.TextField{Name: "comments_script_tag"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_code_highlight"})
 		addFieldIfMissing(c, &core.TextField{Name: "highlight_theme"})
 		addFieldIfMissing(c, &core.NumberField{Name: "archive_page_size"})

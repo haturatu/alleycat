@@ -36,6 +36,8 @@ const defaults = {
   analytics_site_id: "",
   enable_ads: false,
   ads_client: "",
+  enable_comments: false,
+  comments_script_tag: "",
   enable_code_highlight: true,
   highlight_theme: "github-dark",
   archive_page_size: 10,
@@ -474,6 +476,23 @@ export default function AdminSettings() {
         <label>
           Ads client
           <input value={settings.ads_client} onChange={(e) => update("ads_client", e.target.value)} />
+        </label>
+        <label className="admin-check admin-check-right">
+          <span>Enable comments</span>
+          <input
+            type="checkbox"
+            checked={settings.enable_comments}
+            onChange={(e) => update("enable_comments", e.target.checked)}
+          />
+        </label>
+        <label>
+          Comment script tag (utterances/giscus)
+          <textarea
+            value={settings.comments_script_tag}
+            onChange={(e) => update("comments_script_tag", e.target.value)}
+            rows={4}
+            placeholder={`<script src="https://utteranc.es/client.js" repo="owner/repo" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>`}
+          />
         </label>
       </div>
     </section>
