@@ -716,7 +716,7 @@ func renderRelatedPosts(items []PostRecord, postPathPrefix string) string {
         </li>`, postPathPrefix, url.PathEscape(post.Slug), escapeHTML(defaultString(post.Title, "Post")), dateHTML))
 	}
 	return fmt.Sprintf(`<section class="post-related">
-      <h2>関連記事</h2>
+      <h2>Related Posts</h2>
       <ul class="post-related-list">
         %s
       </ul>
@@ -809,7 +809,7 @@ func renderNotFound(settings SettingsRecord) string {
         <header class="post-header">
           <h1 class="post-title">Not Found</h1>
         </header>
-        <div class="post-body body">ページが見つかりませんでした。</div>
+        <div class="post-body body">Page not found.</div>
       </article>
     </main>` +
 		renderFooter(settings)
