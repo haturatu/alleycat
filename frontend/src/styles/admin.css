@@ -110,6 +110,10 @@ body {
   color: #b00020;
 }
 
+.admin-success {
+  color: #1f7a34;
+}
+
 .admin-header {
   display: flex;
   align-items: center;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
 import { buildExcerpt, parseTags, slugify } from "../utils/text";
@@ -41,6 +41,7 @@ const escapeFilter = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/
 
 export default function AdminPostEditor() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -57,6 +58,7 @@ export default function AdminPostEditor() {
   const [categories, setCategories] = useState<string[]>([]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const [excerptLength, setExcerptLength] = useState(0);
 
   const [sourcePostId, setSourcePostId] = useState("");
@@ -184,6 +186,14 @@ export default function AdminPostEditor() {
   }, [id]);
 
   useEffect(() => {
+    const state = location.state as { saved?: boolean; created?: boolean } | null;
+    if (!state?.saved) return;
+    setError("");
+    setSaveMessage(state.created ? "Post saved (new post created)." : "Post saved.");
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
     pb.collection("cms_users")
       .getFullList({ sort: "name" })
       .then((items) => setAuthors(items as Array<{ id: string; name?: string; email?: string }>))
@@ -241,6 +251,7 @@ export default function AdminPostEditor() {
 
   const save = async () => {
     setError("");
+    setSaveMessage("");
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(body, excerptLength) : excerpt;
     const trimmedTitle = title.trim();
@@ -271,7 +282,7 @@ export default function AdminPostEditor() {
     try {
       if (!id || id === "new" || sourcePostId === "") {
         const created = (await pb.collection("posts").create(form)) as unknown as EditorPostRecord;
-        navigate(`/posts/${created.id}`);
+        navigate(`/posts/${created.id}`, { state: { saved: true, created: true } });
         return;
       }
 
@@ -290,6 +301,7 @@ export default function AdminPostEditor() {
         setLocaleRecords((prev) => ({ ...prev, [selectedLocale]: saved }));
         setLocaleOptions((prev) => (prev.includes(selectedLocale) ? prev : [...prev, selectedLocale]));
       }
+      setSaveMessage("Post saved.");
     } catch (err) {
       if (err instanceof ClientResponseError) {
         const details = err.response?.data as Record<string, { message?: string }> | undefined;
@@ -315,6 +327,7 @@ export default function AdminPostEditor() {
         </button>
       </header>
       {error && <p className="admin-error">{error}</p>}
+      {saveMessage && <p className="admin-success">{saveMessage}</p>}
       <div className="admin-form">
         {id !== "new" && localeOptions.length > 0 && (
           <div className="admin-field">
