@@ -6,6 +6,7 @@ import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
 import RichEditor from "./RichEditor";
 import SaveButton from "./components/SaveButton";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
+import useEditorFormState from "./hooks/useEditorFormState";
 
 type FieldErrors = {
   title?: string;
@@ -27,11 +28,10 @@ export default function AdminPageEditor() {
   const [publishedAt, setPublishedAt] = useState("");
   const [published, setPublished] = useState(true);
   const [error, setError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
 
   const setFieldError = (field: keyof FieldErrors, message?: string) => {
     setFieldErrors((prev) => {
@@ -63,7 +63,7 @@ export default function AdminPageEditor() {
     if (!id || id === "new") {
       setSlugEditedManually(false);
       setFieldErrors({});
-      setIsDirty(false);
+      markSaved();
       return;
     }
     pb.collection("pages")
@@ -81,7 +81,7 @@ export default function AdminPageEditor() {
         setPublished(Boolean(record.published));
         setSlugEditedManually(true);
         setFieldErrors({});
-        setIsDirty(false);
+        markSaved();
       })
       .catch((err) => {
         setError("ページの取得に失敗しました。権限またはIDを確認してください。");
@@ -94,7 +94,7 @@ export default function AdminPageEditor() {
   const save = async () => {
     if (saving) return;
     setError("");
-    setSaveMessage("");
+    clearSaveMessage();
 
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
@@ -133,8 +133,7 @@ export default function AdminPageEditor() {
       } else {
         await pb.collection("pages").update(id, payload);
       }
-      setIsDirty(false);
-      setSaveMessage("Page saved.");
+      markSaved("Page saved.");
       navigate("/pages");
     } catch (err) {
       if (err instanceof ClientResponseError) {
@@ -170,8 +169,7 @@ export default function AdminPageEditor() {
             onChange={(e) => {
               const next = e.target.value;
               setTitle(next);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setFieldError("title", validateTitle(next));
               if (!slugEditedManually) {
                 const nextSlug = slugify(next);
@@ -191,8 +189,7 @@ export default function AdminPageEditor() {
                 const next = e.target.value;
                 setSlug(next);
                 setSlugEditedManually(true);
-                setSaveMessage("");
-                setIsDirty(true);
+                markDirty();
                 setFieldError("slug", validateSlug(next));
               }}
             />
@@ -203,8 +200,7 @@ export default function AdminPageEditor() {
                 const auto = slugify(title);
                 setSlug(auto);
                 setSlugEditedManually(false);
-                setSaveMessage("");
-                setIsDirty(true);
+                markDirty();
                 setFieldError("slug", validateSlug(auto));
               }}
             >
@@ -226,8 +222,7 @@ export default function AdminPageEditor() {
             onChange={(e) => {
               const next = e.target.value;
               setUrl(next);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               const previewURL = next.trim() || `/${slugify(title)}/`;
               setFieldError("url", validateURL(previewURL));
             }}
@@ -242,8 +237,7 @@ export default function AdminPageEditor() {
             checked={menuVisible}
             onChange={(e) => {
               setMenuVisible(e.target.checked);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -254,8 +248,7 @@ export default function AdminPageEditor() {
             value={publishedAt}
             onChange={(e) => {
               setPublishedAt(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -266,8 +259,7 @@ export default function AdminPageEditor() {
             value={menuOrder}
             onChange={(e) => {
               setMenuOrder(Number(e.target.value));
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -277,8 +269,7 @@ export default function AdminPageEditor() {
             value={menuTitle}
             onChange={(e) => {
               setMenuTitle(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -289,8 +280,7 @@ export default function AdminPageEditor() {
             checked={published}
             onChange={(e) => {
               setPublished(e.target.checked);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -300,8 +290,7 @@ export default function AdminPageEditor() {
             value={body}
             onChange={(value) => {
               setBody(value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setFieldError("body", validateBody(value));
             }}
           />

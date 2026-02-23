@@ -6,6 +6,7 @@ import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify } from "
 import RichEditor from "./RichEditor";
 import SaveButton from "./components/SaveButton";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
+import useEditorFormState from "./hooks/useEditorFormState";
 
 type EditorPostRecord = {
   id: string;
@@ -84,14 +85,13 @@ export default function AdminPostEditor() {
   const [categories, setCategories] = useState<string[]>([]);
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [activeTagSuggestion, setActiveTagSuggestion] = useState(-1);
   const [activeCategorySuggestion, setActiveCategorySuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
+  const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
 
   const [sourcePostId, setSourcePostId] = useState("");
   const [sourceLocale, setSourceLocale] = useState("ja");
@@ -160,7 +160,7 @@ export default function AdminPostEditor() {
     setFieldErrors({});
     setActiveTagSuggestion(-1);
     setActiveCategorySuggestion(-1);
-    setIsDirty(false);
+    markSaved();
   };
 
   const applyDraftFromSource = (locale: string, source: EditorPostRecord, sourceId: string) => {
@@ -223,7 +223,7 @@ export default function AdminPostEditor() {
         setFieldErrors({});
         setActiveTagSuggestion(-1);
         setActiveCategorySuggestion(-1);
-        setIsDirty(false);
+        markSaved();
         return;
       }
 
@@ -288,9 +288,9 @@ export default function AdminPostEditor() {
     const state = location.state as { saved?: boolean; created?: boolean } | null;
     if (!state?.saved) return;
     setError("");
-    setSaveMessage(state.created ? "Post saved (new post created)." : "Post saved.");
+    markSaved(state.created ? "Post saved (new post created)." : "Post saved.");
     navigate(location.pathname, { replace: true });
-  }, [location.pathname, location.state, navigate]);
+  }, [location.pathname, location.state, markSaved, navigate]);
 
   useEffect(() => {
     pb.collection("cms_users")
@@ -359,8 +359,7 @@ export default function AdminPostEditor() {
       .join(", ");
     setTags(merged);
     setTagInput("");
-    setSaveMessage("");
-    setIsDirty(true);
+    markDirty();
     setActiveTagSuggestion(-1);
     setFieldError("tags", validateTags(merged));
   };
@@ -370,8 +369,7 @@ export default function AdminPostEditor() {
       .filter((item) => item.toLowerCase() !== tag.toLowerCase())
       .join(", ");
     setTags(merged);
-    setSaveMessage("");
-    setIsDirty(true);
+    markDirty();
     setFieldError("tags", validateTags(merged));
   };
 
@@ -418,8 +416,7 @@ export default function AdminPostEditor() {
           ? categorySuggestions[activeCategorySuggestion]
           : category.trim();
       setCategory(next);
-      setSaveMessage("");
-      setIsDirty(true);
+      markDirty();
       setActiveCategorySuggestion(-1);
     }
   };
@@ -427,7 +424,7 @@ export default function AdminPostEditor() {
   const save = async () => {
     if (saving) return;
     setError("");
-    setSaveMessage("");
+    clearSaveMessage();
     const normalizedBody = normalizeMarkdownLinksInHtml(body);
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
@@ -468,7 +465,7 @@ export default function AdminPostEditor() {
     try {
       if (!id || id === "new" || sourcePostId === "") {
         const created = (await pb.collection("posts").create(form)) as unknown as EditorPostRecord;
-        setIsDirty(false);
+        markSaved();
         navigate(`/posts/${created.id}`, { state: { saved: true, created: true } });
         return;
       }
@@ -488,8 +485,7 @@ export default function AdminPostEditor() {
         setLocaleRecords((prev) => ({ ...prev, [selectedLocale]: saved }));
         setLocaleOptions((prev) => (prev.includes(selectedLocale) ? prev : [...prev, selectedLocale]));
       }
-      setIsDirty(false);
-      setSaveMessage("Post saved.");
+      markSaved("Post saved.");
     } catch (err) {
       if (err instanceof ClientResponseError) {
         const details = err.response?.data as Record<string, { message?: string }> | undefined;
@@ -545,8 +541,7 @@ export default function AdminPostEditor() {
             onChange={(e) => {
               const next = e.target.value;
               setTitle(next);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setFieldError("title", validateTitle(next));
               if (!slugEditedManually) {
                 const nextSlug = slugify(next);
@@ -566,8 +561,7 @@ export default function AdminPostEditor() {
                 const next = e.target.value;
                 setSlug(next);
                 setSlugEditedManually(true);
-                setSaveMessage("");
-                setIsDirty(true);
+                markDirty();
                 setFieldError("slug", validateSlug(next));
               }}
             />
@@ -577,8 +571,7 @@ export default function AdminPostEditor() {
                 const auto = slugify(title);
                 setSlug(auto);
                 setSlugEditedManually(false);
-                setSaveMessage("");
-                setIsDirty(true);
+                markDirty();
                 setFieldError("slug", validateSlug(auto));
               }}
             >
@@ -600,8 +593,7 @@ export default function AdminPostEditor() {
             value={publishedAt}
             onChange={(e) => {
               setPublishedAt(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -611,8 +603,7 @@ export default function AdminPostEditor() {
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setActiveCategorySuggestion(-1);
             }}
             onKeyDown={onCategoryInputKeyDown}
@@ -627,8 +618,7 @@ export default function AdminPostEditor() {
                 className={categorySuggestions[activeCategorySuggestion] === item ? "is-active" : ""}
                 onClick={() => {
                   setCategory(item);
-                  setSaveMessage("");
-                  setIsDirty(true);
+                  markDirty();
                   setActiveCategorySuggestion(-1);
                 }}
               >
@@ -643,8 +633,7 @@ export default function AdminPostEditor() {
             value={author}
             onChange={(e) => {
               setAuthor(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           >
             <option value="">(none)</option>
@@ -662,8 +651,7 @@ export default function AdminPostEditor() {
             onChange={(e) => {
               const next = e.target.value;
               setTagInput(next);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setActiveTagSuggestion(-1);
             }}
             onKeyDown={onTagInputKeyDown}
@@ -702,8 +690,7 @@ export default function AdminPostEditor() {
             accept="image/*"
             onChange={(e) => {
               setFeaturedImage(e.target.files ? e.target.files[0] : null);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -714,8 +701,7 @@ export default function AdminPostEditor() {
             multiple
             onChange={(e) => {
               setAttachments(e.target.files ? Array.from(e.target.files) : []);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -725,8 +711,7 @@ export default function AdminPostEditor() {
             value={excerptLength > 0 ? buildExcerpt(body, excerptLength) : excerpt}
             onChange={(e) => {
               setExcerpt(e.target.value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
             rows={3}
             disabled={excerptLength > 0}
@@ -744,8 +729,7 @@ export default function AdminPostEditor() {
             checked={published}
             onChange={(e) => {
               setPublished(e.target.checked);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
             }}
           />
         </label>
@@ -755,8 +739,7 @@ export default function AdminPostEditor() {
             value={body}
             onChange={(value) => {
               setBody(value);
-              setSaveMessage("");
-              setIsDirty(true);
+              markDirty();
               setFieldError("body", validateBody(value));
             }}
           />
