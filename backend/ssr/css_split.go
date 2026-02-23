@@ -209,10 +209,10 @@ func isCriticalCSSBlock(block string) bool {
 	}
 
 	criticalMarkers := []string{
-		":root", "html", "body", "#root", "main", "img",
+		":root", "[data-theme", "data-theme", "html", "body", "#root", "main", "img", "nav", "header", "button",
 		".navbar", ".page-header", ".top-image", ".postlist", ".post",
 		".post-header", ".post-title", ".post-details", ".post-link",
-		".body-post", ".body-tag", ".button", ".icon",
+		".body-post", ".body-tag", ".button", ".icon", ".theme-toggle",
 	}
 	for _, marker := range criticalMarkers {
 		if strings.Contains(lower, marker) {

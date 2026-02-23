@@ -154,15 +154,20 @@ func renderNav(menu []PageRecord, settings SettingsRecord) string {
         %s
         <li>
           <script>
-            let theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light");
-            document.documentElement.dataset.theme = theme;
-            function changeTheme() {
-              theme = theme === "dark" ? "light" : "dark";
-              localStorage.setItem("theme", theme);
-              document.documentElement.dataset.theme = theme;
-            }
+            (() => {
+              const root = document.documentElement;
+              const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+              let theme = localStorage.getItem("theme") || (prefersDark ? "dark" : "light");
+              const applyTheme = (nextTheme) => {
+                root.dataset.theme = nextTheme;
+              };
+              applyTheme(theme);
+              window.changeTheme = () => {
+                theme = theme === "dark" ? "light" : "dark";
+                localStorage.setItem("theme", theme);
+                applyTheme(theme);
+              };
+            })();
           </script>
           <button class="button" onclick="changeTheme()">
             <span class="icon">◐</span>
