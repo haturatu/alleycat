@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { pb } from "../lib/pb";
 import "../styles/admin.css";
+import "highlight.js/styles/github-dark.css";
 
 export default function AdminLayout() {
   const navigate = useNavigate();

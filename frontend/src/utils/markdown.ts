@@ -1,51 +1,70 @@
-import MarkdownIt from "markdown-it";
+import hljs from "highlight.js";
+import { marked } from "marked";
 
-const md = new MarkdownIt("default", {
-  html: true,
-  linkify: true,
-  typographer: false,
-  breaks: false,
+marked.setOptions({
+  gfm: true,
+  breaks: true,
 });
 
 export const renderMarkdownToHtml = (value?: string) => {
   const input = value ?? "";
   if (!input.trim()) return "";
-  return md.render(input);
+
+  const rendered = marked.parse(input) as string;
+  const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
+  const root = doc.getElementById("md-root");
+  if (!root) return rendered;
+
+  root.querySelectorAll("pre code").forEach((codeBlock) => {
+    const classNames = (codeBlock.getAttribute("class") || "").split(/\s+/);
+    const languageClass = classNames.find((className) => className.startsWith("language-"));
+    const language = languageClass?.slice("language-".length);
+    const source = codeBlock.textContent || "";
+
+    if (language && hljs.getLanguage(language)) {
+      codeBlock.innerHTML = hljs.highlight(source, { language }).value;
+    } else {
+      codeBlock.innerHTML = hljs.highlightAuto(source).value;
+    }
+    codeBlock.classList.add("hljs");
+  });
+
+  return root.innerHTML;
 };
 
 export const looksLikeHtml = (value?: string) => /<[a-z][^>]*>/i.test(value ?? "");
 
-const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+const normalizeText = (value: string) => value.replace(/\u00a0/g, " ");
 
-const escapeInline = (value: string) =>
-  value.replace(/([\\`*_{}\[\]()#+\-.!>])/g, "\\$1");
+const escapeText = (value: string) => value.replace(/([\\`*_{}\[\]()#+!>])/g, "\\$1");
 
 const nodeToMarkdown = (node: Node): string => {
   if (node.nodeType === Node.TEXT_NODE) {
-    return escapeInline((node.textContent || "").replace(/\u00a0/g, " "));
+    return escapeText(normalizeText(node.textContent || ""));
   }
   if (!(node instanceof HTMLElement)) return "";
 
   const tag = node.tagName.toLowerCase();
   const children = Array.from(node.childNodes).map(nodeToMarkdown).join("");
-  const text = normalizeWhitespace(node.textContent || "");
 
   switch (tag) {
     case "br":
-      return "  \n";
+      return "\n";
     case "p":
       return `${children.trim()}\n\n`;
     case "strong":
     case "b":
-      return `**${children || text}**`;
+      return `**${children}**`;
     case "em":
     case "i":
-      return `*${children || text}*`;
+      return `*${children}*`;
     case "code":
-      if (node.closest("pre")) return children || text;
-      return `\`${(children || text).replace(/`/g, "\\`")}\``;
-    case "pre":
-      return `\n\`\`\`\n${(node.textContent || "").trim()}\n\`\`\`\n\n`;
+      if (node.closest("pre")) return children;
+      return `\`${(node.textContent || "").replace(/`/g, "\\`")}\``;
+    case "pre": {
+      const code = (node.textContent || "").replace(/\n+$/g, "");
+      return `\n\`\`\`\n${code}\n\`\`\`\n\n`;
+    }
     case "h1":
       return `# ${children.trim()}\n\n`;
     case "h2":
@@ -76,15 +95,21 @@ const nodeToMarkdown = (node: Node): string => {
       return `![${alt}](${src})`;
     }
     case "li":
-      return `${children.trim()}\n`;
-    case "ul":
-      return `${Array.from(node.children)
-        .map((li) => `- ${nodeToMarkdown(li).trim()}`)
-        .join("\n")}\n\n`;
-    case "ol":
-      return `${Array.from(node.children)
-        .map((li, i) => `${i + 1}. ${nodeToMarkdown(li).trim()}`)
-        .join("\n")}\n\n`;
+      return children.trim();
+    case "ul": {
+      const items = Array.from(node.children)
+        .filter((child) => child.tagName.toLowerCase() === "li")
+        .map((li) => `- ${nodeToMarkdown(li)}`)
+        .join("\n");
+      return `${items}\n\n`;
+    }
+    case "ol": {
+      const items = Array.from(node.children)
+        .filter((child) => child.tagName.toLowerCase() === "li")
+        .map((li, i) => `${i + 1}. ${nodeToMarkdown(li)}`)
+        .join("\n");
+      return `${items}\n\n`;
+    }
     case "hr":
       return `---\n\n`;
     default:
@@ -99,5 +124,8 @@ export const renderHtmlToMarkdown = (value?: string) => {
 
   const doc = new DOMParser().parseFromString(input, "text/html");
   const markdown = Array.from(doc.body.childNodes).map(nodeToMarkdown).join("");
-  return markdown.replace(/\n{3,}/g, "\n\n").trim();
+  return markdown
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 };
