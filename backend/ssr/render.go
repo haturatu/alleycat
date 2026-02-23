@@ -631,7 +631,7 @@ func buildTOC(body string, enabled bool) (string, string) {
 	}
 
 	toc := fmt.Sprintf(`<nav class="post-toc" aria-label="Table of contents">
-      <h2>目次</h2>
+      <h2>Table of contents</h2>
       <ul>
         %s
       </ul>
