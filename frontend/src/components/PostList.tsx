@@ -35,7 +35,7 @@ export default function PostList({ posts }: { posts: PostRecord[] }) {
             </header>
             <div className="post-excerpt body">{post.excerpt || buildExcerpt(body)}</div>
             <Link to={`/posts/${post.slug}/`} className="post-link">
-              続きを読む
+              Read more
             </Link>
           </article>
         );

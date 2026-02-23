@@ -23,7 +23,7 @@ export default function AdminLogin() {
       await pb.collection("cms_users").authWithPassword(email, password);
       navigate("/posts");
     } catch (err) {
-      setError("ログインに失敗しました。");
+      setError("Login failed.");
     }
   };
 

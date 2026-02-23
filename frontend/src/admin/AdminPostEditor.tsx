@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
-import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify } from "../utils/text";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify, stripHtml } from "../utils/text";
+import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
 import RichEditor from "./RichEditor";
+import { uploadImageAndGetURL } from "./mediaUpload";
 import SaveButton from "./components/SaveButton";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
@@ -34,6 +36,9 @@ type FieldErrors = {
   body?: string;
   tags?: string;
 };
+
+type EditorMode = "rich" | "markdown";
+type MarkdownViewMode = "write" | "preview";
 
 const findDuplicateTags = (values: string[]) => {
   const seen = new Map<string, string>();
@@ -72,6 +77,9 @@ export default function AdminPostEditor() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [body, setBody] = useState("");
+  const [markdownBody, setMarkdownBody] = useState("");
+  const [editorMode, setEditorMode] = useState<EditorMode>("rich");
+  const [markdownViewMode, setMarkdownViewMode] = useState<MarkdownViewMode>("write");
   const [excerpt, setExcerpt] = useState("");
   const [tags, setTags] = useState("");
   const [tagInput, setTagInput] = useState("");
@@ -92,6 +100,7 @@ export default function AdminPostEditor() {
   const [activeCategorySuggestion, setActiveCategorySuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
   const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+  const markdownTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [sourcePostId, setSourcePostId] = useState("");
   const [sourceLocale, setSourceLocale] = useState("ja");
@@ -143,11 +152,46 @@ export default function AdminPostEditor() {
     return undefined;
   };
 
+  const handleMarkdownImagePaste = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData?.items || [])
+      .map((item) => (item.kind === "file" ? item.getAsFile() : null))
+      .filter((file): file is File => Boolean(file) && file!.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    const textarea = markdownTextareaRef.current;
+    const start = textarea?.selectionStart ?? markdownBody.length;
+    const end = textarea?.selectionEnd ?? markdownBody.length;
+
+    try {
+      const urls = await Promise.all(files.map((file) => uploadImageAndGetURL(file)));
+      const insertion = urls
+        .map((url, index) => {
+          const file = files[index];
+          const alt = (file?.name || "image").replace(/\.[^/.]+$/, "");
+          return `![${alt}](${url})`;
+        })
+        .join("\n");
+      const next = `${markdownBody.slice(0, start)}${insertion}${markdownBody.slice(end)}`;
+      setMarkdownBody(next);
+      markDirty();
+      setFieldError("body", validateBody(next));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload image.");
+    }
+  };
+
   const applyRecordToForm = (record: EditorPostRecord) => {
+    const loadedBody = record.body || "";
+    const markdownMode = !looksLikeHtml(loadedBody) && loadedBody.trim() !== "";
     setError("");
     setTitle(record.title || "");
     setSlug(record.slug || "");
-    setBody(record.body || "");
+    setBody(loadedBody);
+    setMarkdownBody(markdownMode ? loadedBody : "");
+    setEditorMode(markdownMode ? "markdown" : "rich");
+    setMarkdownViewMode("write");
     setExcerpt(record.excerpt || "");
     setTags(record.tags || "");
     setTagInput("");
@@ -204,6 +248,9 @@ export default function AdminPostEditor() {
         setTitle("");
         setSlug("");
         setBody("");
+        setMarkdownBody("");
+        setEditorMode("rich");
+        setMarkdownViewMode("write");
         setExcerpt("");
         setTags("");
         setTagInput("");
@@ -260,7 +307,7 @@ export default function AdminPostEditor() {
         applyRecordToForm(source);
       } catch (err) {
         if (!alive) return;
-        setError("記事の取得に失敗しました。権限またはIDを確認してください。");
+        setError("Failed to load post. Check permissions or post ID.");
         console.error(err);
       }
     };
@@ -425,12 +472,16 @@ export default function AdminPostEditor() {
     if (saving) return;
     setError("");
     clearSaveMessage();
-    const normalizedBody = normalizeMarkdownLinksInHtml(body);
+    const isMarkdownMode = editorMode === "markdown";
+    const sourceBody = isMarkdownMode ? markdownBody : body;
+    const normalizedBody = isMarkdownMode
+      ? renderMarkdownToHtml(sourceBody)
+      : normalizeMarkdownLinksInHtml(sourceBody);
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
-    const trimmedBody = normalizedBody.trim();
+    const trimmedBody = sourceBody.trim();
     const nextErrors: FieldErrors = {
       title: validateTitle(trimmedTitle),
       slug: validateSlug(trimmedSlug),
@@ -494,9 +545,9 @@ export default function AdminPostEditor() {
               .map(([field, value]) => `${field}: ${value?.message || "invalid"}`)
               .join(", ")
           : "";
-        setError(detailText ? `保存に失敗しました: ${detailText}` : "保存に失敗しました。");
+        setError(detailText ? `Save failed: ${detailText}` : "Save failed.");
       } else {
-        setError("保存に失敗しました。");
+        setError("Save failed.");
       }
       console.error(err);
     } finally {
@@ -708,7 +759,14 @@ export default function AdminPostEditor() {
         <label>
           Excerpt
           <textarea
-            value={excerptLength > 0 ? buildExcerpt(body, excerptLength) : excerpt}
+            value={
+              excerptLength > 0
+                ? buildExcerpt(
+                    editorMode === "markdown" ? renderMarkdownToHtml(markdownBody) : body,
+                    excerptLength
+                  )
+                : excerpt
+            }
             onChange={(e) => {
               setExcerpt(e.target.value);
               markDirty();
@@ -734,15 +792,78 @@ export default function AdminPostEditor() {
           />
         </label>
         <div className="admin-field">
-          <span>Content</span>
-          <RichEditor
-            value={body}
-            onChange={(value) => {
-              setBody(value);
-              markDirty();
-              setFieldError("body", validateBody(value));
-            }}
-          />
+          <div className="admin-field-head">
+            <span>Content</span>
+            <label className="admin-editor-mode">
+              <span>Editor mode</span>
+              <select
+                value={editorMode}
+                onChange={(e) => {
+                  const next = e.target.value as EditorMode;
+                  if (editorMode === "markdown" && next === "rich") {
+                    setBody(renderMarkdownToHtml(markdownBody));
+                  }
+                  setEditorMode(next);
+                  if (next === "markdown" && markdownBody.trim() === "") {
+                    setMarkdownBody(looksLikeHtml(body) ? stripHtml(body) : body);
+                  }
+                  setMarkdownViewMode("write");
+                  markDirty();
+                }}
+              >
+                <option value="rich">Rich editor (HTML)</option>
+                <option value="markdown">Markdown (RFC 7763)</option>
+              </select>
+            </label>
+          </div>
+          {editorMode === "rich" ? (
+            <RichEditor
+              value={body}
+              onChange={(value) => {
+                setBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+            />
+          ) : (
+            <div className="admin-markdown-panel">
+              <div className="admin-markdown-tabs">
+                <button
+                  type="button"
+                  className={markdownViewMode === "write" ? "is-active" : ""}
+                  onClick={() => setMarkdownViewMode("write")}
+                >
+                  Write
+                </button>
+                <button
+                  type="button"
+                  className={markdownViewMode === "preview" ? "is-active" : ""}
+                  onClick={() => setMarkdownViewMode("preview")}
+                >
+                  Preview
+                </button>
+              </div>
+              {markdownViewMode === "write" ? (
+                <textarea
+                  ref={markdownTextareaRef}
+                  value={markdownBody}
+                  rows={14}
+                  onPaste={(e) => void handleMarkdownImagePaste(e)}
+                  onChange={(e) => {
+                    setMarkdownBody(e.target.value);
+                    markDirty();
+                    setFieldError("body", validateBody(e.target.value));
+                  }}
+                  placeholder="Write Markdown here..."
+                />
+              ) : (
+                <div
+                  className="admin-markdown-preview"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
+                />
+              )}
+            </div>
+          )}
         </div>
         {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>

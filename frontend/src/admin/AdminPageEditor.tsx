@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
 import { normalizeMarkdownLinksInHtml, slugify, stripHtml } from "../utils/text";
 import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
 import RichEditor from "./RichEditor";
+import { uploadImageAndGetURL } from "./mediaUpload";
 import SaveButton from "./components/SaveButton";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
@@ -15,6 +16,9 @@ type FieldErrors = {
   url?: string;
   body?: string;
 };
+
+type EditorMode = "rich" | "markdown";
+type MarkdownViewMode = "write" | "preview";
 
 export default function AdminPageEditor() {
   const { id } = useParams();
@@ -27,7 +31,8 @@ export default function AdminPageEditor() {
   const [menuTitle, setMenuTitle] = useState("");
   const [body, setBody] = useState("");
   const [markdownBody, setMarkdownBody] = useState("");
-  const [editorMode, setEditorMode] = useState<"rich" | "markdown">("rich");
+  const [editorMode, setEditorMode] = useState<EditorMode>("rich");
+  const [markdownViewMode, setMarkdownViewMode] = useState<MarkdownViewMode>("write");
   const [publishedAt, setPublishedAt] = useState("");
   const [published, setPublished] = useState(true);
   const [error, setError] = useState("");
@@ -35,6 +40,7 @@ export default function AdminPageEditor() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+  const markdownTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const setFieldError = (field: keyof FieldErrors, message?: string) => {
     setFieldErrors((prev) => {
@@ -62,6 +68,37 @@ export default function AdminPageEditor() {
   };
   const validateBody = (value: string) => (value.trim() ? undefined : "Content is required.");
 
+  const handleMarkdownImagePaste = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData?.items || [])
+      .map((item) => (item.kind === "file" ? item.getAsFile() : null))
+      .filter((file): file is File => Boolean(file) && file!.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    const textarea = markdownTextareaRef.current;
+    const start = textarea?.selectionStart ?? markdownBody.length;
+    const end = textarea?.selectionEnd ?? markdownBody.length;
+
+    try {
+      const urls = await Promise.all(files.map((file) => uploadImageAndGetURL(file)));
+      const insertion = urls
+        .map((url, index) => {
+          const file = files[index];
+          const alt = (file?.name || "image").replace(/\.[^/.]+$/, "");
+          return `![${alt}](${url})`;
+        })
+        .join("\n");
+
+      const next = `${markdownBody.slice(0, start)}${insertion}${markdownBody.slice(end)}`;
+      setMarkdownBody(next);
+      markDirty();
+      setFieldError("body", validateBody(next));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload image.");
+    }
+  };
+
   useEffect(() => {
     if (!id || id === "new") {
       setSlugEditedManually(false);
@@ -69,6 +106,7 @@ export default function AdminPageEditor() {
       setBody("");
       setMarkdownBody("");
       setEditorMode("rich");
+      setMarkdownViewMode("write");
       markSaved();
       return;
     }
@@ -87,6 +125,7 @@ export default function AdminPageEditor() {
         setBody(loadedBody);
         setMarkdownBody(markdownMode ? loadedBody : "");
         setEditorMode(markdownMode ? "markdown" : "rich");
+        setMarkdownViewMode("write");
         setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
         setPublished(Boolean(record.published));
         setSlugEditedManually(true);
@@ -94,7 +133,7 @@ export default function AdminPageEditor() {
         markSaved();
       })
       .catch((err) => {
-        setError("ページの取得に失敗しました。権限またはIDを確認してください。");
+        setError("Failed to load page. Check permissions or page ID.");
         console.error(err);
       });
   }, [id, navigate]);
@@ -108,9 +147,10 @@ export default function AdminPageEditor() {
 
     const trimmedTitle = title.trim();
     const trimmedSlug = slug.trim();
-    const sourceBody = editorMode === "markdown" ? markdownBody : body;
+    const isMarkdownMode = editorMode === "markdown";
+    const sourceBody = isMarkdownMode ? markdownBody : body;
     const normalizedBody =
-      editorMode === "markdown"
+      isMarkdownMode
         ? renderMarkdownToHtml(sourceBody)
         : normalizeMarkdownLinksInHtml(sourceBody);
     const trimmedBody = sourceBody.trim();
@@ -244,23 +284,6 @@ export default function AdminPageEditor() {
           />
         </label>
         {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
-        <label>
-          Editor mode
-          <select
-            value={editorMode}
-            onChange={(e) => {
-              const next = e.target.value as "rich" | "markdown";
-              setEditorMode(next);
-              if (next === "markdown" && markdownBody.trim() === "") {
-                setMarkdownBody(looksLikeHtml(body) ? stripHtml(body) : body);
-              }
-              markDirty();
-            }}
-          >
-            <option value="rich">Rich editor (HTML)</option>
-            <option value="markdown">Markdown (RFC 7763)</option>
-          </select>
-        </label>
         <label className="admin-check admin-check-right">
           <span>Show in menu</span>
           <input
@@ -316,7 +339,30 @@ export default function AdminPageEditor() {
           />
         </label>
         <div className="admin-field">
-          <span>Content</span>
+          <div className="admin-field-head">
+            <span>Content</span>
+            <label className="admin-editor-mode">
+              <span>Editor mode</span>
+              <select
+                value={editorMode}
+                onChange={(e) => {
+                  const next = e.target.value as EditorMode;
+                  if (editorMode === "markdown" && next === "rich") {
+                    setBody(renderMarkdownToHtml(markdownBody));
+                  }
+                  setEditorMode(next);
+                  if (next === "markdown" && markdownBody.trim() === "") {
+                    setMarkdownBody(looksLikeHtml(body) ? stripHtml(body) : body);
+                  }
+                  setMarkdownViewMode("write");
+                  markDirty();
+                }}
+              >
+                <option value="rich">Rich editor (HTML)</option>
+                <option value="markdown">Markdown (RFC 7763)</option>
+              </select>
+            </label>
+          </div>
           {editorMode === "rich" ? (
             <RichEditor
               value={body}
@@ -327,27 +373,45 @@ export default function AdminPageEditor() {
               }}
             />
           ) : (
-            <textarea
-              value={markdownBody}
-              rows={14}
-              onChange={(e) => {
-                setMarkdownBody(e.target.value);
-                markDirty();
-                setFieldError("body", validateBody(e.target.value));
-              }}
-              placeholder="Write Markdown here..."
-            />
+            <div className="admin-markdown-panel">
+              <div className="admin-markdown-tabs">
+                <button
+                  type="button"
+                  className={markdownViewMode === "write" ? "is-active" : ""}
+                  onClick={() => setMarkdownViewMode("write")}
+                >
+                  Write
+                </button>
+                <button
+                  type="button"
+                  className={markdownViewMode === "preview" ? "is-active" : ""}
+                  onClick={() => setMarkdownViewMode("preview")}
+                >
+                  Preview
+                </button>
+              </div>
+              {markdownViewMode === "write" ? (
+                <textarea
+                  ref={markdownTextareaRef}
+                  value={markdownBody}
+                  rows={14}
+                  onPaste={(e) => void handleMarkdownImagePaste(e)}
+                  onChange={(e) => {
+                    setMarkdownBody(e.target.value);
+                    markDirty();
+                    setFieldError("body", validateBody(e.target.value));
+                  }}
+                  placeholder="Write Markdown here..."
+                />
+              ) : (
+                <div
+                  className="admin-markdown-preview"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
+                />
+              )}
+            </div>
           )}
         </div>
-        {editorMode === "markdown" && (
-          <div className="admin-field">
-            <span>Markdown preview</span>
-            <div
-              className="admin-markdown-preview"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
-            />
-          </div>
-        )}
         {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>
     </section>

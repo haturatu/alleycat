@@ -22,7 +22,7 @@ export default function Pagination({
         {prev && (
           <li className="pagination-prev">
             <Link to={buildLink(prev)} rel="prev">
-              <span>前のページ</span>
+              <span>Previous</span>
               <strong>{prev}</strong>
             </Link>
           </li>
@@ -30,7 +30,7 @@ export default function Pagination({
         {next && (
           <li className="pagination-next">
             <Link to={buildLink(next)} rel="next">
-              <span>次のページ</span>
+              <span>Next</span>
               <strong>{next}</strong>
             </Link>
           </li>

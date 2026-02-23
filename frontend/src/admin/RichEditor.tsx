@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { useEffect, useRef } from "react";
 import { pb } from "../lib/pb";
+import { uploadImageAndGetURL } from "./mediaUpload";
 
 export default function RichEditor({
   value,
@@ -53,31 +54,12 @@ export default function RichEditor({
 
   const uploadAndInsertImage = async (file: File, editor: any) => {
     if (!editor) return;
-    const form = new FormData();
-    form.set("file", file);
-    form.set("public", "true");
-    form.set("alt", file.name);
     try {
-      const record = await pb.collection("media").create(form);
-      const filename = record.file as string;
-      let mediaPath = typeof record.path === "string" ? record.path.trim() : "";
-      if (!mediaPath && filename) {
-        const normalized = normalizeUploadFilename(filename);
-        mediaPath = `/uploads/${normalized}`;
-        try {
-          await pb.collection("media").update(record.id, { path: mediaPath });
-        } catch {
-          // ignore path update failure
-        }
-      }
-      if (mediaPath) {
-        mediaCaptionCache.current.set(record.id, mediaPath);
-      }
-      const url = mediaPath || pb.files.getURL(record, filename);
+      const url = await uploadImageAndGetURL(file);
       editor.chain().focus().setImage({ src: url, alt: file.name }).run();
     } catch (err) {
       console.error(err);
-      alert("画像のアップロードに失敗しました。");
+      alert("Failed to upload image.");
     }
   };
   const editor = useEditor({
@@ -140,20 +122,6 @@ export default function RichEditor({
       })();
     }
   }, [editor, value]);
-
-  const normalizeUploadFilename = (filename: string) => {
-    const dot = filename.lastIndexOf(".");
-    if (dot <= 0) return filename;
-    const base = filename.slice(0, dot);
-    const ext = filename.slice(dot);
-    const underscore = base.lastIndexOf("_");
-    if (underscore === -1) return filename;
-    const suffix = base.slice(underscore + 1);
-    if (suffix.length < 6 || suffix.length > 16) return filename;
-    if (!/^[a-zA-Z0-9]+$/.test(suffix)) return filename;
-    return `${base.slice(0, underscore)}${ext}`;
-  };
-
   return (
     <div className="editor">
       <div className="editor-toolbar">

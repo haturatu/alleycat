@@ -57,7 +57,7 @@ export default function PostPage() {
         <header className="post-header">
           <h1 className="post-title">Not Found</h1>
         </header>
-        <div className="post-body body">記事が見つかりませんでした。</div>
+        <div className="post-body body">Post not found.</div>
       </article>
     );
   }

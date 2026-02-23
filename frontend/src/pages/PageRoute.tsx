@@ -23,7 +23,7 @@ export default function PageRoute() {
         <header className="post-header">
           <h1 className="post-title">Not Found</h1>
         </header>
-        <div className="post-body body">ページが見つかりませんでした。</div>
+        <div className="post-body body">Page not found.</div>
       </article>
     );
   }

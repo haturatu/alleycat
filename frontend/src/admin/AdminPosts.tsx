@@ -107,7 +107,7 @@ export default function AdminPosts() {
 
   const bulkSetPublished = async (value: boolean) => {
     if (selected.size === 0) return;
-    if (!window.confirm(`${selected.size}件を${value ? "公開" : "非公開"}にしますか？`)) return;
+    if (!window.confirm(`Set ${selected.size} selected posts to ${value ? "published" : "unpublished"}?`)) return;
     setBulkLoading(true);
     const now = new Date().toISOString();
     const byId = new Map(posts.map((post) => [post.id, post]));
@@ -127,7 +127,7 @@ export default function AdminPosts() {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm("削除しますか？")) return;
+    if (!window.confirm("Delete this post?")) return;
     let mediaIds: string[] = [];
     let translationIds: string[] = [];
     try {

@@ -48,7 +48,7 @@ export default function AdminPages() {
   }, [page, perPage, query, reloadToken]);
 
   const remove = async (id: string) => {
-    if (!window.confirm("削除しますか？")) return;
+    if (!window.confirm("Delete this page?")) return;
     await pb.collection("pages").delete(id);
     setReloadToken((n) => n + 1);
   };
