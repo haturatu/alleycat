@@ -570,7 +570,7 @@ const renderNotFound = async () => {
         <header class="post-header">
           <h1 class="post-title">Not Found</h1>
         </header>
-        <div class="post-body body">ページが見つかりませんでした。</div>
+        <div class="post-body body">Page not found.</div>
       </article>
     </main>` +
     renderFooter()

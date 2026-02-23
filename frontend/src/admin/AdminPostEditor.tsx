@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
-import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify, stripHtml } from "../utils/text";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, slugify } from "../utils/text";
 import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
-import RichEditor from "./RichEditor";
-import { uploadImageAndGetURL } from "./mediaUpload";
 import SaveButton from "./components/SaveButton";
+import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
+import PublishFields from "./components/PublishFields";
+import TitleSlugFields from "./components/TitleSlugFields";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
 
@@ -36,9 +37,6 @@ type FieldErrors = {
   body?: string;
   tags?: string;
 };
-
-type EditorMode = "rich" | "markdown";
-type MarkdownViewMode = "write" | "preview";
 
 const findDuplicateTags = (values: string[]) => {
   const seen = new Map<string, string>();
@@ -100,7 +98,6 @@ export default function AdminPostEditor() {
   const [activeCategorySuggestion, setActiveCategorySuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
   const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
-  const markdownTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [sourcePostId, setSourcePostId] = useState("");
   const [sourceLocale, setSourceLocale] = useState("ja");
@@ -150,36 +147,6 @@ export default function AdminPostEditor() {
     const duplicates = findDuplicateTags(parseTags(value));
     if (duplicates.length > 0) return `Duplicate tags: ${duplicates.join(", ")}`;
     return undefined;
-  };
-
-  const handleMarkdownImagePaste = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
-    const files = Array.from(event.clipboardData?.items || [])
-      .map((item) => (item.kind === "file" ? item.getAsFile() : null))
-      .filter((file): file is File => Boolean(file) && file!.type.startsWith("image/"));
-    if (files.length === 0) return;
-
-    event.preventDefault();
-    const textarea = markdownTextareaRef.current;
-    const start = textarea?.selectionStart ?? markdownBody.length;
-    const end = textarea?.selectionEnd ?? markdownBody.length;
-
-    try {
-      const urls = await Promise.all(files.map((file) => uploadImageAndGetURL(file)));
-      const insertion = urls
-        .map((url, index) => {
-          const file = files[index];
-          const alt = (file?.name || "image").replace(/\.[^/.]+$/, "");
-          return `![${alt}](${url})`;
-        })
-        .join("\n");
-      const next = `${markdownBody.slice(0, start)}${insertion}${markdownBody.slice(end)}`;
-      setMarkdownBody(next);
-      markDirty();
-      setFieldError("body", validateBody(next));
-    } catch (err) {
-      console.error(err);
-      alert("Failed to upload image.");
-    }
   };
 
   const applyRecordToForm = (record: EditorPostRecord) => {
@@ -585,69 +552,48 @@ export default function AdminPostEditor() {
             </div>
           </div>
         )}
-        <label>
-          Title
-          <input
-            value={title}
-            onChange={(e) => {
-              const next = e.target.value;
-              setTitle(next);
-              markDirty();
-              setFieldError("title", validateTitle(next));
-              if (!slugEditedManually) {
-                const nextSlug = slugify(next);
-                setSlug(nextSlug);
-                setFieldError("slug", validateSlug(nextSlug));
-              }
-            }}
-          />
-        </label>
-        {fieldErrors.title && <p className="admin-error-inline">{fieldErrors.title}</p>}
-        <label>
-          Slug
-          <div className="admin-inline">
-            <input
-              value={slug}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSlug(next);
-                setSlugEditedManually(true);
-                markDirty();
-                setFieldError("slug", validateSlug(next));
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const auto = slugify(title);
-                setSlug(auto);
-                setSlugEditedManually(false);
-                markDirty();
-                setFieldError("slug", validateSlug(auto));
-              }}
-            >
-              Auto
-            </button>
-          </div>
-        </label>
-        {fieldErrors.slug ? (
-          <p className="admin-error-inline">{fieldErrors.slug}</p>
-        ) : (
-          <p className="admin-note">
-            {slugEditedManually ? "Slug is locked (manual)." : "Slug follows title automatically."}
-          </p>
-        )}
-        <label>
-          Published at
-          <input
-            type="datetime-local"
-            value={publishedAt}
-            onChange={(e) => {
-              setPublishedAt(e.target.value);
-              markDirty();
-            }}
-          />
-        </label>
+        <TitleSlugFields
+          title={title}
+          slug={slug}
+          slugEditedManually={slugEditedManually}
+          titleError={fieldErrors.title}
+          slugError={fieldErrors.slug}
+          onTitleChange={(next) => {
+            setTitle(next);
+            markDirty();
+            setFieldError("title", validateTitle(next));
+            if (!slugEditedManually) {
+              const nextSlug = slugify(next);
+              setSlug(nextSlug);
+              setFieldError("slug", validateSlug(nextSlug));
+            }
+          }}
+          onSlugChange={(next) => {
+            setSlug(next);
+            setSlugEditedManually(true);
+            markDirty();
+            setFieldError("slug", validateSlug(next));
+          }}
+          onAutoSlug={() => {
+            const auto = slugify(title);
+            setSlug(auto);
+            setSlugEditedManually(false);
+            markDirty();
+            setFieldError("slug", validateSlug(auto));
+          }}
+        />
+        <PublishFields
+          publishedAt={publishedAt}
+          published={published}
+          onPublishedAtChange={(value) => {
+            setPublishedAt(value);
+            markDirty();
+          }}
+          onPublishedChange={(checked) => {
+            setPublished(checked);
+            markDirty();
+          }}
+        />
         <label>
           Category
           <input
@@ -780,91 +726,27 @@ export default function AdminPostEditor() {
             Excerpt is auto-generated from content ({excerptLength} chars).
           </p>
         )}
-        <label className="admin-check admin-check-right">
-          <span>Published</span>
-          <input
-            type="checkbox"
-            checked={published}
-            onChange={(e) => {
-              setPublished(e.target.checked);
-              markDirty();
-            }}
-          />
-        </label>
-        <div className="admin-field">
-          <div className="admin-field-head">
-            <span>Content</span>
-            <label className="admin-editor-mode">
-              <span>Editor mode</span>
-              <select
-                value={editorMode}
-                onChange={(e) => {
-                  const next = e.target.value as EditorMode;
-                  if (editorMode === "markdown" && next === "rich") {
-                    setBody(renderMarkdownToHtml(markdownBody));
-                  }
-                  setEditorMode(next);
-                  if (next === "markdown" && markdownBody.trim() === "") {
-                    setMarkdownBody(looksLikeHtml(body) ? stripHtml(body) : body);
-                  }
-                  setMarkdownViewMode("write");
-                  markDirty();
-                }}
-              >
-                <option value="rich">Rich editor (HTML)</option>
-                <option value="markdown">Markdown (RFC 7763)</option>
-              </select>
-            </label>
-          </div>
-          {editorMode === "rich" ? (
-            <RichEditor
-              value={body}
-              onChange={(value) => {
-                setBody(value);
-                markDirty();
-                setFieldError("body", validateBody(value));
-              }}
-            />
-          ) : (
-            <div className="admin-markdown-panel">
-              <div className="admin-markdown-tabs">
-                <button
-                  type="button"
-                  className={markdownViewMode === "write" ? "is-active" : ""}
-                  onClick={() => setMarkdownViewMode("write")}
-                >
-                  Write
-                </button>
-                <button
-                  type="button"
-                  className={markdownViewMode === "preview" ? "is-active" : ""}
-                  onClick={() => setMarkdownViewMode("preview")}
-                >
-                  Preview
-                </button>
-              </div>
-              {markdownViewMode === "write" ? (
-                <textarea
-                  ref={markdownTextareaRef}
-                  value={markdownBody}
-                  rows={14}
-                  onPaste={(e) => void handleMarkdownImagePaste(e)}
-                  onChange={(e) => {
-                    setMarkdownBody(e.target.value);
-                    markDirty();
-                    setFieldError("body", validateBody(e.target.value));
-                  }}
-                  placeholder="Write Markdown here..."
-                />
-              ) : (
-                <div
-                  className="admin-markdown-preview"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody) }}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <ContentEditorField
+          body={body}
+          markdownBody={markdownBody}
+          editorMode={editorMode}
+          markdownViewMode={markdownViewMode}
+          onBodyChange={(value) => {
+            setBody(value);
+            markDirty();
+            setFieldError("body", validateBody(value));
+          }}
+          onMarkdownBodyChange={(value) => {
+            setMarkdownBody(value);
+            markDirty();
+            setFieldError("body", validateBody(value));
+          }}
+          onEditorModeChange={(mode) => {
+            setEditorMode(mode);
+            markDirty();
+          }}
+          onMarkdownViewModeChange={setMarkdownViewMode}
+        />
         {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
       </div>
     </section>
