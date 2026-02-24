@@ -14,6 +14,17 @@ const normalizeUploadFilename = (filename: string) => {
   return `${base.slice(0, underscore)}${ext}`;
 };
 
+const buildUploadPath = (filename: string, checksum: string) => {
+  const normalizedChecksum = checksum.trim().toLowerCase();
+  if (normalizedChecksum) {
+    const dot = filename.lastIndexOf(".");
+    const ext = dot > 0 ? filename.slice(dot).toLowerCase() : "";
+    return `/uploads/${normalizedChecksum}${ext}`;
+  }
+  const normalized = normalizeUploadFilename(filename);
+  return `/uploads/${normalized}`;
+};
+
 const escapeFilterString = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
 const toHex = (buffer: ArrayBuffer) =>
@@ -32,14 +43,15 @@ type MediaRecord = {
   file?: string;
   path?: string;
   caption?: string;
+  checksum?: string;
 };
 
 const resolveMediaURL = (record: MediaRecord) => {
   const filename = String(record.file || "");
+  const checksum = typeof record.checksum === "string" ? record.checksum.trim() : "";
   let mediaPath = typeof record.path === "string" ? record.path.trim() : "";
   if (!mediaPath && filename) {
-    const normalized = normalizeUploadFilename(filename);
-    mediaPath = `/uploads/${normalized}`;
+    mediaPath = buildUploadPath(filename, checksum);
   }
   if (mediaPath) {
     if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) return mediaPath;
@@ -92,8 +104,7 @@ export const uploadImageAndGetURL = async (file: File): Promise<string> => {
   const filename = String(record.file || "");
   const mediaPath = typeof record.path === "string" ? record.path.trim() : "";
   if (!mediaPath && filename) {
-    const normalized = normalizeUploadFilename(filename);
-    const nextPath = `/uploads/${normalized}`;
+    const nextPath = buildUploadPath(filename, checksum);
     try {
       await pb.collection("media").update(record.id, { path: nextPath });
       record.path = nextPath;

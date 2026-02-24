@@ -33,11 +33,11 @@ func migrateMediaPaths(app core.App) error {
 		if filename == "" {
 			continue
 		}
-		normalized := normalizeUploadFilename(filename)
-		if normalized == "" {
+		uploadPath := buildUploadPath(filename, strings.TrimSpace(record.GetString("checksum")))
+		if uploadPath == "" {
 			continue
 		}
-		record.Set("path", "/uploads/"+normalized)
+		record.Set("path", uploadPath)
 		if err := app.Save(record); err != nil {
 			return err
 		}
@@ -65,4 +65,21 @@ func normalizeUploadFilename(filename string) string {
 		}
 	}
 	return base[:underscore] + ext
+}
+
+func buildUploadPath(filename, checksum string) string {
+	checksum = strings.TrimSpace(strings.ToLower(checksum))
+	if checksum != "" {
+		ext := strings.ToLower(filepath.Ext(filename))
+		if ext != "" {
+			return "/uploads/" + checksum + ext
+		}
+		return "/uploads/" + checksum
+	}
+
+	normalized := normalizeUploadFilename(filename)
+	if normalized == "" {
+		return ""
+	}
+	return "/uploads/" + normalized
 }

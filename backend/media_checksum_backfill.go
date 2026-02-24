@@ -88,13 +88,7 @@ func backfillMediaChecksums(app core.App) (backfillStats, error) {
 			stats.Skipped++
 			continue
 		}
-
-		normalized := normalizeUploadFilename(filename)
 		existingPath := strings.TrimSpace(record.GetString("path"))
-		candidatePath := existingPath
-		if candidatePath == "" && normalized != "" {
-			candidatePath = "/uploads/" + normalized
-		}
 
 		fileKey := record.BaseFilesPath() + "/" + filename
 		reader, err := fsys.GetReader(fileKey)
@@ -133,6 +127,8 @@ func backfillMediaChecksums(app core.App) (backfillStats, error) {
 			continue
 		}
 
+		candidatePath := buildUploadPath(filename, sumHex)
+
 		canonicalByChecksum[sumHex] = canonicalMedia{
 			ID:   record.Id,
 			Path: candidatePath,
@@ -143,7 +139,7 @@ func backfillMediaChecksums(app core.App) (backfillStats, error) {
 			record.Set("checksum", sumHex)
 			changed = true
 		}
-		if existingPath == "" && candidatePath != "" {
+		if candidatePath != "" && existingPath != candidatePath {
 			record.Set("path", candidatePath)
 			changed = true
 		}

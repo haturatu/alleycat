@@ -147,6 +147,7 @@ The following settings are editable in the Admin UI:
 - You can backfill media checksums (SHA-256) for duplicate-aware uploads:
   - `cd backend`
   - `go run . backfill-media-checksum`
+  - This command also rewrites upload paths to checksum-based keys (for example `/uploads/<sha256>.png`) to avoid filename collisions.
 - In Docker container:
   - `docker exec -it alleycat-pocketbase-1 /pb/pocketbase import-backup /pb/pb_data/backups/pb_backup_xxx.zip`
 - The command replaces `pb_data` content from the specified zip (excluding `backups`, temp/cache internal dirs).
