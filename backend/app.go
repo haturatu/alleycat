@@ -11,6 +11,7 @@ func main() {
 	app := pocketbase.New()
 	registerTranslationFeatures(app)
 	registerBackupImportCommand(app)
+	registerMediaChecksumBackfillCommand(app)
 
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
 		if err := e.Next(); err != nil {

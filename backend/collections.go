@@ -79,6 +79,10 @@ func ensureCollections(app core.App) error {
 			Name: "path",
 			Max:  200,
 		})
+		addFieldIfMissing(c, &core.TextField{
+			Name: "checksum",
+			Max:  128,
+		})
 		addFieldIfMissing(c, &core.AutodateField{
 			Name:     "uploaded_at",
 			OnCreate: true,
@@ -94,6 +98,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.BoolField{
 			Name: "public",
 		})
+		addIndexIfMissing(c, "CREATE UNIQUE INDEX `idx_media_checksum` ON `media` (`checksum`) WHERE `checksum` != ''")
 
 		return nil
 	})
