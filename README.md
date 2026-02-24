@@ -22,7 +22,7 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 
 ## Structure
 - `backend/` PocketBase (Go) server.
-- `frontend/` Vite + React public site and `/admin` CMS.
+- `frontend/` Vite + React public site and admin CMS (separate port).
 
 ## Usage
 ### docker-compose (recommended)
@@ -45,6 +45,8 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 - `8091`: PocketBase API + Admin UI (`/_/`)
 - `5173`: Public site (SSR server)
 - `5175`: Admin UI web app
+
+`/admin` is not served by the public site. Access the CMS directly via the admin port/URL.
 
 ## Persistent Data
 - Docker: stored in the named volume `pb_data` mounted at `/pb/pb_data`.

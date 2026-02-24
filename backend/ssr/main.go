@@ -16,7 +16,6 @@ var localePathPattern = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)
 
 func main() {
 	mux := http.NewServeMux()
-	mux.Handle("/admin/", adminProxy())
 	mux.Handle("/", http.HandlerFunc(routeHandler))
 
 	log.Printf("SSR server listening on %s", listenAddr)
@@ -27,6 +26,10 @@ func main() {
 
 func routeHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	if path == "/admin" || strings.HasPrefix(path, "/admin/") {
+		http.NotFound(w, r)
+		return
+	}
 	if path == "/theme-status" {
 		w.Header().Set("Content-Type", "application/json")
 		status := `{"publicAssets":false}`
@@ -293,15 +296,4 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 
 	http.ServeFile(w, r, filePath)
 	return true
-}
-
-func adminProxy() http.Handler {
-	target, _ := url.Parse(adminURL)
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = "localhost:5173"
-	}
-	return proxy
 }

@@ -8,7 +8,6 @@ import (
 
 var (
 	pbURL            = getEnv("PB_URL", "http://127.0.0.1:8090")
-	adminURL         = getEnv("ADMIN_URL", "http://admin:5173")
 	publicDir        = getEnv("PUBLIC_DIR", "/public")
 	defaultPublicDir = getEnv("DEFAULT_PUBLIC_DIR", "/default-public-asset")
 	activePublicDir  = resolvePublicDir()

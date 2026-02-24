@@ -24,7 +24,6 @@ const activePublicDir = (() => {
 
 const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const PORT = Number(process.env.PORT || 5173);
-const ADMIN_URL = process.env.ADMIN_URL || "http://admin:5174";
 const DEFAULT_SITE_NAME = process.env.SITE_NAME || "Example Blog";
 const DEFAULT_DESCRIPTION = process.env.SITE_DESCRIPTION || "A calm place to write.";
 const DEFAULT_WELCOME = process.env.HOME_WELCOME || "Welcome to your blog";
@@ -624,47 +623,17 @@ const serveStatic = async (req, res) => {
   }
 };
 
-const proxyAdmin = async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  if (!url.pathname.startsWith("/admin")) return false;
-
-  const targetPath = url.pathname.replace("/admin", "") || "/";
-  const target = new URL(targetPath, ADMIN_URL);
-  target.search = url.search;
-
-  const proxyHeaders = new Headers(req.headers);
-  proxyHeaders.set("host", "localhost:5173");
-
-  const proxyRes = await fetch(target, {
-    method: req.method,
-    headers: proxyHeaders,
-  });
-
-  const contentType = proxyRes.headers.get("content-type") || "";
-  if (contentType.includes("text/html")) {
-    const html = await proxyRes.text();
-    const rewritten = html
-      .replaceAll('"/@vite/', '"/admin/@vite/')
-      .replaceAll('"/@react-refresh"', '"/admin/@react-refresh"')
-      .replaceAll('"/src/', '"/admin/src/')
-      .replaceAll('"/node_modules/', '"/admin/node_modules/');
-    res.writeHead(proxyRes.status, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(rewritten);
-    return true;
-  }
-
-  res.writeHead(proxyRes.status, Object.fromEntries(proxyRes.headers));
-  res.end(await proxyRes.arrayBuffer());
-  return true;
-};
-
 const server = http.createServer(async (req, res) => {
   try {
     if (await proxyPocketBase(req, res)) return;
     if (await serveStatic(req, res)) return;
-    if (await proxyAdmin(req, res)) return;
 
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Not Found");
+      return;
+    }
     const pathName = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
     const themeOverride = url.searchParams.get("theme") || "";
 

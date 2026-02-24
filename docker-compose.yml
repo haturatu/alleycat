@@ -22,7 +22,6 @@ services:
       - "5173:5173"
     environment:
       - PB_URL=http://pocketbase:8091
-      - ADMIN_URL=http://admin:5173
     depends_on:
       - pocketbase
       - admin
