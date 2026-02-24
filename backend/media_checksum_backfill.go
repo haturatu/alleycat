@@ -67,7 +67,7 @@ func backfillMediaChecksums(app core.App) (backfillStats, error) {
 
 	records := make([]*core.Record, 0)
 	if err := app.RecordQuery(mediaCollection).
-		OrderBy("uploaded_at asc", "created asc", "id asc").
+		OrderBy("uploaded_at asc", "id asc").
 		All(&records); err != nil {
 		return stats, err
 	}
