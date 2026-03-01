@@ -96,6 +96,8 @@ const parseTags = (value = "") =>
     .map((tag) => tag.trim())
     .filter(Boolean);
 
+const escapeFilter = (value = "") => value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
 const fetchJson = async (url) => {
   const res = await fetch(url);
   if (!res.ok) {
@@ -366,11 +368,17 @@ const readRequestBody = (req) =>
     req.on("error", reject);
   });
 
-const renderPagination = (baseUrl, pageNumber, totalPages) => {
+const renderPagination = (baseUrl, pageNumber, totalPages, query = "") => {
   if (!totalPages || totalPages <= 1) return "";
   const prev = pageNumber > 1 ? pageNumber - 1 : null;
   const next = pageNumber < totalPages ? pageNumber + 1 : null;
-  const linkFor = (page) => (page === 1 ? `${baseUrl}/` : `${baseUrl}/${page}/`);
+  const linkFor = (page) => {
+    const path = page === 1 ? `${baseUrl}/` : `${baseUrl}/${page}/`;
+    const q = query.trim();
+    if (!q) return path;
+    const params = new URLSearchParams({ q });
+    return `${path}?${params.toString()}`;
+  };
 
   return `<nav class="page-pagination pagination">
     <ul>
@@ -388,6 +396,18 @@ const renderTagsNav = (tags) => {
       ${tags.map((tag) => `<li><a href="/archive/${encodeURIComponent(tag)}/" class="badge">${escapeHtml(tag)}</a></li>`).join("")}
     </ul>
   </nav>`;
+};
+
+const renderSearchForm = ({ action = "/archive/", query = "" } = {}) => {
+  const safeAction = escapeHtml(action);
+  const safeQuery = escapeHtml(query);
+  return `<div class="search" id="search">
+    <form class="search-form" action="${safeAction}" method="get">
+      <input class="search-input" type="search" name="q" value="${safeQuery}" placeholder="Search posts..." aria-label="Search posts" />
+      <button class="search-submit" type="submit">Search</button>
+      ${safeQuery ? `<a class="search-clear" href="${safeAction}">Clear</a>` : ""}
+    </form>
+  </div>`;
 };
 
 const collectTags = async () => {
@@ -462,11 +482,18 @@ const renderHome = async (themeOverride = "") => {
   );
 };
 
-const renderArchive = async (tag, pageNumber, themeOverride = "") => {
+const renderArchive = async (tag, pageNumber, themeOverride = "", query = "") => {
   const menuPages = await getPagesMenu();
-  const filter = tag
-    ? `published = true && tags ~ \"${tag}\"`
-    : "published = true";
+  const safeTag = tag ? escapeFilter(tag) : "";
+  const safeQuery = escapeFilter(query.trim());
+  const conditions = ["published = true"];
+  if (safeTag) conditions.push(`tags ~ "${safeTag}"`);
+  if (safeQuery) {
+    conditions.push(
+      `(title ~ "${safeQuery}" || slug ~ "${safeQuery}" || tags ~ "${safeQuery}" || excerpt ~ "${safeQuery}" || body ~ "${safeQuery}")`
+    );
+  }
+  const filter = conditions.join(" && ");
   let posts;
   try {
     posts = await getPosts({ page: pageNumber, perPage: 10, filter, sort: "-published_at" });
@@ -475,8 +502,14 @@ const renderArchive = async (tag, pageNumber, themeOverride = "") => {
   }
 
   const title = tag ? `tag: ${tag}` : "Archive";
-  const pagination = renderPagination(tag ? `/archive/${encodeURIComponent(tag)}` : "/archive", pageNumber, posts.totalPages || 1);
+  const pagination = renderPagination(
+    tag ? `/archive/${encodeURIComponent(tag)}` : "/archive",
+    pageNumber,
+    posts.totalPages || 1,
+    query
+  );
   const tagsNav = !tag && pageNumber === 1 ? renderTagsNav(await collectTags()) : "";
+  const searchAction = tag ? `/archive/${encodeURIComponent(tag)}/` : "/archive/";
 
   return (
     renderHead(title, themeOverride) +
@@ -485,7 +518,7 @@ const renderArchive = async (tag, pageNumber, themeOverride = "") => {
       <header class="page-header">
         <h1 class="page-title">${escapeHtml(title)}</h1>
         <p>RSS: <a href="/feed.xml">Atom</a>, <a href="/feed.json">JSON</a></p>
-        <div class="search" id="search"></div>
+        ${renderSearchForm({ action: searchAction, query })}
       </header>
       ${renderPostList(posts.items || [])}
       ${pagination}
@@ -648,13 +681,14 @@ const server = http.createServer(async (req, res) => {
       const parts = pathName.split("/").filter(Boolean);
       let tag = parts[1] ? decodeURIComponent(parts[1]) : null;
       let pageNumber = 1;
+      const query = (url.searchParams.get("q") || "").trim();
       if (parts[1] && /^\d+$/.test(parts[1])) {
         pageNumber = Number(parts[1]) || 1;
         tag = null;
       } else if (parts[2]) {
         pageNumber = Number(parts[2]) || 1;
       }
-      const html = await renderArchive(tag, pageNumber, themeOverride);
+      const html = await renderArchive(tag, pageNumber, themeOverride, query);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
       return;

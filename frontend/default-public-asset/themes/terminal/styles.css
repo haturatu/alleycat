@@ -129,6 +129,38 @@ main {
   margin: 0;
 }
 
+.search {
+  margin-top: 8px;
+}
+
+.search-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1 1 260px;
+  min-width: 220px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg-alt);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.search-submit,
+.search-clear {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
 .postList { margin-top: 22px; display: grid; gap: 20px; }
 
 .post {

@@ -230,9 +230,14 @@ func renderFooter(settings SettingsRecord) string {
 </html>`, settings.FooterHTML)
 }
 
-func renderPagination(base string, pageNumber, totalPages int) string {
+func renderPagination(base string, pageNumber, totalPages int, query string) string {
 	if totalPages <= 1 {
 		return ""
+	}
+	query = strings.TrimSpace(query)
+	querySuffix := ""
+	if query != "" {
+		querySuffix = "?q=" + url.QueryEscape(query)
 	}
 	prev := ""
 	next := ""
@@ -242,11 +247,12 @@ func renderPagination(base string, pageNumber, totalPages int) string {
 		if prevPage != 1 {
 			link = fmt.Sprintf("%s/%d/", base, prevPage)
 		}
+		link += querySuffix
 		prev = fmt.Sprintf(`<li class="pagination-prev"><a href="%s" rel="prev"><span>Previous</span><strong>%d</strong></a></li>`, link, prevPage)
 	}
 	if pageNumber < totalPages {
 		nextPage := pageNumber + 1
-		link := fmt.Sprintf("%s/%d/", base, nextPage)
+		link := fmt.Sprintf("%s/%d/%s", base, nextPage, querySuffix)
 		next = fmt.Sprintf(`<li class="pagination-next"><a href="%s" rel="next"><span>Next</span><strong>%d</strong></a></li>`, link, nextPage)
 	}
 	return fmt.Sprintf(`<nav class="page-pagination pagination">
@@ -287,6 +293,22 @@ func renderCategoriesNav(categories []string) string {
       %s
     </ul>
   </nav>`, items.String())
+}
+
+func renderSearchForm(actionPath, query string) string {
+	safeAction := escapeHTML(actionPath)
+	safeQuery := escapeHTML(strings.TrimSpace(query))
+	clearHTML := ""
+	if safeQuery != "" {
+		clearHTML = fmt.Sprintf(`<a class="search-clear" href="%s">Clear</a>`, safeAction)
+	}
+	return fmt.Sprintf(`<div class="search" id="search">
+    <form class="search-form" action="%s" method="get">
+      <input class="search-input" type="search" name="q" value="%s" placeholder="Search posts..." aria-label="Search posts" />
+      <button class="search-submit" type="submit">Search</button>
+      %s
+    </form>
+  </div>`, safeAction, safeQuery, clearHTML)
 }
 
 func renderPostTags(tags []string, show bool) string {
@@ -401,7 +423,7 @@ func renderHome(settings SettingsRecord) string {
 		renderFooter(settings)
 }
 
-func renderArchive(path string, settings SettingsRecord) string {
+func renderArchive(path, query string, settings SettingsRecord) string {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	pageNumber := 1
 	basePath := "/archive"
@@ -443,6 +465,12 @@ func renderArchive(path string, settings SettingsRecord) string {
 		showTagsNav = settings.ShowArchiveTags && settings.ShowTags && pageNumber == 1
 		showCategoriesNav = settings.ShowCategories && pageNumber == 1
 	}
+	searchQuery := strings.TrimSpace(query)
+	if searchQuery != "" {
+		searchFilter := escapeFilter(searchQuery)
+		filter = fmt.Sprintf(`%s && (title ~ "%s" || slug ~ "%s" || tags ~ "%s" || excerpt ~ "%s" || body ~ "%s")`,
+			filter, searchFilter, searchFilter, searchFilter, searchFilter, searchFilter)
+	}
 
 	var menu []PageRecord
 	var posts PBList[PostRecord]
@@ -471,10 +499,11 @@ func renderArchive(path string, settings SettingsRecord) string {
 		}
 	}()
 	wg.Wait()
-	pagination := renderPagination(basePath, pageNumber, posts.TotalPages)
+	pagination := renderPagination(basePath, pageNumber, posts.TotalPages, searchQuery)
 	searchHTML := ""
 	if settings.ShowArchiveSearch {
-		searchHTML = `<div class="search" id="search"></div>`
+		searchAction := basePath + "/"
+		searchHTML = renderSearchForm(searchAction, searchQuery)
 	}
 
 	tagsNav := ""

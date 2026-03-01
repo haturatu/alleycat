@@ -65,10 +65,11 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	if path == "/archive" {
 		settings := getSettings()
 		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+		searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
 		if previewTheme != "" {
 			settings.Theme = previewTheme
 		}
-		html := renderArchive("/archive/", settings)
+		html := renderArchive("/archive/", searchQuery, settings)
 		writeHTML(w, html)
 		return
 	}
@@ -131,10 +132,11 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(path, "/archive/") {
 		settings := getSettings()
 		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+		searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
 		if previewTheme != "" {
 			settings.Theme = previewTheme
 		}
-		html := renderArchive(path, settings)
+		html := renderArchive(path, searchQuery, settings)
 		writeHTML(w, html)
 		return
 	}

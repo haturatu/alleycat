@@ -71,6 +71,33 @@ main {
 
 .page-title { font-size: 1.6rem; margin: 0; }
 
+.search { margin-top: 10px; }
+
+.search-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1 1 220px;
+  min-width: 180px;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.search-submit,
+.search-clear {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 10px;
+  text-decoration: none;
+}
+
 .postList { display: grid; gap: 18px; }
 
 .post { padding: 0; }

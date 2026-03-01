@@ -4,17 +4,24 @@ export default function Pagination({
   baseUrl,
   page,
   totalPages,
+  query = "",
 }: {
   baseUrl: string;
   page: number;
   totalPages: number;
+  query?: string;
 }) {
   if (totalPages <= 1) return null;
   const prev = page > 1 ? page - 1 : null;
   const next = page < totalPages ? page + 1 : null;
 
-  const buildLink = (target: number) =>
-    target === 1 ? `${baseUrl}/` : `${baseUrl}/${target}/`;
+  const buildLink = (target: number) => {
+    const path = target === 1 ? `${baseUrl}/` : `${baseUrl}/${target}/`;
+    const q = query.trim();
+    if (!q) return path;
+    const params = new URLSearchParams({ q });
+    return `${path}?${params.toString()}`;
+  };
 
   return (
     <nav className="page-pagination pagination">

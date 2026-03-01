@@ -143,6 +143,38 @@ main {
   margin: 0;
 }
 
+.search {
+  margin-top: 8px;
+}
+
+.search-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1 1 260px;
+  min-width: 220px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: var(--bg-alt);
+  color: var(--ink);
+}
+
+.search-submit,
+.search-clear {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .postList {
   margin-top: 28px;
   display: grid;
