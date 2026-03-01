@@ -213,6 +213,7 @@ func isCriticalCSSBlock(block string) bool {
 		".navbar", ".page-header", ".top-image", ".postlist", ".post",
 		".post-header", ".post-title", ".post-details", ".post-link",
 		".body-post", ".body-tag", ".button", ".icon", ".theme-toggle",
+		".search", ".search-form", ".search-input", ".search-submit", ".search-clear",
 	}
 	for _, marker := range criticalMarkers {
 		if strings.Contains(lower, marker) {
