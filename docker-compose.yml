@@ -16,7 +16,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile.ssr
+      dockerfile: frontend/Dockerfile.public
     restart: always
     ports:
       - "5173:5173"
@@ -34,6 +34,7 @@ services:
   admin:
     build:
       context: ./frontend
+      dockerfile: Dockerfile.admin
     restart: always
     ports:
       - "5175:5173"
