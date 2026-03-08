@@ -272,6 +272,34 @@ func ensureCollections(app core.App) error {
 		return err
 	}
 
+	_, err = ensureCollection(app, core.CollectionTypeBase, "translation_jobs", func(c *core.Collection) error {
+		setRuleIfNil(&c.ListRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
+		setRuleIfNil(&c.ViewRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
+		setRuleIfNil(&c.CreateRule, ``)
+		setRuleIfNil(&c.UpdateRule, ``)
+		setRuleIfNil(&c.DeleteRule, ``)
+
+		addFieldIfMissing(c, &core.RelationField{
+			Name:         "source_post",
+			CollectionId: postsCollection.Id,
+			MaxSelect:    1,
+			MinSelect:    1,
+		})
+		addFieldIfMissing(c, &core.TextField{Name: "status", Max: 40})
+		addFieldIfMissing(c, &core.NumberField{Name: "total_locales"})
+		addFieldIfMissing(c, &core.NumberField{Name: "completed_locales"})
+		addFieldIfMissing(c, &core.NumberField{Name: "failed_locales"})
+		addFieldIfMissing(c, &core.TextField{Name: "last_error"})
+		addFieldIfMissing(c, &core.DateField{Name: "started_at"})
+		addFieldIfMissing(c, &core.DateField{Name: "finished_at"})
+
+		addIndexIfMissing(c, "CREATE UNIQUE INDEX `idx_translation_jobs_source_post` ON `translation_jobs` (source_post)")
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	if err := migrateLegacyPostTranslations(app, postsCollection); err != nil {
 		return err
 	}

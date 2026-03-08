@@ -58,6 +58,18 @@ export type PostTranslationRecord = {
   translation_done?: boolean;
 };
 
+export type TranslationJobRecord = {
+  id: string;
+  source_post: string;
+  status?: "queued" | "running" | "completed" | "failed";
+  total_locales?: number;
+  completed_locales?: number;
+  failed_locales?: number;
+  last_error?: string;
+  started_at?: string;
+  finished_at?: string;
+};
+
 export type PageRecord = {
   id: string;
   title: string;

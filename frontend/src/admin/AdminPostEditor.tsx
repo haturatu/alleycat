@@ -9,11 +9,13 @@ import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./co
 import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
 import TitleSlugFields from "./components/TitleSlugFields";
+import TranslationStatusModal from "./components/TranslationStatusModal";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
 import usePublishState from "./hooks/usePublishState";
 import useTitleSlugState from "./hooks/useTitleSlugState";
 import { validateBody, validateSlug, validateTitle } from "./validation";
+import type { TranslationJobRecord } from "../lib/pb";
 
 type EditorPostRecord = {
   id: string;
@@ -109,6 +111,10 @@ export default function AdminPostEditor() {
   const [localeOptions, setLocaleOptions] = useState<string[]>(["ja"]);
   const [sourceRecord, setSourceRecord] = useState<EditorPostRecord | null>(null);
   const [localeRecords, setLocaleRecords] = useState<Record<string, EditorPostTranslationRecord>>({});
+  const [translationEnabled, setTranslationEnabled] = useState(false);
+  const [translationModalOpen, setTranslationModalOpen] = useState(false);
+  const [translationJob, setTranslationJob] = useState<TranslationJobRecord | null>(null);
+  const [translationJobLoading, setTranslationJobLoading] = useState(false);
 
   const currentTags = useMemo(() => parseTags(tags), [tags]);
   const tagSuggestions = useMemo(
@@ -206,14 +212,15 @@ export default function AdminPostEditor() {
     const loadLocaleConfig = async () => {
       try {
         const settingsRes = await pb.collection("settings").getList(1, 1, {
-          fields: "site_language,translation_source_locale,translation_locales",
+          fields: "site_language,translation_source_locale,translation_locales,enable_post_translation",
         });
         const settings = settingsRes.items[0] || {};
         const src = normalizeLocale(String(settings.translation_source_locale || settings.site_language || "ja")) || "ja";
         const targets = parseLocaleList(String(settings.translation_locales || ""));
-        return { src, targets };
+        const enabled = Boolean(settings.enable_post_translation) && targets.length > 0;
+        return { src, targets, enabled };
       } catch {
-        return { src: "ja", targets: ["en"] };
+        return { src: "ja", targets: ["en"], enabled: false };
       }
     };
 
@@ -241,6 +248,9 @@ export default function AdminPostEditor() {
         setSourceLocale(localeConfig.src);
         setSelectedLocale(localeConfig.src);
         setLocaleOptions(Array.from(new Set([localeConfig.src, ...localeConfig.targets])));
+        setTranslationEnabled(localeConfig.enabled);
+        setTranslationJob(null);
+        setTranslationModalOpen(false);
         setLocaleRecords({});
         setSourceRecord(null);
         setSlugEditedManually(false);
@@ -278,6 +288,7 @@ export default function AdminPostEditor() {
         setSourceRecord(source);
         setLocaleRecords(byLocale);
         setLocaleOptions(options);
+        setTranslationEnabled(localeConfig.enabled);
         setSelectedLocale(initialLocale);
         setSlugEditedManually(true);
 
@@ -309,12 +320,57 @@ export default function AdminPostEditor() {
   useUnsavedChangesGuard(isDirty);
 
   useEffect(() => {
-    const state = location.state as { saved?: boolean; created?: boolean } | null;
+    const state = location.state as { saved?: boolean; created?: boolean; translationQueued?: boolean } | null;
     if (!state?.saved) return;
     setError("");
     markSaved(state.created ? "Post saved (new post created)." : "Post saved.");
+    if (state.translationQueued && id && id !== "new") {
+      setTranslationModalOpen(true);
+    }
     navigate(location.pathname, { replace: true });
-  }, [location.pathname, location.state, markSaved, navigate]);
+  }, [id, location.pathname, location.state, markSaved, navigate]);
+
+  useEffect(() => {
+    if (!translationModalOpen) return;
+    const currentSourceId = sourcePostId || (id && id !== "new" ? id : "");
+    if (!currentSourceId) return;
+
+    let active = true;
+    let timer: number | undefined;
+
+    const loadJob = async () => {
+      setTranslationJobLoading(true);
+      try {
+        const job = await pb
+          .collection("translation_jobs")
+          .getFirstListItem<TranslationJobRecord>(`source_post = "${escapeFilter(currentSourceId)}"`);
+        if (!active) return;
+        setTranslationJob(job);
+        if (job.status === "queued" || job.status === "running") {
+          timer = window.setTimeout(() => {
+            void loadJob();
+          }, 1500);
+        }
+      } catch (err) {
+        if (!active) return;
+        if (err instanceof ClientResponseError && err.status === 404) {
+          timer = window.setTimeout(() => {
+            void loadJob();
+          }, 1000);
+          return;
+        }
+        console.error(err);
+      } finally {
+        if (active) setTranslationJobLoading(false);
+      }
+    };
+
+    void loadJob();
+    return () => {
+      active = false;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [id, sourcePostId, translationModalOpen]);
 
   useEffect(() => {
     pb.collection("cms_users")
@@ -505,16 +561,23 @@ export default function AdminPostEditor() {
 
     setSaving(true);
     try {
+      const shouldQueueTranslation = selectedLocale === sourceLocale && translationEnabled;
       if (!id || id === "new" || sourcePostId === "") {
         const created = (await pb.collection("posts").create(form)) as unknown as EditorPostRecord;
         markSaved();
-        navigate(`/posts/${created.id}`, { state: { saved: true, created: true } });
+        navigate(`/posts/${created.id}`, {
+          state: { saved: true, created: true, translationQueued: shouldQueueTranslation },
+        });
         return;
       }
 
       if (selectedLocale === sourceLocale) {
         const updated = (await pb.collection("posts").update(sourcePostId, form)) as unknown as EditorPostRecord;
         setSourceRecord(updated);
+        if (shouldQueueTranslation) {
+          setTranslationJob(null);
+          setTranslationModalOpen(true);
+        }
       } else {
         form.set("source_post", sourcePostId);
         form.set("locale", selectedLocale);
@@ -553,6 +616,12 @@ export default function AdminPostEditor() {
         <SaveButton onClick={save} saving={saving} />
       </header>
       <FormStatusMessage error={error} success={saveMessage} />
+      <TranslationStatusModal
+        open={translationModalOpen}
+        job={translationJob}
+        loading={translationJobLoading}
+        onClose={() => setTranslationModalOpen(false)}
+      />
       <div className="admin-form">
         {id !== "new" && localeOptions.length > 0 && (
           <div className="admin-field">

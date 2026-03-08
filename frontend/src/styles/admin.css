@@ -493,6 +493,71 @@ body {
   min-height: 240px;
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 19, 17, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.admin-modal {
+  width: min(560px, 100%);
+  background: #fff;
+  border: 1px solid #d7d0c5;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.admin-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid #ece6dc;
+}
+
+.admin-modal-head h2 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+.admin-modal-close {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.admin-modal-body {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.admin-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-status-grid > div {
+  border: 1px solid #ece6dc;
+  background: #faf8f3;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.admin-status-label {
+  font-size: 0.8rem;
+  color: #6b6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 900px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -584,5 +649,9 @@ body {
   .admin-editor-mode select {
     width: 100%;
     min-width: 0;
+  }
+
+  .admin-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

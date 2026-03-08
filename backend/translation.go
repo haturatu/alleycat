@@ -50,12 +50,21 @@ type translatedPayload struct {
 	TranslatedBody  string `json:"translated_body"`
 }
 
+type translationJobStatus string
+
+const (
+	translationJobQueued    translationJobStatus = "queued"
+	translationJobRunning   translationJobStatus = "running"
+	translationJobCompleted translationJobStatus = "completed"
+	translationJobFailed    translationJobStatus = "failed"
+)
+
 type geminiError struct {
 	Status int
 	Body   string
 }
 
-type translationJob struct {
+type batchTranslationJob struct {
 	source *core.Record
 	locale string
 	title  string
@@ -105,17 +114,39 @@ func triggerPostTranslation(app core.App, source *core.Record) {
 	if source == nil {
 		return
 	}
-	settings, err := loadTranslationSettings(app)
-	if err != nil {
-		log.Printf("translation settings load failed: %v", err)
-		return
-	}
-	if !settings.Enabled || strings.TrimSpace(settings.APIKey) == "" || len(settings.Locales) == 0 {
-		return
-	}
-	if err := translateSourcePost(app, source, settings); err != nil {
-		log.Printf("translation failed for source post=%s: %v", source.Id, err)
-	}
+	sourceID := source.Id
+	go func() {
+		settings, err := loadTranslationSettings(app)
+		if err != nil {
+			log.Printf("translation settings load failed: %v", err)
+			_ = failTranslationJob(app, sourceID, err)
+			return
+		}
+		if !settings.Enabled || strings.TrimSpace(settings.APIKey) == "" || len(settings.Locales) == 0 {
+			return
+		}
+		if err := upsertTranslationJobState(app, sourceID, func(job *core.Record) {
+			now := time.Now().UTC().Format(time.RFC3339)
+			job.Set("status", string(translationJobQueued))
+			job.Set("total_locales", len(settings.Locales))
+			job.Set("completed_locales", 0)
+			job.Set("failed_locales", 0)
+			job.Set("last_error", "")
+			job.Set("started_at", now)
+			job.Set("finished_at", "")
+		}); err != nil {
+			log.Printf("translation job init failed for source post=%s: %v", sourceID, err)
+		}
+		fresh, err := app.FindRecordById("posts", sourceID)
+		if err != nil {
+			log.Printf("translation source reload failed for source post=%s: %v", sourceID, err)
+			_ = failTranslationJob(app, sourceID, err)
+			return
+		}
+		if err := translateSourcePost(app, fresh, settings); err != nil {
+			log.Printf("translation failed for source post=%s: %v", sourceID, err)
+		}
+	}()
 }
 
 func translateAllSourcePosts(app core.App) error {
@@ -168,22 +199,101 @@ func translateSourcePost(app core.App, source *core.Record, settings translation
 		body = strings.TrimSpace(source.GetString("content"))
 	}
 	if title == "" || body == "" {
+		_ = completeTranslationJob(app, source.Id, 0, 0, "")
 		return nil
 	}
 
+	if err := upsertTranslationJobState(app, source.Id, func(job *core.Record) {
+		job.Set("status", string(translationJobRunning))
+		job.Set("total_locales", len(settings.Locales))
+		job.Set("completed_locales", 0)
+		job.Set("failed_locales", 0)
+		job.Set("last_error", "")
+		job.Set("started_at", time.Now().UTC().Format(time.RFC3339))
+		job.Set("finished_at", "")
+	}); err != nil {
+		log.Printf("translation job start failed source=%s: %v", source.Id, err)
+	}
+
 	var firstErr error
+	completed := 0
+	failed := 0
+	lastError := ""
 	for _, locale := range settings.Locales {
 		if err := upsertTranslatedPost(app, source, locale, settings, title, body, true); err != nil {
+			failed++
+			lastError = err.Error()
+			_ = updateTranslationJobProgress(app, source.Id, completed, failed, lastError)
 			if firstErr == nil {
 				firstErr = err
 			}
 			log.Printf("translation locale failed source=%s locale=%s err=%v", source.Id, locale, err)
 			if isGeminiRateLimitError(err) {
+				_ = completeTranslationJob(app, source.Id, completed, failed, lastError)
 				return err
 			}
+			continue
 		}
+		completed++
+		_ = updateTranslationJobProgress(app, source.Id, completed, failed, "")
 	}
+	_ = completeTranslationJob(app, source.Id, completed, failed, lastError)
 	return firstErr
+}
+
+func upsertTranslationJobState(app core.App, sourcePostID string, mutate func(job *core.Record)) error {
+	collection, err := app.FindCollectionByNameOrId("translation_jobs")
+	if err != nil {
+		return err
+	}
+
+	job, err := app.FindFirstRecordByFilter(
+		collection,
+		"source_post = {:source}",
+		dbx.Params{"source": sourcePostID},
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) || job == nil {
+		job = core.NewRecord(collection)
+		job.Set("source_post", sourcePostID)
+	}
+
+	mutate(job)
+	return app.Save(job)
+}
+
+func updateTranslationJobProgress(app core.App, sourcePostID string, completed int, failed int, lastError string) error {
+	return upsertTranslationJobState(app, sourcePostID, func(job *core.Record) {
+		status := translationJobRunning
+		if failed > 0 && completed == 0 {
+			status = translationJobFailed
+		}
+		job.Set("status", string(status))
+		job.Set("completed_locales", completed)
+		job.Set("failed_locales", failed)
+		job.Set("last_error", strings.TrimSpace(lastError))
+		job.Set("finished_at", "")
+	})
+}
+
+func completeTranslationJob(app core.App, sourcePostID string, completed int, failed int, lastError string) error {
+	return upsertTranslationJobState(app, sourcePostID, func(job *core.Record) {
+		status := translationJobCompleted
+		if failed > 0 {
+			status = translationJobFailed
+		}
+		job.Set("status", string(status))
+		job.Set("completed_locales", completed)
+		job.Set("failed_locales", failed)
+		job.Set("last_error", strings.TrimSpace(lastError))
+		job.Set("finished_at", time.Now().UTC().Format(time.RFC3339))
+	})
+}
+
+func failTranslationJob(app core.App, sourcePostID string, err error) error {
+	return completeTranslationJob(app, sourcePostID, 0, 1, err.Error())
 }
 
 func upsertTranslatedPost(
@@ -518,8 +628,8 @@ func isGeminiRateLimitError(err error) bool {
 	return false
 }
 
-func buildTranslationJobs(records []*core.Record, settings translationSettings, force bool) []translationJob {
-	jobs := make([]translationJob, 0, len(records)*maxInt(1, len(settings.Locales)))
+func buildTranslationJobs(records []*core.Record, settings translationSettings, force bool) []batchTranslationJob {
+	jobs := make([]batchTranslationJob, 0, len(records)*maxInt(1, len(settings.Locales)))
 	for _, source := range records {
 		title := strings.TrimSpace(source.GetString("title"))
 		body := strings.TrimSpace(source.GetString("body"))
@@ -530,7 +640,7 @@ func buildTranslationJobs(records []*core.Record, settings translationSettings, 
 			continue
 		}
 		for _, locale := range settings.Locales {
-			jobs = append(jobs, translationJob{
+			jobs = append(jobs, batchTranslationJob{
 				source: source,
 				locale: locale,
 				title:  title,
@@ -545,7 +655,7 @@ func buildTranslationJobs(records []*core.Record, settings translationSettings, 
 func runTranslationJobs(
 	app core.App,
 	settings translationSettings,
-	jobs []translationJob,
+	jobs []batchTranslationJob,
 	stopOnRateLimit bool,
 ) (int, int, error) {
 	if len(jobs) == 0 {
@@ -567,7 +677,7 @@ func runTranslationJobs(
 	successCount := 0
 	failedCount := 0
 	var fatalErr error
-	jobCh := make(chan translationJob)
+	jobCh := make(chan batchTranslationJob)
 
 	var workers sync.WaitGroup
 	workers.Add(workerCount)
