@@ -1,4 +1,5 @@
 import { ClientResponseError } from "pocketbase";
+import { sha256 } from "js-sha256";
 import { pb } from "../lib/pb";
 
 const normalizeUploadFilename = (filename: string) => {
@@ -27,15 +28,9 @@ const buildUploadPath = (filename: string, checksum: string) => {
 
 const escapeFilterString = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-const toHex = (buffer: ArrayBuffer) =>
-  Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
 const hashFileSHA256 = async (file: File) => {
-  const data = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(digest);
+  const data = new Uint8Array(await file.arrayBuffer());
+  return sha256(data);
 };
 
 type MediaRecord = {
