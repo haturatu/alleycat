@@ -10,16 +10,10 @@ type RenderMarkdownOptions = {
   highlightCode?: boolean;
 };
 
-export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
-  const input = value ?? "";
-  if (!input.trim()) return "";
-  const { highlightCode = true } = options;
+const codeFenceStartRe = /^```([\w+-]+)?\s*$/;
+const codeFenceEndRe = /^```\s*$/;
 
-  const rendered = marked.parse(input) as string;
-  const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
-  const root = doc.getElementById("md-root");
-  if (!root) return rendered;
-
+const highlightCodeBlocks = (root: ParentNode, highlightCode: boolean) => {
   root.querySelectorAll("pre code").forEach((codeBlock) => {
     const classNames = (codeBlock.getAttribute("class") || "").split(/\s+/);
     const languageClass = classNames.find((className) => className.startsWith("language-"));
@@ -38,6 +32,82 @@ export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOpti
     }
     codeBlock.classList.add("hljs");
   });
+};
+
+const isStandaloneFenceNode = (node: Node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return Boolean((node.textContent || "").trim());
+  }
+  if (!(node instanceof HTMLElement)) return false;
+  if (node.tagName === "PRE" || node.tagName === "CODE") return false;
+  return Array.from(node.children).every((child) => child.tagName === "BR");
+};
+
+const getFenceLine = (node: Node) => {
+  if (!isStandaloneFenceNode(node)) return null;
+  return (node.textContent || "").replace(/\u00a0/g, " ").trim();
+};
+
+const normalizeFencedCodeBlocksInContainer = (container: ParentNode, doc: Document) => {
+  const nodes = Array.from(container.childNodes);
+  for (let index = 0; index < nodes.length; index += 1) {
+    const startNode = nodes[index];
+    if (startNode instanceof HTMLElement && (startNode.tagName === "PRE" || startNode.tagName === "CODE")) {
+      continue;
+    }
+
+    const startLine = getFenceLine(startNode);
+    const startMatch = startLine?.match(codeFenceStartRe);
+    if (!startMatch) {
+      if (startNode instanceof HTMLElement) {
+        normalizeFencedCodeBlocksInContainer(startNode, doc);
+      }
+      continue;
+    }
+
+    let endIndex = -1;
+    for (let cursor = index + 1; cursor < nodes.length; cursor += 1) {
+      const candidate = nodes[cursor];
+      const line = getFenceLine(candidate);
+      if (line && codeFenceEndRe.test(line)) {
+        endIndex = cursor;
+        break;
+      }
+    }
+    if (endIndex === -1) continue;
+
+    const code = nodes
+      .slice(index + 1, endIndex)
+      .map((node) => (node.textContent || "").replace(/\r\n?/g, "\n"))
+      .join("\n")
+      .replace(/\n+$/g, "");
+
+    const pre = doc.createElement("pre");
+    const codeElement = doc.createElement("code");
+    const language = startMatch[1]?.trim();
+    if (language) {
+      codeElement.className = `language-${language}`;
+    }
+    codeElement.textContent = code;
+    pre.appendChild(codeElement);
+
+    const firstNode = nodes[index];
+    firstNode.parentNode?.insertBefore(pre, firstNode);
+    nodes.slice(index, endIndex + 1).forEach((node) => node.parentNode?.removeChild(node));
+    index = endIndex;
+  }
+};
+
+export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
+  const input = value ?? "";
+  if (!input.trim()) return "";
+  const { highlightCode = true } = options;
+
+  const rendered = marked.parse(input) as string;
+  const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
+  const root = doc.getElementById("md-root");
+  if (!root) return rendered;
+  highlightCodeBlocks(root, highlightCode);
 
   return root.innerHTML;
 };
@@ -207,4 +277,26 @@ export const renderHtmlToMarkdown = (value?: string) => {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+};
+
+export const normalizeFencedCodeBlocksInHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
+  const input = value ?? "";
+  if (!input.trim()) return "";
+
+  const { highlightCode = true } = options;
+  const doc = new DOMParser().parseFromString(`<div id="html-root">${input}</div>`, "text/html");
+  const root = doc.getElementById("html-root");
+  if (!root) return input;
+
+  normalizeFencedCodeBlocksInContainer(root, doc);
+  highlightCodeBlocks(root, highlightCode);
+  return root.innerHTML;
+};
+
+export const renderStoredContentToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
+  const input = value ?? "";
+  if (!input.trim()) return "";
+  return looksLikeHtml(input)
+    ? normalizeFencedCodeBlocksInHtml(input, options)
+    : renderMarkdownToHtml(input, options);
 };

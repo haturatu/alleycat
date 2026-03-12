@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
 import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
-import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
+import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
 import FormStatusMessage from "./components/FormStatusMessage";
@@ -121,7 +121,7 @@ export default function AdminPageEditor() {
     const normalizedBody =
       isMarkdownMode
         ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
-        : normalizeMarkdownLinksInHtml(sourceBody);
+        : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody), { highlightCode: false });
     const trimmedBody = sourceBody.trim();
     const resolvedUrl = url || `/${slug}/`;
     const nextErrors: FieldErrors = {

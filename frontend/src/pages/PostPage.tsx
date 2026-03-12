@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fileUrl, pb, PostRecord } from "../lib/pb";
+import { renderStoredContentToHtml } from "../utils/markdown";
 import { formatDate, parseTags, readingTimeMinutes } from "../utils/text";
 
 export default function PostPage() {
@@ -63,7 +64,8 @@ export default function PostPage() {
   }
 
   const tags = parseTags(post.tags);
-  const body = post.body || post.content || "";
+  const rawBody = post.body || post.content || "";
+  const body = renderStoredContentToHtml(rawBody, { highlightCode: false });
   const featuredImageUrl = fileUrl("posts", post.id, post.featured_image);
   const attachmentUrls = (post.attachments ?? []).map((file) =>
     fileUrl("posts", post.id, file)
@@ -82,7 +84,7 @@ export default function PostPage() {
                 <time dateTime={post.published_at}>{formatDate(post.published_at)}</time>
               </p>
             )}
-            <p>{readingTimeMinutes(body)} min</p>
+            <p>{readingTimeMinutes(rawBody)} min</p>
             {post.category && <p>{post.category}</p>}
             {authorName && <p>{authorName}</p>}
             {tags.length > 0 && (

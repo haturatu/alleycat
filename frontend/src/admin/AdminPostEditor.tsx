@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
 import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "../utils/text";
-import { looksLikeHtml, renderMarkdownToHtml } from "../utils/markdown";
+import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
 import FormStatusMessage from "./components/FormStatusMessage";
@@ -523,7 +523,7 @@ export default function AdminPostEditor() {
     const sourceBody = isMarkdownMode ? markdownBody : body;
     const normalizedBody = isMarkdownMode
       ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
-      : normalizeMarkdownLinksInHtml(sourceBody);
+      : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody), { highlightCode: false });
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
     const trimmedTitle = title.trim();
