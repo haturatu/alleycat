@@ -73,15 +73,35 @@ func renderHead(title string, settings SettingsRecord) string {
 	fontStylesheet := themeFontStylesheet(settings.Theme)
 	commonContentStyles := criticalBaseStyles + splitCriticalStyles + `
     <style>
+    .body pre,
     .body code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    .body :not(pre) > code {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       word-break: break-word;
+      padding: 0.12rem 0.38rem;
+      border-radius: 6px;
+      background: rgba(127, 127, 127, 0.12);
+      font-size: 0.92em;
+    }
+    .body pre {
+      margin: 1rem 0;
+      padding: 0.95rem 1rem;
+      border: 1px solid rgba(127, 127, 127, 0.24);
+      border-radius: 10px;
+      background: rgba(127, 127, 127, 0.08);
+      overflow-x: auto;
     }
     .body pre code {
-      white-space: inherit;
+      display: block;
+      padding: 0;
+      background: transparent;
+      white-space: pre;
       overflow-wrap: normal;
       word-break: normal;
+      line-height: 1.65;
     }
     .post-related {
       margin-top: 1.5rem;
