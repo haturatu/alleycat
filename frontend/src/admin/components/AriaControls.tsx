@@ -3,6 +3,8 @@ import {
   Button,
   Checkbox,
   ComboBox,
+  Cell,
+  Column,
   Dialog,
   FileTrigger,
   Input,
@@ -12,8 +14,12 @@ import {
   Modal,
   ModalOverlay,
   Popover,
+  Row,
   Select,
   SelectValue,
+  Table,
+  TableBody,
+  TableHeader,
   TextArea,
   TextField,
 } from "react-aria-components";
@@ -91,7 +97,13 @@ export function AdminTextField({
   ariaLabel,
 }: AdminTextFieldProps) {
   return (
-    <TextField className={className} isDisabled={disabled} isRequired={required} type={type}>
+    <TextField
+      aria-label={ariaLabel}
+      className={className}
+      isDisabled={disabled}
+      isRequired={required}
+      type={type}
+    >
       {label === "" ? null : <Label>{label}</Label>}
       <Input
         aria-label={ariaLabel}
@@ -151,6 +163,7 @@ type AdminCheckboxFieldProps = {
   className?: string;
   disabled?: boolean;
   ariaLabel?: string;
+  slot?: string;
 };
 
 export function AdminCheckboxField({
@@ -160,6 +173,7 @@ export function AdminCheckboxField({
   className = "admin-check admin-check-right",
   disabled,
   ariaLabel,
+  slot,
 }: AdminCheckboxFieldProps) {
   return (
     <Checkbox
@@ -168,6 +182,7 @@ export function AdminCheckboxField({
       isSelected={checked}
       onChange={onChange}
       isDisabled={disabled}
+      slot={slot}
     >
       {({ isSelected }) => (
         <>
@@ -189,6 +204,14 @@ type SelectOption = {
 type ComboBoxOption = {
   value: string;
   label: ReactNode;
+};
+
+type AdminTableColumn<T> = {
+  id: string;
+  name: ReactNode;
+  width?: string;
+  render: (item: T) => ReactNode;
+  isRowHeader?: boolean;
 };
 
 type AdminSelectFieldProps = {
@@ -214,6 +237,7 @@ export function AdminSelectField({
 }: AdminSelectFieldProps) {
   return (
     <Select
+      aria-label={ariaLabel}
       className={className}
       selectedKey={String(value)}
       onSelectionChange={(key: Key | null) => onChange(key == null ? "" : String(key))}
@@ -249,6 +273,7 @@ type AdminComboBoxFieldProps = {
   onBlur?: () => void;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  ariaLabel?: string;
 };
 
 export function AdminComboBoxField({
@@ -263,9 +288,11 @@ export function AdminComboBoxField({
   onBlur,
   onKeyDown,
   enterKeyHint,
+  ariaLabel,
 }: AdminComboBoxFieldProps) {
   return (
     <ComboBox
+      aria-label={ariaLabel}
       className={className}
       inputValue={value}
       isDisabled={disabled}
@@ -276,6 +303,7 @@ export function AdminComboBoxField({
       <Label>{label}</Label>
       <div className="admin-combobox-row">
         <Input
+          aria-label={ariaLabel}
           className="admin-input"
           enterKeyHint={enterKeyHint}
           onBlur={onBlur}
@@ -355,5 +383,48 @@ export function AdminDialog({ open, onClose, title, children }: AdminDialogProps
         </Dialog>
       </Modal>
     </ModalOverlay>
+  );
+}
+
+type AdminTableProps<T extends { id: string }> = {
+  ariaLabel: string;
+  columns: AdminTableColumn<T>[];
+  items: T[];
+};
+
+export function AdminTable<T extends { id: string }>({
+  ariaLabel,
+  columns,
+  items,
+}: AdminTableProps<T>) {
+  return (
+    <div className="admin-table-wrap">
+      <Table aria-label={ariaLabel} className="admin-table">
+        <TableHeader>
+          {columns.map((column) => (
+            <Column
+              className="admin-table-column"
+              id={column.id}
+              isRowHeader={column.isRowHeader}
+              key={column.id}
+              style={column.width ? { width: column.width } : undefined}
+            >
+              {column.name}
+            </Column>
+          ))}
+        </TableHeader>
+        <TableBody items={items}>
+          {(item) => (
+            <Row id={item.id}>
+              {columns.map((column) => (
+                <Cell className="admin-table-cell" key={column.id}>
+                  {column.render(item)}
+                </Cell>
+              ))}
+            </Row>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   AdminButton,
   AdminCheckboxField,
   AdminSelectField,
+  AdminTable,
   AdminTextField,
 } from "./components/AriaControls";
 
@@ -257,50 +258,62 @@ export default function AdminPosts() {
           </AdminButton>
         </div>
       </div>
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-        <thead>
-          <tr>
-            <th>
+      <AdminTable
+        ariaLabel="Posts"
+        items={posts}
+        columns={[
+          {
+            id: "select",
+            name: (
               <AdminCheckboxField
                 ariaLabel="Select all"
                 label=""
                 checked={allFilteredSelected}
                 onChange={toggleSelectAll}
                 className="admin-check"
+                slot="selection"
               />
-            </th>
-            <th>Title</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {posts.map((post) => (
-            <tr key={post.id}>
-              <td>
-                <AdminCheckboxField
-                  ariaLabel={`Select ${post.title}`}
-                  label=""
-                  checked={selected.has(post.id)}
-                  onChange={() => toggleSelect(post.id)}
-                  className="admin-check"
-                />
-              </td>
-              <td>
-                <Link to={`/posts/${post.id}`}>{post.title}</Link>
-              </td>
-              <td>{formatDate(post.published_at)}</td>
-              <td>{post.published ? "public" : "draft"}</td>
-              <td className="admin-actions">
-                <AdminButton onPress={() => remove(post.id)}>Delete</AdminButton>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        </table>
-      </div>
+            ),
+            width: "50px",
+            render: (item) => (
+              <AdminCheckboxField
+                ariaLabel={`Select ${item.title}`}
+                label=""
+                checked={selected.has(item.id)}
+                onChange={() => toggleSelect(item.id)}
+                className="admin-check"
+                slot="selection"
+              />
+            ),
+          },
+          {
+            id: "title",
+            name: "Title",
+            isRowHeader: true,
+            render: (item) => <Link to={`/posts/${item.id}`}>{item.title}</Link>,
+          },
+          {
+            id: "date",
+            name: "Date",
+            render: (item) => formatDate(item.published_at),
+          },
+          {
+            id: "status",
+            name: "Status",
+            render: (item) => (item.published ? "public" : "draft"),
+          },
+          {
+            id: "actions",
+            name: "Actions",
+            width: "90px",
+            render: (item) => (
+              <div className="admin-actions">
+                <AdminButton onPress={() => remove(item.id)}>Delete</AdminButton>
+              </div>
+            ),
+          },
+        ]}
+      />
       <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)

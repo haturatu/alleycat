@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PageRecord } from "../lib/pb";
-import { AdminButton, AdminSelectField, AdminTextField } from "./components/AriaControls";
+import { AdminButton, AdminSelectField, AdminTable, AdminTextField } from "./components/AriaControls";
 
 export default function AdminPages() {
   const [pages, setPages] = useState<PageRecord[]>([]);
@@ -107,34 +107,43 @@ export default function AdminPages() {
           </AdminButton>
         </div>
       </div>
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>URL</th>
-            <th>Menu</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pages.map((page) => (
-            <tr key={page.id}>
-              <td>
-                <Link to={`/pages/${page.id}`}>{page.title}</Link>
-              </td>
-              <td>{page.url}</td>
-              <td>{page.menuVisible ? "visible" : "hidden"}</td>
-              <td>{page.published ? "public" : "draft"}</td>
-              <td className="admin-actions">
-                <AdminButton onPress={() => remove(page.id)}>Delete</AdminButton>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        </table>
-      </div>
+      <AdminTable
+        ariaLabel="Pages"
+        items={pages}
+        columns={[
+          {
+            id: "title",
+            name: "Title",
+            isRowHeader: true,
+            render: (item) => <Link to={`/pages/${item.id}`}>{item.title}</Link>,
+          },
+          {
+            id: "url",
+            name: "URL",
+            render: (item) => item.url,
+          },
+          {
+            id: "menu",
+            name: "Menu",
+            render: (item) => (item.menuVisible ? "visible" : "hidden"),
+          },
+          {
+            id: "status",
+            name: "Status",
+            render: (item) => (item.published ? "public" : "draft"),
+          },
+          {
+            id: "actions",
+            name: "Actions",
+            width: "90px",
+            render: (item) => (
+              <div className="admin-actions">
+                <AdminButton onPress={() => remove(item.id)}>Delete</AdminButton>
+              </div>
+            ),
+          },
+        ]}
+      />
       <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)

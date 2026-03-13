@@ -670,6 +670,7 @@ export default function AdminPostEditor() {
           onPublishedChange={onPublishedChange}
         />
         <AdminComboBoxField
+          ariaLabel="Category"
           label="Category"
           value={category}
           onInputChange={(value) => {
@@ -703,6 +704,7 @@ export default function AdminPostEditor() {
           ]}
         />
         <AdminComboBoxField
+          ariaLabel="Tags"
           label="Tags"
           value={tagInput}
           onInputChange={(next) => {

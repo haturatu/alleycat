@@ -224,6 +224,11 @@ body {
   table-layout: fixed;
 }
 
+.admin-table-column,
+.admin-table-cell {
+  box-sizing: border-box;
+}
+
 .admin-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -240,7 +245,15 @@ body {
   border-bottom: 1px solid #eee;
 }
 
+.admin-table [data-rac-row] {
+  border-bottom: 1px solid #eee;
+}
+
 .admin-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.admin-table [data-rac-row]:last-child {
   border-bottom: none;
 }
 
@@ -249,7 +262,16 @@ body {
   width: 90px;
 }
 
+.admin-table [data-rac-cell]:last-child,
+.admin-table [data-rac-column-header]:last-child {
+  width: 90px;
+}
+
 .admin-table td:last-child {
+  text-align: right;
+}
+
+.admin-table [data-rac-cell]:last-child {
   text-align: right;
 }
 

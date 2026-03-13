@@ -30,7 +30,13 @@ export default function TitleSlugFields({
       <div className="admin-field">
         <span>Slug</span>
         <div className="admin-inline">
-          <AdminTextField label="" value={slug} onChange={onSlugChange} className="admin-field" />
+          <AdminTextField
+            ariaLabel="Slug"
+            label=""
+            value={slug}
+            onChange={onSlugChange}
+            className="admin-field"
+          />
           <AdminButton type="button" disabled={autoDisabled} onPress={onAutoSlug}>
             Auto
           </AdminButton>
