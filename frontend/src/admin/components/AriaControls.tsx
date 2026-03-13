@@ -2,7 +2,9 @@ import type { CSSProperties, Key, ReactNode } from "react";
 import {
   Button,
   Checkbox,
+  ComboBox,
   Dialog,
+  FileTrigger,
   Input,
   Label,
   ListBox,
@@ -184,6 +186,11 @@ type SelectOption = {
   label: ReactNode;
 };
 
+type ComboBoxOption = {
+  value: string;
+  label: ReactNode;
+};
+
 type AdminSelectFieldProps = {
   label: ReactNode;
   value: string | number;
@@ -227,6 +234,106 @@ export function AdminSelectField({
         </ListBox>
       </Popover>
     </Select>
+  );
+}
+
+type AdminComboBoxFieldProps = {
+  label: ReactNode;
+  value: string;
+  onInputChange: (value: string) => void;
+  options: ComboBoxOption[];
+  className?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  onSelectionChange?: (value: string) => void;
+  onBlur?: () => void;
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+};
+
+export function AdminComboBoxField({
+  label,
+  value,
+  onInputChange,
+  options,
+  className,
+  placeholder,
+  disabled,
+  onSelectionChange,
+  onBlur,
+  onKeyDown,
+  enterKeyHint,
+}: AdminComboBoxFieldProps) {
+  return (
+    <ComboBox
+      className={className}
+      inputValue={value}
+      isDisabled={disabled}
+      menuTrigger="input"
+      onInputChange={onInputChange}
+      onSelectionChange={(key) => onSelectionChange?.(key == null ? "" : String(key))}
+    >
+      <Label>{label}</Label>
+      <div className="admin-combobox-row">
+        <Input
+          className="admin-input"
+          enterKeyHint={enterKeyHint}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+        />
+        <Button className="admin-input admin-select-trigger" aria-label={`${String(label)} options`}>
+          <span aria-hidden="true">▾</span>
+        </Button>
+      </div>
+      <Popover className="admin-select-popover">
+        <ListBox className="admin-select-list">
+          {options.map((item) => (
+            <ListBoxItem className="admin-select-option" id={item.value} key={item.value} textValue={String(item.label)}>
+              {item.label}
+            </ListBoxItem>
+          ))}
+        </ListBox>
+      </Popover>
+    </ComboBox>
+  );
+}
+
+type AdminFileTriggerFieldProps = {
+  label: ReactNode;
+  buttonLabel: string;
+  description?: ReactNode;
+  acceptedFileTypes?: string[];
+  allowsMultiple?: boolean;
+  onSelect: (files: File[] | null) => void;
+  disabled?: boolean;
+};
+
+export function AdminFileTriggerField({
+  label,
+  buttonLabel,
+  description,
+  acceptedFileTypes,
+  allowsMultiple,
+  onSelect,
+  disabled,
+}: AdminFileTriggerFieldProps) {
+  return (
+    <div className="admin-field">
+      <span>{label}</span>
+      <div className="admin-inline admin-file-row">
+        <FileTrigger
+          acceptedFileTypes={acceptedFileTypes}
+          allowsMultiple={allowsMultiple}
+          onSelect={(files) => onSelect(files ? Array.from(files) : null)}
+        >
+          <AdminButton className="admin-primary" disabled={disabled}>
+            {buttonLabel}
+          </AdminButton>
+        </FileTrigger>
+        {description ? <p className="admin-note">{description}</p> : null}
+      </div>
+    </div>
   );
 }
 

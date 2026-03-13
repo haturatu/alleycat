@@ -592,6 +592,19 @@ body {
   background: #fff;
 }
 
+.admin-combobox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.admin-combobox-row .admin-select-trigger {
+  width: 44px;
+  min-width: 44px;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
 .admin-select-popover {
   width: var(--trigger-width);
   min-width: 180px;
@@ -623,6 +636,27 @@ body {
   gap: 16px;
 }
 
+.admin-mobile-nav {
+  padding-top: 12px;
+}
+
+.admin-mobile-nav nav {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-mobile-nav .admin-ghost {
+  color: #1f1f1f;
+}
+
+.admin-file-row {
+  align-items: center;
+}
+
+.admin-sidebar-mobile {
+  display: none;
+}
+
 .admin-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -650,22 +684,11 @@ body {
   }
 
   .admin-sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100vh;
-    width: 220px;
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    z-index: 10;
+    display: none;
   }
 
-  .admin-shell[data-sidebar-open="true"] .admin-sidebar {
-    transform: translateX(0);
-  }
-
-  .admin-shell[data-sidebar-open="true"] .admin-main {
-    transform: translateX(220px);
+  .admin-sidebar-mobile {
+    display: block;
   }
 
   .admin-main {

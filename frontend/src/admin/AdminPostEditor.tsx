@@ -7,6 +7,8 @@ import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } 
 import SaveButton from "./components/SaveButton";
 import {
   AdminButton,
+  AdminComboBoxField,
+  AdminFileTriggerField,
   AdminSelectField,
   AdminTextAreaField,
   AdminTextField,
@@ -667,35 +669,24 @@ export default function AdminPostEditor() {
           onPublishedAtChange={onPublishedAtChange}
           onPublishedChange={onPublishedChange}
         />
-        <AdminTextField
+        <AdminComboBoxField
           label="Category"
           value={category}
-          onChange={(value) => {
+          onInputChange={(value) => {
             setCategory(value);
             markDirty();
             setActiveCategorySuggestion(-1);
           }}
+          onSelectionChange={(value) => {
+            setCategory(value);
+            markDirty();
+            setActiveCategorySuggestion(-1);
+          }}
+          options={categorySuggestions.map((item) => ({ value: item, label: item }))}
           onKeyDown={onCategoryInputKeyDown}
           onBlur={applyCategoryInput}
           enterKeyHint="done"
         />
-        {categorySuggestions.length > 0 && (
-          <div className="admin-tag-suggestions">
-            {categorySuggestions.map((item) => (
-              <AdminButton
-                key={item}
-                className={categorySuggestions[activeCategorySuggestion] === item ? "is-active" : ""}
-                onPress={() => {
-                  setCategory(item);
-                  markDirty();
-                  setActiveCategorySuggestion(-1);
-                }}
-              >
-                {item}
-              </AdminButton>
-            ))}
-          </div>
-        )}
         <AdminSelectField
           label="Author"
           value={author}
@@ -711,14 +702,16 @@ export default function AdminPostEditor() {
             })),
           ]}
         />
-        <AdminTextField
+        <AdminComboBoxField
           label="Tags"
           value={tagInput}
-          onChange={(next) => {
+          onInputChange={(next) => {
             setTagInput(next);
             markDirty();
             setActiveTagSuggestion(-1);
           }}
+          onSelectionChange={(value) => addTag(value)}
+          options={tagSuggestions.map((tag) => ({ value: tag, label: tag }))}
           onKeyDown={onTagInputKeyDown}
           onBlur={applyTagInputOnBlur}
           placeholder="Type tag and press Enter"
@@ -734,42 +727,30 @@ export default function AdminPostEditor() {
             ))}
           </div>
         )}
-        {tagOptions.length > 0 && (
-          <div className="admin-tag-suggestions">
-            {tagSuggestions
-              .map((tag) => (
-                <AdminButton
-                  key={tag}
-                  className={tagSuggestions[activeTagSuggestion] === tag ? "is-active" : ""}
-                  onPress={() => addTag(tag)}
-                >
-                  {tag}
-                </AdminButton>
-              ))}
-          </div>
-        )}
-        <label>
-          Featured image
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              setFeaturedImage(e.target.files ? e.target.files[0] : null);
-              markDirty();
-            }}
-          />
-        </label>
-        <label>
-          Attachments
-          <input
-            type="file"
-            multiple
-            onChange={(e) => {
-              setAttachments(e.target.files ? Array.from(e.target.files) : []);
-              markDirty();
-            }}
-          />
-        </label>
+        <AdminFileTriggerField
+          label="Featured image"
+          buttonLabel="Choose image"
+          acceptedFileTypes={["image/*"]}
+          description={featuredImage ? featuredImage.name : "No image selected."}
+          onSelect={(files) => {
+            setFeaturedImage(files?.[0] ?? null);
+            markDirty();
+          }}
+        />
+        <AdminFileTriggerField
+          label="Attachments"
+          buttonLabel="Choose files"
+          allowsMultiple
+          description={
+            attachments.length > 0
+              ? `${attachments.length} file(s): ${attachments.map((file) => file.name).join(", ")}`
+              : "No files selected."
+          }
+          onSelect={(files) => {
+            setAttachments(files ?? []);
+            markDirty();
+          }}
+        />
         <AdminTextAreaField
           label="Excerpt"
           value={
