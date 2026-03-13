@@ -1,3 +1,5 @@
+import { AdminCheckboxField, AdminTextField } from "./AriaControls";
+
 type PublishFieldsProps = {
   publishedAt: string;
   published: boolean;
@@ -13,22 +15,13 @@ export default function PublishFields({
 }: PublishFieldsProps) {
   return (
     <>
-      <label>
-        Published at
-        <input
-          type="datetime-local"
-          value={publishedAt}
-          onChange={(e) => onPublishedAtChange(e.target.value)}
-        />
-      </label>
-      <label className="admin-check admin-check-right">
-        <span>Published</span>
-        <input
-          type="checkbox"
-          checked={published}
-          onChange={(e) => onPublishedChange(e.target.checked)}
-        />
-      </label>
+      <AdminTextField
+        label="Published at"
+        type="datetime-local"
+        value={publishedAt}
+        onChange={onPublishedAtChange}
+      />
+      <AdminCheckboxField label="Published" checked={published} onChange={onPublishedChange} />
     </>
   );
 }

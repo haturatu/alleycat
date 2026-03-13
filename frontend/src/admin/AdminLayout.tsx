@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { pb } from "../lib/pb";
+import { AdminButton } from "./components/AriaControls";
 import "../styles/admin.css";
 import "highlight.js/styles/github-dark.css";
 
@@ -29,20 +30,20 @@ export default function AdminLayout() {
           <Link to="/settings" onClick={closeSidebar}>
             Settings
           </Link>
-          <button className="admin-ghost" onClick={() => { closeSidebar(); logout(); }}>
+          <AdminButton className="admin-ghost" onPress={() => { closeSidebar(); logout(); }}>
             Logout
-          </button>
+          </AdminButton>
         </nav>
       </aside>
       <main className="admin-main">
-        <button
+        <AdminButton
+          ariaLabel="Toggle menu"
           className="admin-sidebar-toggle"
-          onClick={() => setSidebarOpen((open) => !open)}
+          onPress={() => setSidebarOpen((open) => !open)}
           type="button"
-          aria-label="Toggle menu"
         >
           ☰
-        </button>
+        </AdminButton>
         <Outlet />
       </main>
     </div>

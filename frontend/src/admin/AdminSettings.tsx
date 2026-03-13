@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { ClientResponseError } from "pocketbase";
 import { hasRole, pb } from "../lib/pb";
+import {
+  AdminButton,
+  AdminCheckboxField,
+  AdminSelectField,
+  AdminTextAreaField,
+  AdminTextField,
+} from "./components/AriaControls";
 import SaveButton from "./components/SaveButton";
 
 const translationLanguageOptions = [
@@ -205,294 +212,117 @@ export default function AdminSettings() {
       </header>
       {error && <p className="admin-error">{error}</p>}
       <div className="admin-form">
-        <label>
-          Site name
-          <input value={settings.site_name} onChange={(e) => update("site_name", e.target.value)} />
-        </label>
-        <label>
-          Description
-          <input value={settings.description} onChange={(e) => update("description", e.target.value)} />
-        </label>
-        <label>
-          Welcome text
-          <input value={settings.welcome_text} onChange={(e) => update("welcome_text", e.target.value)} />
-        </label>
-        <label>
-          Home top image
-          <input value={settings.home_top_image} onChange={(e) => update("home_top_image", e.target.value)} />
-        </label>
-        <label>
-          Home top image alt
-          <input value={settings.home_top_image_alt} onChange={(e) => update("home_top_image_alt", e.target.value)} />
-        </label>
-        <label>
-          Footer HTML
-          <textarea value={settings.footer_html} onChange={(e) => update("footer_html", e.target.value)} rows={3} />
-        </label>
-        <label>
-          Theme
-          <select
-            value={settings.theme}
-            onChange={(e) => update("theme", e.target.value)}
-            disabled={themeLocked}
-          >
-            <option value="ember">Ember (default)</option>
-            <option value="terminal">Terminal</option>
-            <option value="wiki">Wiki</option>
-            <option value="docs">Docs</option>
-            <option value="minimal">Minimal</option>
-          </select>
-        </label>
+        <AdminTextField label="Site name" value={settings.site_name} onChange={(value) => update("site_name", value)} />
+        <AdminTextField label="Description" value={settings.description} onChange={(value) => update("description", value)} />
+        <AdminTextField label="Welcome text" value={settings.welcome_text} onChange={(value) => update("welcome_text", value)} />
+        <AdminTextField label="Home top image" value={settings.home_top_image} onChange={(value) => update("home_top_image", value)} />
+        <AdminTextField label="Home top image alt" value={settings.home_top_image_alt} onChange={(value) => update("home_top_image_alt", value)} />
+        <AdminTextAreaField label="Footer HTML" value={settings.footer_html} onChange={(value) => update("footer_html", value)} rows={3} />
+        <AdminSelectField
+          label="Theme"
+          value={settings.theme}
+          onChange={(value) => update("theme", value)}
+          disabled={themeLocked}
+          options={[
+            { value: "ember", label: "Ember (default)" },
+            { value: "terminal", label: "Terminal" },
+            { value: "wiki", label: "Wiki" },
+            { value: "docs", label: "Docs" },
+            { value: "minimal", label: "Minimal" },
+          ]}
+        />
         {themeCheckDone && themeLocked && (
           <p className="admin-note">Theme selection is disabled because /frontend/public has assets.</p>
         )}
-        <label>
-          Site URL (feeds)
-          <input value={settings.site_url} onChange={(e) => update("site_url", e.target.value)} placeholder="https://example.com" />
-        </label>
-        <label>
-          Site language
-          <input value={settings.site_language} onChange={(e) => update("site_language", e.target.value)} placeholder="ja" />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable post translation</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_post_translation}
-            onChange={(e) => update("enable_post_translation", e.target.checked)}
-          />
-        </label>
-        <label>
-          Translation source locale
-          <input
-            value={settings.translation_source_locale}
-            onChange={(e) => update("translation_source_locale", e.target.value)}
-            placeholder="ja"
-          />
-        </label>
+        <AdminTextField label="Site URL (feeds)" value={settings.site_url} onChange={(value) => update("site_url", value)} placeholder="https://example.com" />
+        <AdminTextField label="Site language" value={settings.site_language} onChange={(value) => update("site_language", value)} placeholder="ja" />
+        <AdminCheckboxField label="Enable post translation" checked={settings.enable_post_translation} onChange={(checked) => update("enable_post_translation", checked)} />
+        <AdminTextField
+          label="Translation source locale"
+          value={settings.translation_source_locale}
+          onChange={(value) => update("translation_source_locale", value)}
+          placeholder="ja"
+        />
         <div className="admin-field">
           <span>Translation target locales</span>
           <div className="admin-tag-suggestions">
             {translationLanguageOptions.map((locale) => {
               const selected = parseLocales(settings.translation_locales).includes(locale);
               return (
-                <button
-                  type="button"
+                <AdminButton
                   key={locale}
-                  onClick={() => toggleLocale(locale)}
+                  onPress={() => toggleLocale(locale)}
                   style={{ opacity: selected ? 1 : 0.6 }}
                 >
                   {locale}
-                </button>
+                </AdminButton>
               );
             })}
           </div>
         </div>
-        <label>
-          Translation locales (comma separated)
-          <input
-            value={settings.translation_locales}
-            onChange={(e) => update("translation_locales", e.target.value)}
-            placeholder="en, zh-cn"
-          />
-        </label>
-        <label>
-          Gemini model
-          <input
-            value={settings.translation_model}
-            onChange={(e) => update("translation_model", e.target.value)}
-            placeholder="gemini-1.5-flash"
-          />
-        </label>
-        <label>
-          Translation requests/minute
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            value={settings.translation_requests_per_minute}
-            onChange={(e) => update("translation_requests_per_minute", Number(e.target.value))}
-          />
-        </label>
+        <AdminTextField label="Translation locales (comma separated)" value={settings.translation_locales} onChange={(value) => update("translation_locales", value)} placeholder="en, zh-cn" />
+        <AdminTextField label="Gemini model" value={settings.translation_model} onChange={(value) => update("translation_model", value)} placeholder="gemini-1.5-flash" />
+        <AdminTextField
+          label="Translation requests/minute"
+          type="number"
+          value={String(settings.translation_requests_per_minute)}
+          onChange={(value) => update("translation_requests_per_minute", Number(value))}
+          min={1}
+          max={1000}
+        />
         {canManageSecrets && (
-          <label>
-            Gemini API Key {hasGeminiApiKey ? "(saved)" : "(not set)"}
-            <input
-              type="password"
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              placeholder="Leave blank to keep current key"
-            />
-          </label>
+          <AdminTextField
+            label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
+            type="password"
+            value={geminiApiKey}
+            onChange={setGeminiApiKey}
+            placeholder="Leave blank to keep current key"
+          />
         )}
-        <label>
-          Feed items limit
-          <input
-            type="number"
-            value={settings.feed_items_limit}
-            onChange={(e) => update("feed_items_limit", Number(e.target.value))}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable RSS/Atom feed</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_feed_xml}
-            onChange={(e) => update("enable_feed_xml", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable JSON feed</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_feed_json}
-            onChange={(e) => update("enable_feed_json", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable code highlight</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_code_highlight}
-            onChange={(e) => update("enable_code_highlight", e.target.checked)}
-          />
-        </label>
-        <label>
-          Highlight theme
-          <select
-            value={settings.highlight_theme}
-            onChange={(e) => update("highlight_theme", e.target.value)}
-          >
-            <option value="github-dark">github-dark</option>
-            <option value="github">github</option>
-            <option value="atom-one-dark">atom-one-dark</option>
-            <option value="atom-one-light">atom-one-light</option>
-            <option value="monokai">monokai</option>
-            <option value="tokyo-night-dark">tokyo-night-dark</option>
-            <option value="tokyo-night-light">tokyo-night-light</option>
-            <option value="solarized-dark">solarized-dark</option>
-            <option value="solarized-light">solarized-light</option>
-            <option value="dracula">dracula</option>
-            <option value="vs">vs</option>
-          </select>
-        </label>
-        <label>
-          Home page size
-          <input
-            type="number"
-            value={settings.home_page_size}
-            onChange={(e) => update("home_page_size", Number(e.target.value))}
-          />
-        </label>
-        <label>
-          Archive page size
-          <input
-            type="number"
-            value={settings.archive_page_size}
-            onChange={(e) => update("archive_page_size", Number(e.target.value))}
-          />
-        </label>
-        <label>
-          Excerpt length (0 = manual)
-          <input
-            type="number"
-            value={settings.excerpt_length}
-            onChange={(e) => update("excerpt_length", Number(e.target.value))}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show table of contents</span>
-          <input
-            type="checkbox"
-            checked={settings.show_toc}
-            onChange={(e) => update("show_toc", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show archive tags</span>
-          <input
-            type="checkbox"
-            checked={settings.show_archive_tags}
-            onChange={(e) => update("show_archive_tags", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show tags</span>
-          <input
-            type="checkbox"
-            checked={settings.show_tags}
-            onChange={(e) => update("show_tags", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show categories</span>
-          <input
-            type="checkbox"
-            checked={settings.show_categories}
-            onChange={(e) => update("show_categories", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show related posts</span>
-          <input
-            type="checkbox"
-            checked={settings.show_related_posts}
-            onChange={(e) => update("show_related_posts", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Show archive search slot</span>
-          <input
-            type="checkbox"
-            checked={settings.show_archive_search}
-            onChange={(e) => update("show_archive_search", e.target.checked)}
-          />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable analytics</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_analytics}
-            onChange={(e) => update("enable_analytics", e.target.checked)}
-          />
-        </label>
-        <label>
-          Analytics URL
-          <input value={settings.analytics_url} onChange={(e) => update("analytics_url", e.target.value)} />
-        </label>
-        <label>
-          Analytics site id
-          <input value={settings.analytics_site_id} onChange={(e) => update("analytics_site_id", e.target.value)} />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable ads</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_ads}
-            onChange={(e) => update("enable_ads", e.target.checked)}
-          />
-        </label>
-        <label>
-          Ads client
-          <input value={settings.ads_client} onChange={(e) => update("ads_client", e.target.value)} />
-        </label>
-        <label className="admin-check admin-check-right">
-          <span>Enable comments</span>
-          <input
-            type="checkbox"
-            checked={settings.enable_comments}
-            onChange={(e) => update("enable_comments", e.target.checked)}
-          />
-        </label>
-        <label>
-          Comment script tag (utterances/giscus)
-          <textarea
-            value={settings.comments_script_tag}
-            onChange={(e) => update("comments_script_tag", e.target.value)}
-            rows={4}
-            placeholder={`<script src="https://utteranc.es/client.js" repo="owner/repo" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>`}
-          />
-        </label>
+        <AdminTextField label="Feed items limit" type="number" value={String(settings.feed_items_limit)} onChange={(value) => update("feed_items_limit", Number(value))} />
+        <AdminCheckboxField label="Enable RSS/Atom feed" checked={settings.enable_feed_xml} onChange={(checked) => update("enable_feed_xml", checked)} />
+        <AdminCheckboxField label="Enable JSON feed" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />
+        <AdminCheckboxField label="Enable code highlight" checked={settings.enable_code_highlight} onChange={(checked) => update("enable_code_highlight", checked)} />
+        <AdminSelectField
+          label="Highlight theme"
+          value={settings.highlight_theme}
+          onChange={(value) => update("highlight_theme", value)}
+          options={[
+            { value: "github-dark", label: "github-dark" },
+            { value: "github", label: "github" },
+            { value: "atom-one-dark", label: "atom-one-dark" },
+            { value: "atom-one-light", label: "atom-one-light" },
+            { value: "monokai", label: "monokai" },
+            { value: "tokyo-night-dark", label: "tokyo-night-dark" },
+            { value: "tokyo-night-light", label: "tokyo-night-light" },
+            { value: "solarized-dark", label: "solarized-dark" },
+            { value: "solarized-light", label: "solarized-light" },
+            { value: "dracula", label: "dracula" },
+            { value: "vs", label: "vs" },
+          ]}
+        />
+        <AdminTextField label="Home page size" type="number" value={String(settings.home_page_size)} onChange={(value) => update("home_page_size", Number(value))} />
+        <AdminTextField label="Archive page size" type="number" value={String(settings.archive_page_size)} onChange={(value) => update("archive_page_size", Number(value))} />
+        <AdminTextField label="Excerpt length (0 = manual)" type="number" value={String(settings.excerpt_length)} onChange={(value) => update("excerpt_length", Number(value))} />
+        <AdminCheckboxField label="Show table of contents" checked={settings.show_toc} onChange={(checked) => update("show_toc", checked)} />
+        <AdminCheckboxField label="Show archive tags" checked={settings.show_archive_tags} onChange={(checked) => update("show_archive_tags", checked)} />
+        <AdminCheckboxField label="Show tags" checked={settings.show_tags} onChange={(checked) => update("show_tags", checked)} />
+        <AdminCheckboxField label="Show categories" checked={settings.show_categories} onChange={(checked) => update("show_categories", checked)} />
+        <AdminCheckboxField label="Show related posts" checked={settings.show_related_posts} onChange={(checked) => update("show_related_posts", checked)} />
+        <AdminCheckboxField label="Show archive search slot" checked={settings.show_archive_search} onChange={(checked) => update("show_archive_search", checked)} />
+        <AdminCheckboxField label="Enable analytics" checked={settings.enable_analytics} onChange={(checked) => update("enable_analytics", checked)} />
+        <AdminTextField label="Analytics URL" value={settings.analytics_url} onChange={(value) => update("analytics_url", value)} />
+        <AdminTextField label="Analytics site id" value={settings.analytics_site_id} onChange={(value) => update("analytics_site_id", value)} />
+        <AdminCheckboxField label="Enable ads" checked={settings.enable_ads} onChange={(checked) => update("enable_ads", checked)} />
+        <AdminTextField label="Ads client" value={settings.ads_client} onChange={(value) => update("ads_client", value)} />
+        <AdminCheckboxField label="Enable comments" checked={settings.enable_comments} onChange={(checked) => update("enable_comments", checked)} />
+        <AdminTextAreaField
+          label="Comment script tag (utterances/giscus)"
+          value={settings.comments_script_tag}
+          onChange={(value) => update("comments_script_tag", value)}
+          rows={4}
+          placeholder={`<script src="https://utteranc.es/client.js" repo="owner/repo" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>`}
+        />
       </div>
     </section>
   );

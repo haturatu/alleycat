@@ -5,6 +5,7 @@ import Link from "@tiptap/extension-link";
 import { useEffect, useRef } from "react";
 import { pb } from "../lib/pb";
 import { uploadImageAndGetURL } from "./mediaUpload";
+import { AdminButton } from "./components/AriaControls";
 
 export default function RichEditor({
   value,
@@ -147,30 +148,30 @@ export default function RichEditor({
   return (
     <div className="editor">
       <div className="editor-toolbar">
-        <button onClick={() => editor.chain().focus().toggleBold().run()} type="button">
+        <AdminButton onPress={() => editor.chain().focus().toggleBold().run()} type="button">
           Bold
-        </button>
-        <button onClick={() => editor.chain().focus().toggleItalic().run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().toggleItalic().run()} type="button">
           Italic
-        </button>
-        <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} type="button">
           H2
-        </button>
-        <button onClick={() => editor.chain().focus().toggleBulletList().run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().toggleBulletList().run()} type="button">
           Bullet
-        </button>
-        <button onClick={() => editor.chain().focus().toggleCode().run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().toggleCode().run()} type="button">
           Code
-        </button>
-        <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().toggleCodeBlock().run()} type="button">
           Code Block
-        </button>
-        <button onClick={setLink} type="button">
+        </AdminButton>
+        <AdminButton onPress={setLink} type="button">
           Link
-        </button>
-        <button onClick={() => editor.chain().focus().unsetLink().run()} type="button">
+        </AdminButton>
+        <AdminButton onPress={() => editor.chain().focus().unsetLink().run()} type="button">
           Unlink
-        </button>
+        </AdminButton>
       </div>
       <EditorContent editor={editor} />
     </div>

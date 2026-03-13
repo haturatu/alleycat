@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { hasRole, isAuthed, pb } from "../lib/pb";
+import { AdminButton, AdminTextField } from "./components/AriaControls";
 import "../styles/admin.css";
 
 export default function AdminLogin() {
@@ -31,18 +32,18 @@ export default function AdminLogin() {
     <div className="admin-login">
       <form onSubmit={submit} className="admin-card">
         <h1>Admin Login</h1>
-        <label>
-          Email
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-        </label>
-        <label>
-          Password
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
-        </label>
+        <AdminTextField label="Email" value={email} onChange={setEmail} type="email" required />
+        <AdminTextField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          type="password"
+          required
+        />
         {error && <p className="admin-error">{error}</p>}
-        <button className="admin-primary" type="submit">
+        <AdminButton className="admin-primary" type="submit">
           Login
-        </button>
+        </AdminButton>
       </form>
     </div>
   );

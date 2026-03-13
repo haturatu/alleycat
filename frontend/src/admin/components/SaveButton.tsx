@@ -1,3 +1,5 @@
+import { AdminButton } from "./AriaControls";
+
 type SaveButtonProps = {
   onClick: () => void;
   saving: boolean;
@@ -14,8 +16,8 @@ export default function SaveButton({
   savingLabel = "Saving...",
 }: SaveButtonProps) {
   return (
-    <button className="admin-primary" onClick={onClick} disabled={saving || disabled}>
+    <AdminButton className="admin-primary" onPress={onClick} disabled={saving || disabled}>
       {saving ? savingLabel : idleLabel}
-    </button>
+    </AdminButton>
   );
 }

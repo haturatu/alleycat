@@ -29,6 +29,7 @@ export type PostRecord = {
   title: string;
   slug: string;
   body: string;
+  date?: string;
   content?: string;
   excerpt?: string;
   tags?: string;

@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PostRecord } from "../lib/pb";
 import { formatDate } from "../utils/text";
+import {
+  AdminButton,
+  AdminCheckboxField,
+  AdminSelectField,
+  AdminTextField,
+} from "./components/AriaControls";
 
 const extractMediaIds = (value?: string) => {
   const ids = new Set<string>();
@@ -192,42 +198,47 @@ export default function AdminPosts() {
         </Link>
       </header>
       <div className="admin-toolbar">
-        <input
+        <AdminTextField
+          ariaLabel="Search posts"
           className="admin-input"
+          label=""
+          value={query}
           type="search"
           placeholder="Search title, slug, tags..."
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
+          onChange={(value) => {
+            setQuery(value);
             setPage(1);
           }}
         />
-        <select
-          className="admin-input"
+        <AdminSelectField
+          ariaLabel="Rows per page"
+          className="admin-field"
+          label=""
           value={perPage}
-          onChange={(e) => {
-            setPerPage(Number(e.target.value));
+          onChange={(value) => {
+            setPerPage(Number(value));
             setPage(1);
           }}
-        >
-          <option value={20}>20 / page</option>
-          <option value={50}>50 / page</option>
-          <option value={100}>100 / page</option>
-        </select>
+          options={[
+            { value: 20, label: "20 / page" },
+            { value: 50, label: "50 / page" },
+            { value: 100, label: "100 / page" },
+          ]}
+        />
         <div className="admin-toolbar-actions">
-          <button
+          <AdminButton
             className="admin-primary"
             disabled={bulkLoading || selected.size === 0}
-            onClick={() => bulkSetPublished(true)}
+            onPress={() => bulkSetPublished(true)}
           >
             Publish
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             disabled={bulkLoading || selected.size === 0}
-            onClick={() => bulkSetPublished(false)}
+            onPress={() => bulkSetPublished(false)}
           >
             Unpublish
-          </button>
+          </AdminButton>
         </div>
       </div>
       <div className="admin-pagination admin-pagination-top">
@@ -235,15 +246,15 @@ export default function AdminPosts() {
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
             Prev
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             disabled={loading || page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             Next
-          </button>
+          </AdminButton>
         </div>
       </div>
       <div className="admin-table-wrap">
@@ -251,11 +262,12 @@ export default function AdminPosts() {
         <thead>
           <tr>
             <th>
-              <input
-                type="checkbox"
+              <AdminCheckboxField
+                ariaLabel="Select all"
+                label=""
                 checked={allFilteredSelected}
                 onChange={toggleSelectAll}
-                aria-label="Select all"
+                className="admin-check"
               />
             </th>
             <th>Title</th>
@@ -268,11 +280,12 @@ export default function AdminPosts() {
           {posts.map((post) => (
             <tr key={post.id}>
               <td>
-                <input
-                  type="checkbox"
+                <AdminCheckboxField
+                  ariaLabel={`Select ${post.title}`}
+                  label=""
                   checked={selected.has(post.id)}
                   onChange={() => toggleSelect(post.id)}
-                  aria-label={`Select ${post.title}`}
+                  className="admin-check"
                 />
               </td>
               <td>
@@ -281,7 +294,7 @@ export default function AdminPosts() {
               <td>{formatDate(post.published_at)}</td>
               <td>{post.published ? "public" : "draft"}</td>
               <td className="admin-actions">
-                <button onClick={() => remove(post.id)}>Delete</button>
+                <AdminButton onPress={() => remove(post.id)}>Delete</AdminButton>
               </td>
             </tr>
           ))}
@@ -293,15 +306,15 @@ export default function AdminPosts() {
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
             Prev
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             disabled={loading || page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             Next
-          </button>
+          </AdminButton>
         </div>
       </div>
     </section>

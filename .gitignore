@@ -14,6 +14,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 tsconfig.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
 
 # Go
 *.exe

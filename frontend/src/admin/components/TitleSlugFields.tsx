@@ -1,3 +1,5 @@
+import { AdminButton, AdminTextField } from "./AriaControls";
+
 type TitleSlugFieldsProps = {
   title: string;
   slug: string;
@@ -23,20 +25,17 @@ export default function TitleSlugFields({
 }: TitleSlugFieldsProps) {
   return (
     <>
-      <label>
-        Title
-        <input value={title} onChange={(e) => onTitleChange(e.target.value)} />
-      </label>
+      <AdminTextField label="Title" value={title} onChange={onTitleChange} />
       {titleError && <p className="admin-error-inline">{titleError}</p>}
-      <label>
-        Slug
+      <div className="admin-field">
+        <span>Slug</span>
         <div className="admin-inline">
-          <input value={slug} onChange={(e) => onSlugChange(e.target.value)} />
-          <button type="button" disabled={autoDisabled} onClick={onAutoSlug}>
+          <AdminTextField label="" value={slug} onChange={onSlugChange} className="admin-field" />
+          <AdminButton type="button" disabled={autoDisabled} onPress={onAutoSlug}>
             Auto
-          </button>
+          </AdminButton>
         </div>
-      </label>
+      </div>
       {slugError ? (
         <p className="admin-error-inline">{slugError}</p>
       ) : (

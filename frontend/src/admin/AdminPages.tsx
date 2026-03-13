@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PageRecord } from "../lib/pb";
+import { AdminButton, AdminSelectField, AdminTextField } from "./components/AriaControls";
 
 export default function AdminPages() {
   const [pages, setPages] = useState<PageRecord[]>([]);
@@ -62,43 +63,48 @@ export default function AdminPages() {
         </Link>
       </header>
       <div className="admin-toolbar">
-        <input
+        <AdminTextField
+          ariaLabel="Search pages"
           className="admin-input"
+          label=""
+          value={query}
           type="search"
           placeholder="Search title, url, slug..."
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
+          onChange={(value) => {
+            setQuery(value);
             setPage(1);
           }}
         />
-        <select
-          className="admin-input"
+        <AdminSelectField
+          ariaLabel="Rows per page"
+          className="admin-field"
+          label=""
           value={perPage}
-          onChange={(e) => {
-            setPerPage(Number(e.target.value));
+          onChange={(value) => {
+            setPerPage(Number(value));
             setPage(1);
           }}
-        >
-          <option value={20}>20 / page</option>
-          <option value={50}>50 / page</option>
-          <option value={100}>100 / page</option>
-        </select>
+          options={[
+            { value: 20, label: "20 / page" },
+            { value: 50, label: "50 / page" },
+            { value: 100, label: "100 / page" },
+          ]}
+        />
       </div>
       <div className="admin-pagination admin-pagination-top">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
             Prev
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             disabled={loading || page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             Next
-          </button>
+          </AdminButton>
         </div>
       </div>
       <div className="admin-table-wrap">
@@ -122,7 +128,7 @@ export default function AdminPages() {
               <td>{page.menuVisible ? "visible" : "hidden"}</td>
               <td>{page.published ? "public" : "draft"}</td>
               <td className="admin-actions">
-                <button onClick={() => remove(page.id)}>Delete</button>
+                <AdminButton onPress={() => remove(page.id)}>Delete</AdminButton>
               </td>
             </tr>
           ))}
@@ -134,15 +140,15 @@ export default function AdminPages() {
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <button disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
             Prev
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             disabled={loading || page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             Next
-          </button>
+          </AdminButton>
         </div>
       </div>
     </section>

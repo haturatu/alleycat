@@ -2,6 +2,7 @@ import { useRef, type ClipboardEvent } from "react";
 import { renderHtmlToMarkdown, renderMarkdownToHtml } from "../../utils/markdown";
 import { uploadImageAndGetURL } from "../mediaUpload";
 import RichEditor from "../RichEditor";
+import { AdminButton, AdminSelectField } from "./AriaControls";
 
 export type EditorMode = "rich" | "markdown";
 export type MarkdownViewMode = "write" | "preview";
@@ -72,36 +73,34 @@ export default function ContentEditorField({
     <div className="admin-field">
       <div className="admin-field-head">
         <span>Content</span>
-        <label className="admin-editor-mode">
-          <span>Editor mode</span>
-          <select
-            value={editorMode}
-            onChange={(e) => handleEditorModeChange(e.target.value as EditorMode)}
-          >
-            <option value="rich">Rich editor</option>
-            <option value="markdown">Markdown</option>
-          </select>
-        </label>
+        <AdminSelectField
+          className="admin-editor-mode"
+          label="Editor mode"
+          value={editorMode}
+          onChange={(value) => handleEditorModeChange(value as EditorMode)}
+          options={[
+            { value: "rich", label: "Rich editor" },
+            { value: "markdown", label: "Markdown" },
+          ]}
+        />
       </div>
       {editorMode === "rich" ? (
         <RichEditor value={body} onChange={onBodyChange} />
       ) : (
         <div className="admin-markdown-panel">
           <div className="admin-markdown-tabs">
-            <button
-              type="button"
+            <AdminButton
               className={markdownViewMode === "write" ? "is-active" : ""}
-              onClick={() => onMarkdownViewModeChange("write")}
+              onPress={() => onMarkdownViewModeChange("write")}
             >
               Write
-            </button>
-            <button
-              type="button"
+            </AdminButton>
+            <AdminButton
               className={markdownViewMode === "preview" ? "is-active" : ""}
-              onClick={() => onMarkdownViewModeChange("preview")}
+              onPress={() => onMarkdownViewModeChange("preview")}
             >
               Preview
-            </button>
+            </AdminButton>
           </div>
           {markdownViewMode === "write" ? (
             <textarea

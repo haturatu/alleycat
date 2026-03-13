@@ -5,6 +5,7 @@ import { pb } from "../lib/pb";
 import { normalizeMarkdownLinksInHtml, slugify } from "../utils/text";
 import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
+import { AdminCheckboxField, AdminTextField } from "./components/AriaControls";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
 import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
@@ -195,59 +196,49 @@ export default function AdminPageEditor() {
           onSlugChange={onSlugChange}
           onAutoSlug={onAutoSlug}
         />
-        <label>
-          URL
-          <input
-            value={url}
-            onChange={(e) => {
-              const next = e.target.value;
-              setUrl(next);
-              markDirty();
-              const previewURL = next.trim() || `/${slugify(title)}/`;
-              setFieldError("url", validateURL(previewURL));
-            }}
-            placeholder="/ab/"
-          />
-        </label>
+        <AdminTextField
+          label="URL"
+          value={url}
+          onChange={(next) => {
+            setUrl(next);
+            markDirty();
+            const previewURL = next.trim() || `/${slugify(title)}/`;
+            setFieldError("url", validateURL(previewURL));
+          }}
+          placeholder="/ab/"
+        />
         {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
-        <label className="admin-check admin-check-right">
-          <span>Show in menu</span>
-          <input
-            type="checkbox"
-            checked={menuVisible}
-            onChange={(e) => {
-              setMenuVisible(e.target.checked);
-              markDirty();
-            }}
-          />
-        </label>
+        <AdminCheckboxField
+          label="Show in menu"
+          checked={menuVisible}
+          onChange={(checked) => {
+            setMenuVisible(checked);
+            markDirty();
+          }}
+        />
         <PublishFields
           publishedAt={publishedAt}
           published={published}
           onPublishedAtChange={onPublishedAtChange}
           onPublishedChange={onPublishedChange}
         />
-        <label>
-          Menu order
-          <input
-            type="number"
-            value={menuOrder}
-            onChange={(e) => {
-              setMenuOrder(Number(e.target.value));
-              markDirty();
-            }}
-          />
-        </label>
-        <label>
-          Menu title
-          <input
-            value={menuTitle}
-            onChange={(e) => {
-              setMenuTitle(e.target.value);
-              markDirty();
-            }}
-          />
-        </label>
+        <AdminTextField
+          label="Menu order"
+          type="number"
+          value={String(menuOrder)}
+          onChange={(value) => {
+            setMenuOrder(Number(value));
+            markDirty();
+          }}
+        />
+        <AdminTextField
+          label="Menu title"
+          value={menuTitle}
+          onChange={(value) => {
+            setMenuTitle(value);
+            markDirty();
+          }}
+        />
         <ContentEditorField
           body={body}
           markdownBody={markdownBody}

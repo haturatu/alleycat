@@ -5,6 +5,12 @@ import { pb } from "../lib/pb";
 import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "../utils/text";
 import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "../utils/markdown";
 import SaveButton from "./components/SaveButton";
+import {
+  AdminButton,
+  AdminSelectField,
+  AdminTextAreaField,
+  AdminTextField,
+} from "./components/AriaControls";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./components/ContentEditorField";
 import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
@@ -18,7 +24,7 @@ import { validateBody, validateSlug, validateTitle } from "./validation";
 import type { TranslationJobRecord } from "../lib/pb";
 
 type EditorPostRecord = {
-  id: string;
+  id?: string;
   title?: string;
   slug?: string;
   body?: string;
@@ -32,6 +38,7 @@ type EditorPostRecord = {
 };
 
 type EditorPostTranslationRecord = EditorPostRecord & {
+  id: string;
   locale?: string;
   source_post?: string;
   translation_done?: boolean;
@@ -191,6 +198,8 @@ export default function AdminPostEditor() {
   };
 
   const applyDraftFromSource = (locale: string, source: EditorPostRecord, sourceId: string) => {
+    void locale;
+    void sourceId;
     applyRecordToForm({
       title: source.title,
       slug: source.slug,
@@ -201,8 +210,6 @@ export default function AdminPostEditor() {
       author: source.author,
       published_at: source.published_at,
       published: source.published,
-      locale,
-      source_post: sourceId,
     });
   };
 
@@ -263,7 +270,8 @@ export default function AdminPostEditor() {
 
       try {
         const source = (await pb.collection("posts").getOne(id)) as unknown as EditorPostRecord;
-        const parentId = source.id;
+        const parentId = source.id || "";
+        if (!parentId) throw new Error("Missing source post id.");
         const inferredSourceLocale = normalizeLocale(localeConfig.src || "ja") || "ja";
         const translations = (await pb.collection("post_translations").getFullList({
           filter: `source_post = "${escapeFilter(parentId)}"`,
@@ -630,15 +638,14 @@ export default function AdminPostEditor() {
               {localeOptions.map((locale) => {
                 const selected = locale === selectedLocale;
                 return (
-                  <button
-                    type="button"
+                  <AdminButton
                     key={locale}
-                    onClick={() => switchLocale(locale)}
+                    onPress={() => switchLocale(locale)}
                     disabled={saving}
                     style={{ opacity: selected ? 1 : 0.6 }}
                   >
                     {locale === sourceLocale ? `${locale} (source)` : locale}
-                  </button>
+                  </AdminButton>
                 );
               })}
             </div>
@@ -660,78 +667,70 @@ export default function AdminPostEditor() {
           onPublishedAtChange={onPublishedAtChange}
           onPublishedChange={onPublishedChange}
         />
-        <label>
-          Category
-          <input
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-              markDirty();
-              setActiveCategorySuggestion(-1);
-            }}
-            onKeyDown={onCategoryInputKeyDown}
-            onBlur={applyCategoryInput}
-            enterKeyHint="done"
-          />
-        </label>
+        <AdminTextField
+          label="Category"
+          value={category}
+          onChange={(value) => {
+            setCategory(value);
+            markDirty();
+            setActiveCategorySuggestion(-1);
+          }}
+          onKeyDown={onCategoryInputKeyDown}
+          onBlur={applyCategoryInput}
+          enterKeyHint="done"
+        />
         {categorySuggestions.length > 0 && (
           <div className="admin-tag-suggestions">
             {categorySuggestions.map((item) => (
-              <button
-                type="button"
+              <AdminButton
                 key={item}
                 className={categorySuggestions[activeCategorySuggestion] === item ? "is-active" : ""}
-                onClick={() => {
+                onPress={() => {
                   setCategory(item);
                   markDirty();
                   setActiveCategorySuggestion(-1);
                 }}
               >
                 {item}
-              </button>
+              </AdminButton>
             ))}
           </div>
         )}
-        <label>
-          Author
-          <select
-            value={author}
-            onChange={(e) => {
-              setAuthor(e.target.value);
-              markDirty();
-            }}
-          >
-            <option value="">(none)</option>
-            {authors.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name || user.email || user.id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Tags
-          <input
-            value={tagInput}
-            onChange={(e) => {
-              const next = e.target.value;
-              setTagInput(next);
-              markDirty();
-              setActiveTagSuggestion(-1);
-            }}
-            onKeyDown={onTagInputKeyDown}
-            onBlur={applyTagInputOnBlur}
-            placeholder="Type tag and press Enter"
-            enterKeyHint="done"
-          />
-        </label>
+        <AdminSelectField
+          label="Author"
+          value={author}
+          onChange={(value) => {
+            setAuthor(value);
+            markDirty();
+          }}
+          options={[
+            { value: "", label: "(none)" },
+            ...authors.map((user) => ({
+              value: user.id,
+              label: user.name || user.email || user.id,
+            })),
+          ]}
+        />
+        <AdminTextField
+          label="Tags"
+          value={tagInput}
+          onChange={(next) => {
+            setTagInput(next);
+            markDirty();
+            setActiveTagSuggestion(-1);
+          }}
+          onKeyDown={onTagInputKeyDown}
+          onBlur={applyTagInputOnBlur}
+          placeholder="Type tag and press Enter"
+          enterKeyHint="done"
+        />
         {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
         {currentTags.length > 0 && (
           <div className="admin-tag-suggestions">
             {currentTags.map((tag) => (
-              <button type="button" key={`selected-${tag}`} onClick={() => removeTag(tag)}>
+              <AdminButton key={`selected-${tag}`} onPress={() => removeTag(tag)}>
                 {tag} ×
-              </button>
+              </AdminButton>
             ))}
           </div>
         )}
@@ -739,14 +738,13 @@ export default function AdminPostEditor() {
           <div className="admin-tag-suggestions">
             {tagSuggestions
               .map((tag) => (
-                <button
-                  type="button"
+                <AdminButton
                   key={tag}
                   className={tagSuggestions[activeTagSuggestion] === tag ? "is-active" : ""}
-                  onClick={() => addTag(tag)}
+                  onPress={() => addTag(tag)}
                 >
                   {tag}
-                </button>
+                </AdminButton>
               ))}
           </div>
         )}
@@ -772,25 +770,23 @@ export default function AdminPostEditor() {
             }}
           />
         </label>
-        <label>
-          Excerpt
-          <textarea
-            value={
-              excerptLength > 0
-                ? buildExcerpt(
-                    editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
-                    excerptLength
-                  )
-                : excerpt
-            }
-            onChange={(e) => {
-              setExcerpt(e.target.value);
-              markDirty();
-            }}
-            rows={3}
-            disabled={excerptLength > 0}
-          />
-        </label>
+        <AdminTextAreaField
+          label="Excerpt"
+          value={
+            excerptLength > 0
+              ? buildExcerpt(
+                  editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
+                  excerptLength
+                )
+              : excerpt
+          }
+          onChange={(value) => {
+            setExcerpt(value);
+            markDirty();
+          }}
+          rows={3}
+          disabled={excerptLength > 0}
+        />
         {excerptLength > 0 && (
           <p className="admin-note">
             Excerpt is auto-generated from content ({excerptLength} chars).
