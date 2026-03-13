@@ -6,8 +6,16 @@ type FormStatusMessageProps = {
 export default function FormStatusMessage({ error, success }: FormStatusMessageProps) {
   return (
     <>
-      {error ? <p className="admin-error">{error}</p> : null}
-      {success ? <p className="admin-success">{success}</p> : null}
+      {error ? (
+        <p aria-live="assertive" className="admin-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {success ? (
+        <p aria-live="polite" className="admin-success" role="status">
+          {success}
+        </p>
+      ) : null}
     </>
   );
 }

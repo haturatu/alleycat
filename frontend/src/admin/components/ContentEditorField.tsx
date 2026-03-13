@@ -2,7 +2,7 @@ import { useRef, type ClipboardEvent } from "react";
 import { renderHtmlToMarkdown, renderMarkdownToHtml } from "../../utils/markdown";
 import { uploadImageAndGetURL } from "../mediaUpload";
 import RichEditor from "../RichEditor";
-import { AdminButton, AdminSelectField } from "./AriaControls";
+import { AdminSelectField, AdminTabs } from "./AriaControls";
 
 export type EditorMode = "rich" | "markdown";
 export type MarkdownViewMode = "write" | "preview";
@@ -88,35 +88,37 @@ export default function ContentEditorField({
         <RichEditor value={body} onChange={onBodyChange} />
       ) : (
         <div className="admin-markdown-panel">
-          <div className="admin-markdown-tabs">
-            <AdminButton
-              className={markdownViewMode === "write" ? "is-active" : ""}
-              onPress={() => onMarkdownViewModeChange("write")}
-            >
-              Write
-            </AdminButton>
-            <AdminButton
-              className={markdownViewMode === "preview" ? "is-active" : ""}
-              onPress={() => onMarkdownViewModeChange("preview")}
-            >
-              Preview
-            </AdminButton>
-          </div>
-          {markdownViewMode === "write" ? (
-            <textarea
-              ref={markdownTextareaRef}
-              value={markdownBody}
-              rows={14}
-              onPaste={(e) => void handleMarkdownImagePaste(e)}
-              onChange={(e) => onMarkdownBodyChange(e.target.value)}
-              placeholder="Write Markdown here..."
-            />
-          ) : (
-            <div
-              className="admin-markdown-preview"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody, { highlightCode: true }) }}
-            />
-          )}
+          <AdminTabs
+            label="Markdown editor mode"
+            selectedKey={markdownViewMode}
+            onSelectionChange={onMarkdownViewModeChange}
+            tabs={[
+              {
+                id: "write",
+                label: "Write",
+                panel: (
+                  <textarea
+                    ref={markdownTextareaRef}
+                    value={markdownBody}
+                    rows={14}
+                    onPaste={(e) => void handleMarkdownImagePaste(e)}
+                    onChange={(e) => onMarkdownBodyChange(e.target.value)}
+                    placeholder="Write Markdown here..."
+                  />
+                ),
+              },
+              {
+                id: "preview",
+                label: "Preview",
+                panel: (
+                  <div
+                    className="admin-markdown-preview"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody, { highlightCode: true }) }}
+                  />
+                ),
+              },
+            ]}
+          />
         </div>
       )}
     </div>

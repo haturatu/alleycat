@@ -5,6 +5,7 @@ import { formatDate } from "../utils/text";
 import {
   AdminButton,
   AdminCheckboxField,
+  AdminConfirmDialog,
   AdminSelectField,
   AdminTable,
   AdminTextField,
@@ -32,6 +33,9 @@ export default function AdminPosts() {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [pendingPublishValue, setPendingPublishValue] = useState<boolean | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const buildFilter = (value: string) => {
     const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -114,7 +118,6 @@ export default function AdminPosts() {
 
   const bulkSetPublished = async (value: boolean) => {
     if (selected.size === 0) return;
-    if (!window.confirm(`Set ${selected.size} selected posts to ${value ? "published" : "unpublished"}?`)) return;
     setBulkLoading(true);
     const now = new Date().toISOString();
     const byId = new Map(posts.map((post) => [post.id, post]));
@@ -134,7 +137,6 @@ export default function AdminPosts() {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm("Delete this post?")) return;
     let mediaIds: string[] = [];
     let translationIds: string[] = [];
     try {
@@ -198,6 +200,35 @@ export default function AdminPosts() {
           New
         </Link>
       </header>
+      <AdminConfirmDialog
+        open={publishConfirmOpen && pendingPublishValue !== null}
+        title={pendingPublishValue ? "Publish selected posts" : "Unpublish selected posts"}
+        message={`Set ${selected.size} selected posts to ${pendingPublishValue ? "published" : "unpublished"}?`}
+        confirmLabel="Apply"
+        confirmDisabled={bulkLoading || pendingPublishValue === null}
+        onCancel={() => {
+          setPublishConfirmOpen(false);
+          setPendingPublishValue(null);
+        }}
+        onConfirm={() => {
+          const next = pendingPublishValue;
+          setPublishConfirmOpen(false);
+          setPendingPublishValue(null);
+          if (next !== null) void bulkSetPublished(next);
+        }}
+      />
+      <AdminConfirmDialog
+        open={deleteTargetId !== null}
+        title="Delete post"
+        message="Delete this post?"
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={() => {
+          const next = deleteTargetId;
+          setDeleteTargetId(null);
+          if (next) void remove(next);
+        }}
+      />
       <div className="admin-toolbar">
         <AdminTextField
           ariaLabel="Search posts"
@@ -230,13 +261,19 @@ export default function AdminPosts() {
           <AdminButton
             className="admin-primary"
             disabled={bulkLoading || selected.size === 0}
-            onPress={() => bulkSetPublished(true)}
+            onPress={() => {
+              setPendingPublishValue(true);
+              setPublishConfirmOpen(true);
+            }}
           >
             Publish
           </AdminButton>
           <AdminButton
             disabled={bulkLoading || selected.size === 0}
-            onPress={() => bulkSetPublished(false)}
+            onPress={() => {
+              setPendingPublishValue(false);
+              setPublishConfirmOpen(true);
+            }}
           >
             Unpublish
           </AdminButton>
@@ -308,7 +345,7 @@ export default function AdminPosts() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => remove(item.id)}>Delete</AdminButton>
+                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete</AdminButton>
               </div>
             ),
           },

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { pb, PageRecord } from "../lib/pb";
-import { AdminButton, AdminSelectField, AdminTable, AdminTextField } from "./components/AriaControls";
+import { AdminButton, AdminConfirmDialog, AdminSelectField, AdminTable, AdminTextField } from "./components/AriaControls";
 
 export default function AdminPages() {
   const [pages, setPages] = useState<PageRecord[]>([]);
@@ -12,6 +12,7 @@ export default function AdminPages() {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const buildFilter = (value: string) => {
     const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -62,6 +63,18 @@ export default function AdminPages() {
           New
         </Link>
       </header>
+      <AdminConfirmDialog
+        open={deleteTargetId !== null}
+        title="Delete page"
+        message="Delete this page?"
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={() => {
+          const next = deleteTargetId;
+          setDeleteTargetId(null);
+          if (next) void remove(next);
+        }}
+      />
       <div className="admin-toolbar">
         <AdminTextField
           ariaLabel="Search pages"
@@ -138,7 +151,7 @@ export default function AdminPages() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => remove(item.id)}>Delete</AdminButton>
+                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete</AdminButton>
               </div>
             ),
           },

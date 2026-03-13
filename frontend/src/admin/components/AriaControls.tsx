@@ -17,6 +17,10 @@ import {
   Row,
   Select,
   SelectValue,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
   Table,
   TableBody,
   TableHeader,
@@ -383,6 +387,86 @@ export function AdminDialog({ open, onClose, title, children }: AdminDialogProps
         </Dialog>
       </Modal>
     </ModalOverlay>
+  );
+}
+
+type AdminConfirmDialogProps = {
+  open: boolean;
+  title: string;
+  message: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmDisabled?: boolean;
+};
+
+export function AdminConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onCancel,
+  confirmDisabled,
+}: AdminConfirmDialogProps) {
+  return (
+    <AdminDialog open={open} onClose={onCancel} title={title}>
+      <>
+        <div className="admin-modal-head">
+          <h2>{title}</h2>
+          <AdminButton className="admin-modal-close" onPress={onCancel}>
+            {cancelLabel}
+          </AdminButton>
+        </div>
+        <div className="admin-modal-body">
+          <p className="admin-note">{message}</p>
+          <div className="admin-toolbar-actions">
+            <AdminButton onPress={onCancel}>{cancelLabel}</AdminButton>
+            <AdminButton className="admin-primary" disabled={confirmDisabled} onPress={onConfirm}>
+              {confirmLabel}
+            </AdminButton>
+          </div>
+        </div>
+      </>
+    </AdminDialog>
+  );
+}
+
+type AdminTabsProps<T extends string> = {
+  selectedKey: T;
+  onSelectionChange: (key: T) => void;
+  label: string;
+  tabs: Array<{ id: T; label: ReactNode; panel: ReactNode }>;
+};
+
+export function AdminTabs<T extends string>({
+  selectedKey,
+  onSelectionChange,
+  label,
+  tabs,
+}: AdminTabsProps<T>) {
+  return (
+    <Tabs
+      aria-label={label}
+      className="admin-tabs"
+      selectedKey={selectedKey}
+      onSelectionChange={(key) => onSelectionChange(String(key) as T)}
+    >
+      <TabList className="admin-markdown-tabs">
+        {tabs.map((tab) => (
+          <Tab className="admin-tab-trigger" id={tab.id} key={tab.id}>
+            {tab.label}
+          </Tab>
+        ))}
+      </TabList>
+      {tabs.map((tab) => (
+        <TabPanel className="admin-tab-panel" id={tab.id} key={tab.id}>
+          {tab.panel}
+        </TabPanel>
+      ))}
+    </Tabs>
   );
 }
 

@@ -554,6 +554,23 @@ body {
   border-bottom-color: #fff;
 }
 
+.admin-tab-trigger {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.admin-tab-trigger[data-selected] {
+  border-color: #ccc;
+  background: #fff;
+  border-bottom-color: #fff;
+}
+
+.admin-tab-panel {
+  min-width: 0;
+}
+
 .admin-markdown-panel textarea {
   border: none;
   border-top: 0;
