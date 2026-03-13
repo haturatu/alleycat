@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { pb } from "../lib/pb";
 import { AdminButton, AdminDialog } from "./components/AriaControls";
@@ -18,17 +18,17 @@ export default function AdminLayout() {
 
   const sidebarContent = (
     <>
-      <h2>Admin</h2>
-      <nav>
-        <Link to="/posts" onClick={closeSidebar}>
+        <h2>Admin</h2>
+        <nav>
+        <NavLink className={({ isActive }) => (isActive ? "is-current" : undefined)} to="/posts" onClick={closeSidebar}>
           Posts
-        </Link>
-        <Link to="/pages" onClick={closeSidebar}>
+        </NavLink>
+        <NavLink className={({ isActive }) => (isActive ? "is-current" : undefined)} to="/pages" onClick={closeSidebar}>
           Pages
-        </Link>
-        <Link to="/settings" onClick={closeSidebar}>
+        </NavLink>
+        <NavLink className={({ isActive }) => (isActive ? "is-current" : undefined)} to="/settings" onClick={closeSidebar}>
           Settings
-        </Link>
+        </NavLink>
         <AdminButton className="admin-ghost" onPress={() => { closeSidebar(); logout(); }}>
           Logout
         </AdminButton>

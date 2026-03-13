@@ -147,29 +147,59 @@ export default function RichEditor({
   }, [editor, value]);
   return (
     <div className="editor">
-      <div className="editor-toolbar">
-        <AdminButton onPress={() => editor.chain().focus().toggleBold().run()} type="button">
+      <div aria-label="Rich text formatting" className="editor-toolbar" role="toolbar">
+        <AdminButton
+          ariaLabel="Toggle bold"
+          ariaPressed={editor.isActive("bold")}
+          onPress={() => editor.chain().focus().toggleBold().run()}
+          type="button"
+        >
           Bold
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().toggleItalic().run()} type="button">
+        <AdminButton
+          ariaLabel="Toggle italic"
+          ariaPressed={editor.isActive("italic")}
+          onPress={() => editor.chain().focus().toggleItalic().run()}
+          type="button"
+        >
           Italic
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} type="button">
+        <AdminButton
+          ariaLabel="Toggle heading level 2"
+          ariaPressed={editor.isActive("heading", { level: 2 })}
+          onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          type="button"
+        >
           H2
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().toggleBulletList().run()} type="button">
+        <AdminButton
+          ariaLabel="Toggle bullet list"
+          ariaPressed={editor.isActive("bulletList")}
+          onPress={() => editor.chain().focus().toggleBulletList().run()}
+          type="button"
+        >
           Bullet
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().toggleCode().run()} type="button">
+        <AdminButton
+          ariaLabel="Toggle inline code"
+          ariaPressed={editor.isActive("code")}
+          onPress={() => editor.chain().focus().toggleCode().run()}
+          type="button"
+        >
           Code
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().toggleCodeBlock().run()} type="button">
+        <AdminButton
+          ariaLabel="Toggle code block"
+          ariaPressed={editor.isActive("codeBlock")}
+          onPress={() => editor.chain().focus().toggleCodeBlock().run()}
+          type="button"
+        >
           Code Block
         </AdminButton>
-        <AdminButton onPress={setLink} type="button">
+        <AdminButton ariaLabel="Set link" ariaPressed={editor.isActive("link")} onPress={setLink} type="button">
           Link
         </AdminButton>
-        <AdminButton onPress={() => editor.chain().focus().unsetLink().run()} type="button">
+        <AdminButton ariaLabel="Remove link" onPress={() => editor.chain().focus().unsetLink().run()} type="button">
           Unlink
         </AdminButton>
       </div>

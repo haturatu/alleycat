@@ -38,6 +38,7 @@ type AdminButtonProps = {
   onPress?: () => void;
   type?: "button" | "submit";
   ariaLabel?: string;
+  ariaPressed?: boolean;
   style?: CSSProperties;
 };
 
@@ -48,11 +49,13 @@ export function AdminButton({
   onPress,
   type = "button",
   ariaLabel,
+  ariaPressed,
   style,
 }: AdminButtonProps) {
   return (
     <Button
       aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       className={className}
       isDisabled={disabled}
       onPress={onPress}

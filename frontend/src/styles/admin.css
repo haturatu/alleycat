@@ -54,6 +54,12 @@ body {
   cursor: pointer;
 }
 
+.admin-sidebar a.is-current {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .admin-primary,
 .admin-ghost,
 .admin-toolbar-actions button,
@@ -479,6 +485,11 @@ body {
   background: #fff;
   padding: 4px 8px;
   cursor: pointer;
+}
+
+.editor-toolbar button[aria-pressed="true"] {
+  border-color: #1f1f1f;
+  background: #f2ede4;
 }
 
 .editor .ProseMirror {
