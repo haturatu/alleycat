@@ -4,6 +4,7 @@ import { hasRole, pb } from "../lib/pb";
 import {
   AdminButton,
   AdminCheckboxField,
+  AdminCheckboxGroupField,
   AdminSelectField,
   AdminTextAreaField,
   AdminTextField,
@@ -133,16 +134,6 @@ export default function AdminSettings() {
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
 
-  const toggleLocale = (locale: string) => {
-    const current = new Set(parseLocales(settings.translation_locales));
-    if (current.has(locale)) {
-      current.delete(locale);
-    } else {
-      current.add(locale);
-    }
-    update("translation_locales", Array.from(current).join(", "));
-  };
-
   const save = async () => {
     setError("");
     setSaving(true);
@@ -243,23 +234,16 @@ export default function AdminSettings() {
           onChange={(value) => update("translation_source_locale", value)}
           placeholder="ja"
         />
-        <div className="admin-field">
-          <span>Translation target locales</span>
-          <div className="admin-tag-suggestions">
-            {translationLanguageOptions.map((locale) => {
-              const selected = parseLocales(settings.translation_locales).includes(locale);
-              return (
-                <AdminButton
-                  key={locale}
-                  onPress={() => toggleLocale(locale)}
-                  style={{ opacity: selected ? 1 : 0.6 }}
-                >
-                  {locale}
-                </AdminButton>
-              );
-            })}
-          </div>
-        </div>
+        <AdminCheckboxGroupField
+          ariaLabel="Translation target locales"
+          label="Translation target locales"
+          values={parseLocales(settings.translation_locales)}
+          onChange={(values) => update("translation_locales", values.join(", "))}
+          options={translationLanguageOptions.map((locale) => ({
+            value: locale,
+            label: locale,
+          }))}
+        />
         <AdminTextField label="Translation locales (comma separated)" value={settings.translation_locales} onChange={(value) => update("translation_locales", value)} placeholder="en, zh-cn" />
         <AdminTextField label="Gemini model" value={settings.translation_model} onChange={(value) => update("translation_model", value)} placeholder="gemini-1.5-flash" />
         <AdminTextField

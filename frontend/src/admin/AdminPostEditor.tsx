@@ -9,6 +9,7 @@ import {
   AdminButton,
   AdminComboBoxField,
   AdminFileTriggerField,
+  AdminRadioGroupField,
   AdminSelectField,
   AdminTextAreaField,
   AdminTextField,
@@ -634,24 +635,17 @@ export default function AdminPostEditor() {
       />
       <div className="admin-form">
         {id !== "new" && localeOptions.length > 0 && (
-          <div className="admin-field">
-            <span>Edit locale</span>
-            <div className="admin-tag-suggestions">
-              {localeOptions.map((locale) => {
-                const selected = locale === selectedLocale;
-                return (
-                  <AdminButton
-                    key={locale}
-                    onPress={() => switchLocale(locale)}
-                    disabled={saving}
-                    style={{ opacity: selected ? 1 : 0.6 }}
-                  >
-                    {locale === sourceLocale ? `${locale} (source)` : locale}
-                  </AdminButton>
-                );
-              })}
-            </div>
-          </div>
+          <AdminRadioGroupField
+            ariaLabel="Edit locale"
+            label="Edit locale"
+            value={selectedLocale}
+            onChange={(value) => switchLocale(value)}
+            options={localeOptions.map((locale) => ({
+              value: locale,
+              label: locale === sourceLocale ? `${locale} (source)` : locale,
+              disabled: saving,
+            }))}
+          />
         )}
         <TitleSlugFields
           title={title}

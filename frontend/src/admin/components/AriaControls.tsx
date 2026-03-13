@@ -2,6 +2,7 @@ import type { CSSProperties, Key, ReactNode } from "react";
 import {
   Button,
   Checkbox,
+  CheckboxGroup,
   ComboBox,
   Cell,
   Column,
@@ -14,6 +15,8 @@ import {
   Modal,
   ModalOverlay,
   Popover,
+  Radio,
+  RadioGroup,
   Row,
   Select,
   SelectValue,
@@ -200,6 +203,79 @@ export function AdminCheckboxField({
   );
 }
 
+type AdminCheckboxGroupFieldProps = {
+  label: ReactNode;
+  values: string[];
+  options: ChoiceOption[];
+  onChange: (values: string[]) => void;
+  ariaLabel?: string;
+};
+
+export function AdminCheckboxGroupField({
+  label,
+  values,
+  options,
+  onChange,
+  ariaLabel,
+}: AdminCheckboxGroupFieldProps) {
+  return (
+    <CheckboxGroup
+      aria-label={ariaLabel}
+      className="admin-field"
+      value={values}
+      onChange={(next) => onChange([...next])}
+    >
+      <Label>{label}</Label>
+      <div className="admin-choice-group">
+        {options.map((option) => (
+          <Checkbox
+            key={option.value}
+            className="admin-choice-pill"
+            isDisabled={option.disabled}
+            value={option.value}
+          >
+            {({ isSelected }) => <span className={isSelected ? "is-selected" : undefined}>{option.label}</span>}
+          </Checkbox>
+        ))}
+      </div>
+    </CheckboxGroup>
+  );
+}
+
+type AdminRadioGroupFieldProps = {
+  label: ReactNode;
+  value: string;
+  options: ChoiceOption[];
+  onChange: (value: string) => void;
+  ariaLabel?: string;
+};
+
+export function AdminRadioGroupField({
+  label,
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: AdminRadioGroupFieldProps) {
+  return (
+    <RadioGroup aria-label={ariaLabel} className="admin-field" value={value} onChange={onChange}>
+      <Label>{label}</Label>
+      <div className="admin-choice-group">
+        {options.map((option) => (
+          <Radio
+            key={option.value}
+            className="admin-choice-pill"
+            isDisabled={option.disabled}
+            value={option.value}
+          >
+            {({ isSelected }) => <span className={isSelected ? "is-selected" : undefined}>{option.label}</span>}
+          </Radio>
+        ))}
+      </div>
+    </RadioGroup>
+  );
+}
+
 type SelectOption = {
   value: string | number;
   label: ReactNode;
@@ -208,6 +284,12 @@ type SelectOption = {
 type ComboBoxOption = {
   value: string;
   label: ReactNode;
+};
+
+type ChoiceOption = {
+  value: string;
+  label: ReactNode;
+  disabled?: boolean;
 };
 
 type AdminTableColumn<T> = {

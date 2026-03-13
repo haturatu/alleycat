@@ -423,6 +423,29 @@ body {
   gap: 8px;
 }
 
+.admin-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-choice-pill {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.admin-choice-pill[data-selected] {
+  border-color: #1f1f1f;
+  background: #f2f2f2;
+}
+
+.admin-choice-pill[data-focus-visible] {
+  outline: 2px solid rgba(143, 109, 69, 0.35);
+  outline-offset: 2px;
+}
+
 .admin-tag-suggestions button {
   border: 1px solid #ccc;
   background: #fff;
