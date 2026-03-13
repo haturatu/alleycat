@@ -330,6 +330,7 @@ body {
 .admin-field {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .admin-field-head {
@@ -338,12 +339,18 @@ body {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.admin-field-head > * {
+  min-width: 0;
 }
 
 .admin-editor-mode {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .admin-editor-mode span {
@@ -543,6 +550,40 @@ body {
   background: #fafafa;
   padding: 12px;
   min-height: 120px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+.admin-markdown-preview > * {
+  max-width: 100%;
+}
+
+.admin-markdown-preview p,
+.admin-markdown-preview li,
+.admin-markdown-preview blockquote,
+.admin-markdown-preview td,
+.admin-markdown-preview th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-markdown-preview img,
+.admin-markdown-preview iframe,
+.admin-markdown-preview video {
+  max-width: 100%;
+  height: auto;
+}
+
+.admin-markdown-preview table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
 }
 
 .admin-markdown-preview pre {
@@ -550,6 +591,7 @@ body {
   word-break: normal;
   overflow-x: auto;
   max-width: 100%;
+  box-sizing: border-box;
   background: #141311;
   color: #f7f2e9;
   padding: 12px 14px;
@@ -669,6 +711,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+  min-width: 0;
 }
 
 .admin-combobox-row .admin-select-trigger {
@@ -676,6 +719,10 @@ body {
   min-width: 44px;
   justify-content: center;
   flex: 0 0 auto;
+}
+
+.admin-combobox-row > * {
+  min-width: 0;
 }
 
 .admin-select-popover {
@@ -821,7 +868,9 @@ body {
   }
 
   .admin-header .admin-primary {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
+    align-self: flex-start;
     justify-content: center;
     min-height: 46px;
   }
@@ -902,6 +951,18 @@ body {
     min-width: 0;
   }
 
+  .admin-form .admin-field,
+  .admin-form .admin-input,
+  .admin-form .admin-select-trigger,
+  .admin-form .admin-combobox-row,
+  .admin-form .admin-markdown-panel,
+  .admin-form .admin-tab-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   .admin-input,
   .admin-form input,
   .admin-form textarea,
@@ -948,6 +1009,8 @@ body {
   }
 
   .admin-editor-mode {
+    display: grid;
+    grid-template-columns: 1fr;
     width: 100%;
     justify-content: stretch;
     gap: 6px;
@@ -956,6 +1019,19 @@ body {
   .admin-editor-mode > * {
     width: 100%;
     min-width: 0;
+  }
+
+  .admin-editor-mode .admin-select-trigger,
+  .admin-editor-mode [data-rac-select] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-field-head {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
   }
 
   .admin-combobox-row {
