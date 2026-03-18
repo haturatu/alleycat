@@ -75,7 +75,11 @@ export default function AdminLayout() {
           onPress={() => setSidebarOpen((open) => !open)}
           type="button"
         >
-          ☰
+          <span aria-hidden="true" className="admin-sidebar-toggle-icon">
+            <span />
+            <span />
+            <span />
+          </span>
         </AdminButton>
         <Outlet />
       </main>

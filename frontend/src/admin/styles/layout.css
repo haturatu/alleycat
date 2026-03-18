@@ -491,9 +491,26 @@
 
   .admin-sidebar-toggle {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: 16px;
     min-width: 44px;
     min-height: 44px;
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .admin-sidebar-toggle-icon {
+    display: inline-grid;
+    gap: 4px;
+  }
+
+  .admin-sidebar-toggle-icon span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentcolor;
   }
 
   .admin-main {
