@@ -182,7 +182,7 @@ export default function AdminPages() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete</AdminButton>
+                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete Page</AdminButton>
               </div>
             ),
           },

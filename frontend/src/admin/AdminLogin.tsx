@@ -27,14 +27,14 @@ export default function AdminLogin() {
       await pb.collection("cms_users").authWithPassword(email, password);
       navigate("/posts");
     } catch (err) {
-      setError("Login failed.");
+      setError("Sign-in failed. Check your email address and password.");
     }
   };
 
   return (
     <div className="admin-login">
       <form onSubmit={submit} className="admin-card">
-        <h1>Admin Login</h1>
+        <h1>Admin Sign In</h1>
         <AdminTextField label="Email" value={email} onChange={setEmail} type="email" required />
         <AdminTextField
           label="Password"

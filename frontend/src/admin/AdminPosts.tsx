@@ -247,7 +247,7 @@ export default function AdminPosts() {
         open={publishConfirmOpen && pendingPublishValue !== null}
         title={pendingPublishValue ? "Publish selected posts" : "Unpublish selected posts"}
         message={`Set ${selected.size} selected posts to ${pendingPublishValue ? "published" : "unpublished"}?`}
-        confirmLabel={bulkLoading ? "Applying…" : "Apply Changes"}
+        confirmLabel={bulkLoading ? "Updating…" : "Update Posts"}
         confirmDisabled={bulkLoading || pendingPublishValue === null}
         onCancel={() => {
           setPublishConfirmOpen(false);
@@ -389,7 +389,7 @@ export default function AdminPosts() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete</AdminButton>
+                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete Post</AdminButton>
               </div>
             ),
           },

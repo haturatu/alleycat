@@ -62,10 +62,13 @@ body {
 
 .admin-sidebar a,
 .admin-ghost {
+  display: inline-flex;
+  align-items: center;
   color: #f7f2e9;
   text-decoration: none;
   background: transparent;
   border: none;
+  min-height: 40px;
   padding: 10px 0;
   text-align: left;
   cursor: pointer;
@@ -150,6 +153,7 @@ body {
   background: #1f1f1f;
   color: #fff;
   border: none;
+  min-height: 40px;
   padding: 10px 16px;
   cursor: pointer;
   text-decoration: none;
@@ -243,6 +247,7 @@ body {
 }
 
 .admin-toolbar-actions button {
+  min-height: 40px;
   padding: 10px 16px;
   border: none;
   cursor: pointer;
@@ -343,6 +348,7 @@ body {
   background: none;
   color: #b00020;
   cursor: pointer;
+  min-height: 40px;
   padding: 10px 0;
 }
 
@@ -514,6 +520,7 @@ body {
 .admin-choice-pill {
   border: 1px solid #ccc;
   background: #fff;
+  min-height: 40px;
   padding: 8px 12px;
   cursor: pointer;
 }

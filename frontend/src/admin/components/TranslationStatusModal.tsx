@@ -39,7 +39,7 @@ export default function TranslationStatusModal({
             </p>
           </div>
           <AdminButton type="button" className="admin-modal-close" onPress={onClose}>
-            Close
+            Close Status
           </AdminButton>
         </div>
         <div className="admin-modal-body">

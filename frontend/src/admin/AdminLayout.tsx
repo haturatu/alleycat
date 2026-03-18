@@ -30,7 +30,7 @@ export default function AdminLayout() {
           Settings
         </NavLink>
         <AdminButton className="admin-ghost" onPress={() => { closeSidebar(); logout(); }}>
-          Logout
+          Sign Out
         </AdminButton>
       </nav>
     </>
@@ -45,9 +45,9 @@ export default function AdminLayout() {
       <div className="admin-sidebar-mobile">
         <AdminDialog open={sidebarOpen} onClose={closeSidebar} title="Admin navigation">
           <div className="admin-modal-head">
-            <h2>Menu</h2>
+            <h2>Navigation</h2>
             <AdminButton className="admin-modal-close" onPress={closeSidebar}>
-              Close
+              Close Menu
             </AdminButton>
           </div>
           <div className="admin-modal-body admin-mobile-nav">{sidebarContent}</div>
