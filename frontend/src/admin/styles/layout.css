@@ -263,6 +263,10 @@
   gap: 10px;
 }
 
+.admin-header > a.admin-primary {
+  min-height: 0;
+}
+
 .admin-header > .admin-primary,
 .admin-header > .admin-secondary,
 .admin-header > .admin-ghost {

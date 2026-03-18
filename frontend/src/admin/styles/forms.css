@@ -392,6 +392,7 @@
 }
 
 .admin-slug-action {
+  flex: 0 0 auto;
   min-width: 76px;
 }
 
@@ -412,9 +413,9 @@
 }
 
 .admin-markdown-tabs {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -429,6 +430,9 @@
   border-radius: 999px;
   cursor: pointer;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .admin-markdown-tabs button:focus-visible {
@@ -690,6 +694,11 @@
     flex: 1 1 100%;
   }
 
+  .admin-slug-inline > .admin-slug-action {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
   .admin-slug-input {
     max-width: 100%;
   }
@@ -706,12 +715,11 @@
   }
 
   .admin-markdown-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
-  .admin-markdown-tabs .admin-tab-trigger {
+  .admin-markdown-tabs .admin-tab-trigger,
+  .admin-markdown-tabs [role="tab"] {
     width: 100%;
   }
 

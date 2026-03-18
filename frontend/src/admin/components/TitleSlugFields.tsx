@@ -63,7 +63,7 @@ export default function TitleSlugFields({
               {slugEditedManually ? "Auto" : "Manual"}
             </AdminButton>
           ) : null}
-          <AdminButton type="button" disabled={autoDisabled} onPress={onAutoSlug}>
+          <AdminButton type="button" className="admin-secondary admin-slug-action" disabled={autoDisabled} onPress={onAutoSlug}>
             Generate
           </AdminButton>
         </div>
