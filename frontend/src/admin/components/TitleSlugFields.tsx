@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { AdminButton, AdminTextField } from "./AriaControls";
 
 type TitleSlugFieldsProps = {
@@ -7,6 +8,8 @@ type TitleSlugFieldsProps = {
   titleError?: string;
   slugError?: string;
   autoDisabled?: boolean;
+  titleInputRef?: RefObject<HTMLInputElement>;
+  slugInputRef?: RefObject<HTMLInputElement>;
   onTitleChange: (value: string) => void;
   onSlugChange: (value: string) => void;
   onAutoSlug: () => void;
@@ -19,13 +22,15 @@ export default function TitleSlugFields({
   titleError,
   slugError,
   autoDisabled,
+  titleInputRef,
+  slugInputRef,
   onTitleChange,
   onSlugChange,
   onAutoSlug,
 }: TitleSlugFieldsProps) {
   return (
     <>
-      <AdminTextField label="Title" value={title} onChange={onTitleChange} />
+      <AdminTextField inputRef={titleInputRef} label="Title" value={title} onChange={onTitleChange} />
       {titleError && <p className="admin-error-inline">{titleError}</p>}
       <div className="admin-field">
         <span>Slug</span>
@@ -33,12 +38,13 @@ export default function TitleSlugFields({
           <AdminTextField
             ariaLabel="Slug"
             label=""
+            inputRef={slugInputRef}
             value={slug}
             onChange={onSlugChange}
             className="admin-field"
           />
           <AdminButton type="button" disabled={autoDisabled} onPress={onAutoSlug}>
-            Auto
+            Generate Slug
           </AdminButton>
         </div>
       </div>

@@ -46,7 +46,7 @@ export default function TranslationStatusModal({
           <div className="admin-status-grid">
             <div>
               <span className="admin-status-label">Status</span>
-              <strong>{loading && !job ? "Loading..." : statusLabel(job?.status)}</strong>
+              <strong>{loading && !job ? "Loading…" : statusLabel(job?.status)}</strong>
             </div>
             <div>
               <span className="admin-status-label">Completed</span>

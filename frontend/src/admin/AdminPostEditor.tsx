@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
@@ -8,6 +8,7 @@ import SaveButton from "./components/SaveButton";
 import {
   AdminButton,
   AdminComboBoxField,
+  AdminConfirmDialog,
   AdminFileTriggerField,
   AdminRadioGroupField,
   AdminSelectField,
@@ -126,6 +127,10 @@ export default function AdminPostEditor() {
   const [translationModalOpen, setTranslationModalOpen] = useState(false);
   const [translationJob, setTranslationJob] = useState<TranslationJobRecord | null>(null);
   const [translationJobLoading, setTranslationJobLoading] = useState(false);
+  const [pendingLocaleSwitch, setPendingLocaleSwitch] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const slugInputRef = useRef<HTMLInputElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   useAdminPageTitle(id === "new" ? "New Post" : "Edit Post");
 
@@ -425,9 +430,14 @@ export default function AdminPostEditor() {
   const switchLocale = (nextLocaleRaw: string) => {
     const nextLocale = normalizeLocale(nextLocaleRaw);
     if (!nextLocale || nextLocale === selectedLocale) return;
-    if (isDirty && !window.confirm("You have unsaved changes. Switch locale without saving?")) {
+    if (isDirty) {
+      setPendingLocaleSwitch(nextLocale);
       return;
     }
+    applyLocaleSwitch(nextLocale);
+  };
+
+  const applyLocaleSwitch = (nextLocale: string) => {
     setSelectedLocale(nextLocale);
     if (nextLocale === sourceLocale) {
       if (sourceRecord) {
@@ -443,6 +453,27 @@ export default function AdminPostEditor() {
     if (sourceRecord) {
       applyDraftFromSource(nextLocale, sourceRecord, sourcePostId);
     }
+  };
+
+  const focusFirstError = (errors: FieldErrors) => {
+    window.requestAnimationFrame(() => {
+      if (errors.title) {
+        titleInputRef.current?.focus();
+        return;
+      }
+      if (errors.slug) {
+        slugInputRef.current?.focus();
+        return;
+      }
+      if (errors.tags) {
+        tagInputRef.current?.focus();
+        return;
+      }
+      if (errors.body) {
+        const target = document.querySelector(".admin-markdown-panel textarea, .editor .ProseMirror") as HTMLElement | null;
+        target?.focus();
+      }
+    });
   };
 
   const addTag = (tag: string) => {
@@ -553,6 +584,7 @@ export default function AdminPostEditor() {
     setFieldErrors(nextErrors);
     if (hasErrors) {
       setError("Please fix validation errors.");
+      focusFirstError(nextErrors);
       return;
     }
 
@@ -636,6 +668,18 @@ export default function AdminPostEditor() {
         loading={translationJobLoading}
         onClose={() => setTranslationModalOpen(false)}
       />
+      <AdminConfirmDialog
+        open={pendingLocaleSwitch !== null}
+        title="Discard unsaved changes?"
+        message="You have unsaved changes. Switch locale without saving?"
+        confirmLabel="Switch Locale"
+        onCancel={() => setPendingLocaleSwitch(null)}
+        onConfirm={() => {
+          const nextLocale = pendingLocaleSwitch;
+          setPendingLocaleSwitch(null);
+          if (nextLocale) applyLocaleSwitch(nextLocale);
+        }}
+      />
       <div className="admin-form">
         {id !== "new" && localeOptions.length > 0 && (
           <AdminRadioGroupField
@@ -656,6 +700,8 @@ export default function AdminPostEditor() {
           slugEditedManually={slugEditedManually}
           titleError={fieldErrors.title}
           slugError={fieldErrors.slug}
+          titleInputRef={titleInputRef}
+          slugInputRef={slugInputRef}
           onTitleChange={onTitleChange}
           onSlugChange={onSlugChange}
           onAutoSlug={onAutoSlug}
@@ -702,6 +748,7 @@ export default function AdminPostEditor() {
         />
         <AdminComboBoxField
           ariaLabel="Tags"
+          inputRef={tagInputRef}
           label="Tags"
           value={tagInput}
           onInputChange={(next) => {

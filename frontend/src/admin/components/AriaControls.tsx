@@ -79,6 +79,7 @@ type AdminTextFieldProps = {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   ariaLabel?: string;
+  inputRef?: React.RefObject<HTMLInputElement>;
 };
 
 export function AdminTextField({
@@ -99,6 +100,7 @@ export function AdminTextField({
   onKeyDown,
   onFocus,
   ariaLabel,
+  inputRef,
 }: AdminTextFieldProps) {
   return (
     <TextField
@@ -112,6 +114,7 @@ export function AdminTextField({
       <Input
         aria-label={ariaLabel}
         className={inputClassName}
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -179,24 +182,22 @@ export function AdminCheckboxField({
   ariaLabel,
   slot,
 }: AdminCheckboxFieldProps) {
+  void slot;
   return (
-    <Checkbox
-      aria-label={ariaLabel}
-      className={className}
-      isSelected={checked}
-      onChange={onChange}
-      isDisabled={disabled}
-      slot={slot}
-    >
-      {({ isSelected }) => (
-        <>
-          {label === "" ? null : <span>{label}</span>}
-          <span className="admin-checkbox-box" aria-hidden="true">
-            {isSelected ? "✓" : ""}
-          </span>
-        </>
-      )}
-    </Checkbox>
+    <label className={className}>
+      {label === "" ? null : <span>{label}</span>}
+      <input
+        aria-label={ariaLabel}
+        checked={checked}
+        className="admin-boolean-checkbox"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span className="admin-checkbox-box" aria-hidden="true">
+        ✓
+      </span>
+    </label>
   );
 }
 
@@ -358,6 +359,7 @@ type AdminComboBoxFieldProps = {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
   ariaLabel?: string;
+  inputRef?: React.RefObject<HTMLInputElement>;
 };
 
 export function AdminComboBoxField({
@@ -373,6 +375,7 @@ export function AdminComboBoxField({
   onKeyDown,
   enterKeyHint,
   ariaLabel,
+  inputRef,
 }: AdminComboBoxFieldProps) {
   return (
     <ComboBox
@@ -389,6 +392,7 @@ export function AdminComboBoxField({
         <Input
           aria-label={ariaLabel}
           className="admin-input"
+          ref={inputRef}
           enterKeyHint={enterKeyHint}
           onBlur={onBlur}
           onKeyDown={onKeyDown}

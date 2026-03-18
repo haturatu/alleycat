@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "../lib/pb";
@@ -44,6 +44,9 @@ export default function AdminPageEditor() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const slugInputRef = useRef<HTMLInputElement>(null);
+  const urlInputRef = useRef<HTMLInputElement>(null);
 
   useAdminPageTitle(id === "new" ? "New Page" : "Edit Page");
 
@@ -113,6 +116,27 @@ export default function AdminPageEditor() {
 
   useUnsavedChangesGuard(isDirty);
 
+  const focusFirstError = (errors: FieldErrors) => {
+    window.requestAnimationFrame(() => {
+      if (errors.title) {
+        titleInputRef.current?.focus();
+        return;
+      }
+      if (errors.slug) {
+        slugInputRef.current?.focus();
+        return;
+      }
+      if (errors.url) {
+        urlInputRef.current?.focus();
+        return;
+      }
+      if (errors.body) {
+        const target = document.querySelector(".admin-markdown-panel textarea, .editor .ProseMirror") as HTMLElement | null;
+        target?.focus();
+      }
+    });
+  };
+
   const save = async () => {
     if (saving) return;
     setError("");
@@ -138,6 +162,7 @@ export default function AdminPageEditor() {
     setFieldErrors(nextErrors);
     if (hasErrors) {
       setError("Please fix validation errors.");
+      focusFirstError(nextErrors);
       return;
     }
 
@@ -195,11 +220,14 @@ export default function AdminPageEditor() {
           titleError={fieldErrors.title}
           slugError={fieldErrors.slug}
           autoDisabled={saving}
+          titleInputRef={titleInputRef}
+          slugInputRef={slugInputRef}
           onTitleChange={onTitleChange}
           onSlugChange={onSlugChange}
           onAutoSlug={onAutoSlug}
         />
         <AdminTextField
+          inputRef={urlInputRef}
           label="URL"
           value={url}
           onChange={(next) => {
