@@ -77,6 +77,14 @@
   border-radius: 4px;
 }
 
+.editor .ProseMirror img,
+.admin-markdown-preview img {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+}
+
 .editor .ProseMirror pre {
   white-space: pre;
   word-break: normal;
