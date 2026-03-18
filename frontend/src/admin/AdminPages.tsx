@@ -111,7 +111,7 @@ export default function AdminPages() {
         }}
       />
       <div className="admin-stack">
-        <section className="admin-toolbar admin-toolbar-section">
+        <section className="admin-toolbar admin-toolbar-section admin-filter-bar">
           <div className="admin-toolbar-heading">
             <p className="admin-section-label">Search and filter</p>
             <p className="admin-toolbar-note">
@@ -166,7 +166,7 @@ export default function AdminPages() {
       </div>
       {loading ? <p className="admin-note">Loading pages…</p> : null}
       <div className="admin-list-shell">
-        <div className="admin-table-utility is-passive">
+        <div className="admin-table-utility admin-list-strip is-passive">
           <div className="admin-table-utility-copy">
             <p className="admin-section-label">Structure</p>
             <p className="admin-table-selection">{pages.filter((item) => item.menuVisible).length} menu entries visible</p>

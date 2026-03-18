@@ -207,7 +207,7 @@ export default function AdminPageEditor() {
 
   return (
     <section>
-      <header className="admin-header">
+      <header className="admin-header admin-editor-header">
         <div>
           <p className="admin-eyebrow">Site Structure</p>
           <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
@@ -217,9 +217,10 @@ export default function AdminPageEditor() {
       <FormStatusMessage error={error} success={saveMessage} />
       <div className="admin-editor-shell">
         <div className="admin-editor-main">
-          <div className="admin-form admin-form-section">
+          <div className="admin-form-section admin-editor-canvas">
             <p className="admin-section-label">Page content</p>
             <TitleSlugFields
+              editorial
               title={title}
               slug={slug}
               slugEditedManually={slugEditedManually}
@@ -270,7 +271,7 @@ export default function AdminPageEditor() {
           </div>
         </div>
         <aside className="admin-editor-rail">
-          <div className="admin-form admin-form-section">
+          <div className="admin-form admin-form-section admin-rail-panel">
             <p className="admin-section-label">Navigation</p>
             <AdminCheckboxField
               label="Show in menu"
@@ -298,7 +299,7 @@ export default function AdminPageEditor() {
               }}
             />
           </div>
-          <div className="admin-form admin-form-section">
+          <div className="admin-form admin-form-section admin-rail-panel">
             <p className="admin-section-label">Publishing</p>
             <PublishFields
               publishedAt={publishedAt}

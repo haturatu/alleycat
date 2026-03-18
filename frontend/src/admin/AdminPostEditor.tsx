@@ -10,7 +10,6 @@ import {
   AdminComboBoxField,
   AdminConfirmDialog,
   AdminFileTriggerField,
-  AdminRadioGroupField,
   AdminSelectField,
   AdminTextAreaField,
   AdminTextField,
@@ -673,7 +672,7 @@ export default function AdminPostEditor() {
 
   return (
     <section>
-      <header className="admin-header">
+      <header className="admin-header admin-editor-header">
         <div>
           <p className="admin-eyebrow">Post Editor</p>
           <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
@@ -720,10 +719,11 @@ export default function AdminPostEditor() {
       {!loadingPost && !loadFailed ? (
       <div className="admin-editor-shell">
         <div className="admin-editor-main">
-          <div className="admin-form admin-form-section">
+          <div className="admin-form-section admin-editor-canvas">
             <p className="admin-section-label">Content</p>
             <p className="admin-note">Set title and slug, then move directly into the body editor. Supporting fields follow below.</p>
             <TitleSlugFields
+              editorial
               title={title}
               slug={slug}
               slugEditedManually={slugEditedManually}
@@ -765,45 +765,58 @@ export default function AdminPostEditor() {
               onMarkdownViewModeChange={setMarkdownViewMode}
             />
             {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
-            <AdminTextAreaField
-              label="Excerpt"
-              value={
-                excerptLength > 0
-                  ? buildExcerpt(
-                      editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
-                      excerptLength
-                    )
-                  : excerpt
-              }
-              onChange={(value) => {
-                setExcerpt(value);
-                markDirty();
-              }}
-              rows={5}
-              disabled={excerptLength > 0}
-            />
-            {excerptLength > 0 && (
-              <p className="admin-note">
-                Excerpt is auto-generated from content ({excerptLength} chars).
-              </p>
-            )}
-            {id !== "new" && localeOptions.length > 0 && (
-              <AdminRadioGroupField
-                ariaLabel="Edit locale"
-                label="Edit locale"
-                value={selectedLocale}
-                onChange={(value) => switchLocale(value)}
-                options={localeOptions.map((locale) => ({
-                  value: locale,
-                  label: locale === sourceLocale ? `${locale} (source)` : locale,
-                  disabled: saving,
-                }))}
-              />
-            )}
+            <details className="admin-secondary-section">
+              <summary>Excerpt and locale</summary>
+              <div className="admin-secondary-section-body">
+                <AdminTextAreaField
+                  label="Excerpt"
+                  value={
+                    excerptLength > 0
+                      ? buildExcerpt(
+                          editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
+                          excerptLength
+                        )
+                      : excerpt
+                  }
+                  onChange={(value) => {
+                    setExcerpt(value);
+                    markDirty();
+                  }}
+                  rows={5}
+                  disabled={excerptLength > 0}
+                />
+                {excerptLength > 0 && (
+                  <p className="admin-note">
+                    Excerpt is auto-generated from content ({excerptLength} chars).
+                  </p>
+                )}
+                {id !== "new" && localeOptions.length > 0 && (
+                  <div className="admin-locale-bar">
+                    <div className="admin-locale-copy">
+                      <p className="admin-section-label">Locale</p>
+                      <p className="admin-note">
+                        Source: {sourceLocale}. Targets: {localeOptions.filter((locale) => locale !== sourceLocale).join(", ") || "none"}.
+                      </p>
+                    </div>
+                    <AdminSelectField
+                      ariaLabel="Edit locale"
+                      className="admin-locale-select"
+                      label="Editing locale"
+                      value={selectedLocale}
+                      onChange={(value) => switchLocale(value)}
+                      options={localeOptions.map((locale) => ({
+                        value: locale,
+                        label: locale === sourceLocale ? `${locale} (source)` : locale,
+                      }))}
+                    />
+                  </div>
+                )}
+              </div>
+            </details>
           </div>
         </div>
         <aside className="admin-editor-rail">
-          <div className="admin-form admin-form-section admin-rail-section">
+          <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Publishing</p>
             <p className="admin-note">Control release timing and whether this draft is visible.</p>
             <PublishFields
@@ -813,7 +826,7 @@ export default function AdminPostEditor() {
               onPublishedChange={onPublishedChange}
             />
           </div>
-          <div className="admin-form admin-form-section admin-rail-section">
+          <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Metadata</p>
             <p className="admin-note">Organize the draft so it lands in the right archive and author context.</p>
             <AdminComboBoxField
@@ -878,7 +891,7 @@ export default function AdminPostEditor() {
               </div>
             )}
           </div>
-          <div className="admin-form admin-form-section admin-rail-section">
+          <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Assets</p>
             <p className="admin-note">Attach supporting media without interrupting the writing flow.</p>
             <AdminFileTriggerField

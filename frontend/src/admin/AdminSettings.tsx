@@ -113,6 +113,26 @@ function SettingsSubsection({
   );
 }
 
+function SettingRow({
+  label,
+  description,
+  control,
+}: {
+  label: string;
+  description: string;
+  control: ReactNode;
+}) {
+  return (
+    <div className="admin-setting-row">
+      <div className="admin-setting-copy">
+        <strong>{label}</strong>
+        <p className="admin-note">{description}</p>
+      </div>
+      <div className="admin-setting-control">{control}</div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const [settings, setSettings] = useState<SettingsRecord>(defaults);
   const [loading, setLoading] = useState(true);
@@ -274,18 +294,18 @@ export default function AdminSettings() {
         </div>
       ) : null}
       <FormStatusMessage error={error} />
-      <div className="admin-summary-grid admin-settings-summary">
-        <article className="admin-summary-card">
+      <div className="admin-settings-overview">
+        <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Theme</span>
           <strong>{settings.theme}</strong>
           <p>{themeLocked ? "Theme files are locked by public assets." : "Theme can be changed from this workspace."}</p>
         </article>
-        <article className="admin-summary-card">
+        <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Translation</span>
           <strong>{settings.enable_post_translation ? "On" : "Off"}</strong>
           <p>{parseLocales(settings.translation_locales).length} target locale(s) configured for post generation.</p>
         </article>
-        <article className="admin-summary-card">
+        <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Distribution</span>
           <strong>{settings.enable_feed_xml || settings.enable_feed_json ? "Feeds live" : "Feeds off"}</strong>
           <p>RSS, JSON Feed, and archive sizing are managed from the same control plane.</p>
@@ -382,39 +402,86 @@ export default function AdminSettings() {
         >
           <div className="admin-settings-fields admin-settings-fields-single">
             <SettingsSubsection title="Archive" note="Controls that shape archive listings and discovery surfaces.">
-              <AdminTextField label="Home page size" type="number" value={String(settings.home_page_size)} onChange={(value) => update("home_page_size", Number(value))} />
-              <AdminTextField label="Archive page size" type="number" value={String(settings.archive_page_size)} onChange={(value) => update("archive_page_size", Number(value))} />
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show archive tags</strong><small>Display tag groupings on archive pages.</small></span>} checked={settings.show_archive_tags} onChange={(checked) => update("show_archive_tags", checked)} />
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show archive search slot</strong><small>Expose search controls inside archive listings.</small></span>} checked={settings.show_archive_search} onChange={(checked) => update("show_archive_search", checked)} />
+              <SettingRow
+                label="Home page size"
+                description="Number of posts shown on the front page."
+                control={<AdminTextField ariaLabel="Home page size" label="" type="number" value={String(settings.home_page_size)} onChange={(value) => update("home_page_size", Number(value))} />}
+              />
+              <SettingRow
+                label="Archive page size"
+                description="Number of posts shown on archive listing pages."
+                control={<AdminTextField ariaLabel="Archive page size" label="" type="number" value={String(settings.archive_page_size)} onChange={(value) => update("archive_page_size", Number(value))} />}
+              />
+              <SettingRow
+                label="Show archive tags"
+                description="Display tag groupings on archive pages."
+                control={<AdminCheckboxField ariaLabel="Show archive tags" className="admin-check admin-setting-toggle" label="" checked={settings.show_archive_tags} onChange={(checked) => update("show_archive_tags", checked)} />}
+              />
+              <SettingRow
+                label="Show archive search"
+                description="Expose search controls inside archive listings."
+                control={<AdminCheckboxField ariaLabel="Show archive search" className="admin-check admin-setting-toggle" label="" checked={settings.show_archive_search} onChange={(checked) => update("show_archive_search", checked)} />}
+              />
             </SettingsSubsection>
             <SettingsSubsection title="Post page" note="Elements that appear while reading an individual post.">
-              <AdminTextField label="Excerpt length (0 = manual)" type="number" value={String(settings.excerpt_length)} onChange={(value) => update("excerpt_length", Number(value))} />
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show table of contents</strong><small>Display a heading index for longer posts.</small></span>} checked={settings.show_toc} onChange={(checked) => update("show_toc", checked)} />
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show tags</strong><small>Display tags on post pages.</small></span>} checked={settings.show_tags} onChange={(checked) => update("show_tags", checked)} />
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show related posts</strong><small>Suggest additional reading at the end of a post.</small></span>} checked={settings.show_related_posts} onChange={(checked) => update("show_related_posts", checked)} />
+              <SettingRow
+                label="Excerpt length"
+                description="Use `0` to keep excerpts manual, or set a generated character count."
+                control={<AdminTextField ariaLabel="Excerpt length" label="" type="number" value={String(settings.excerpt_length)} onChange={(value) => update("excerpt_length", Number(value))} />}
+              />
+              <SettingRow
+                label="Show table of contents"
+                description="Display a heading index for longer posts."
+                control={<AdminCheckboxField ariaLabel="Show table of contents" className="admin-check admin-setting-toggle" label="" checked={settings.show_toc} onChange={(checked) => update("show_toc", checked)} />}
+              />
+              <SettingRow
+                label="Show tags"
+                description="Display tags on post pages."
+                control={<AdminCheckboxField ariaLabel="Show tags" className="admin-check admin-setting-toggle" label="" checked={settings.show_tags} onChange={(checked) => update("show_tags", checked)} />}
+              />
+              <SettingRow
+                label="Show related posts"
+                description="Suggest additional reading at the end of a post."
+                control={<AdminCheckboxField ariaLabel="Show related posts" className="admin-check admin-setting-toggle" label="" checked={settings.show_related_posts} onChange={(checked) => update("show_related_posts", checked)} />}
+              />
             </SettingsSubsection>
             <SettingsSubsection title="Discovery" note="Taxonomy and navigation aids that help readers browse further.">
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show categories</strong><small>Expose category labels and navigation paths.</small></span>} checked={settings.show_categories} onChange={(checked) => update("show_categories", checked)} />
+              <SettingRow
+                label="Show categories"
+                description="Expose category labels and navigation paths."
+                control={<AdminCheckboxField ariaLabel="Show categories" className="admin-check admin-setting-toggle" label="" checked={settings.show_categories} onChange={(checked) => update("show_categories", checked)} />}
+              />
             </SettingsSubsection>
             <SettingsSubsection title="Code display" note="Syntax highlighting and formatting for technical writing.">
-              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Enable code highlight</strong><small>Apply syntax coloring to fenced code blocks.</small></span>} checked={settings.enable_code_highlight} onChange={(checked) => update("enable_code_highlight", checked)} />
-              <AdminSelectField
+              <SettingRow
+                label="Enable code highlight"
+                description="Apply syntax coloring to fenced code blocks."
+                control={<AdminCheckboxField ariaLabel="Enable code highlight" className="admin-check admin-setting-toggle" label="" checked={settings.enable_code_highlight} onChange={(checked) => update("enable_code_highlight", checked)} />}
+              />
+              <SettingRow
                 label="Highlight theme"
-                value={settings.highlight_theme}
-                onChange={(value) => update("highlight_theme", value)}
-                options={[
-                  { value: "github-dark", label: "github-dark" },
-                  { value: "github", label: "github" },
-                  { value: "atom-one-dark", label: "atom-one-dark" },
-                  { value: "atom-one-light", label: "atom-one-light" },
-                  { value: "monokai", label: "monokai" },
-                  { value: "tokyo-night-dark", label: "tokyo-night-dark" },
-                  { value: "tokyo-night-light", label: "tokyo-night-light" },
-                  { value: "solarized-dark", label: "solarized-dark" },
-                  { value: "solarized-light", label: "solarized-light" },
-                  { value: "dracula", label: "dracula" },
-                  { value: "vs", label: "vs" },
-                ]}
+                description="Choose the code theme used for highlighted blocks."
+                control={
+                  <AdminSelectField
+                    ariaLabel="Highlight theme"
+                    label=""
+                    value={settings.highlight_theme}
+                    onChange={(value) => update("highlight_theme", value)}
+                    options={[
+                      { value: "github-dark", label: "github-dark" },
+                      { value: "github", label: "github" },
+                      { value: "atom-one-dark", label: "atom-one-dark" },
+                      { value: "atom-one-light", label: "atom-one-light" },
+                      { value: "monokai", label: "monokai" },
+                      { value: "tokyo-night-dark", label: "tokyo-night-dark" },
+                      { value: "tokyo-night-light", label: "tokyo-night-light" },
+                      { value: "solarized-dark", label: "solarized-dark" },
+                      { value: "solarized-light", label: "solarized-light" },
+                      { value: "dracula", label: "dracula" },
+                      { value: "vs", label: "vs" },
+                    ]}
+                  />
+                }
               />
             </SettingsSubsection>
           </div>

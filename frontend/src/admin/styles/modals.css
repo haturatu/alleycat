@@ -1,8 +1,8 @@
 .admin-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 19, 17, 0.45);
-  backdrop-filter: blur(6px);
+  background: rgba(29, 27, 32, 0.38);
+  backdrop-filter: blur(10px);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -17,7 +17,7 @@
   width: 100%;
   padding: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 252, 247, 0.98));
+    linear-gradient(180deg, rgba(255, 251, 255, 0.98), rgba(247, 242, 250, 0.98));
 }
 
 .admin-modal-head {
@@ -35,8 +35,8 @@
 
 .admin-drawer-shell .admin-modal {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 252, 247, 0.99));
-  box-shadow: 24px 0 44px rgba(20, 19, 17, 0.2);
+    linear-gradient(180deg, rgba(255, 251, 255, 0.98), rgba(243, 237, 247, 0.99));
+  box-shadow: 24px 0 44px rgba(29, 27, 32, 0.18);
 }
 
 .admin-drawer-shell .admin-modal-head {

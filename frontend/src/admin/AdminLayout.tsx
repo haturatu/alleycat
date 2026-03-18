@@ -21,7 +21,7 @@ export default function AdminLayout() {
       {showBrand ? (
         <div className="admin-brand">
           <h2>Admin</h2>
-          <p className="admin-brand-note">Manage content, structure, and settings from one workspace.</p>
+          <p className="admin-brand-note">Posts, pages, and site settings.</p>
         </div>
       ) : null}
       <nav aria-label="Admin" className="admin-nav">
@@ -67,7 +67,7 @@ export default function AdminLayout() {
       <main className="admin-main" id="admin-content" tabIndex={-1}>
         <div className="admin-main-chrome">
           <p className="admin-eyebrow">Content</p>
-          <p className="admin-main-note">Structured tools for drafting, reviewing, and shipping content.</p>
+          <p className="admin-main-note">Draft, review, and ship content.</p>
         </div>
         <AdminButton
           ariaLabel="Toggle menu"

@@ -14,6 +14,7 @@ type TitleSlugFieldsProps = {
   onSlugChange: (value: string) => void;
   onAutoSlug: () => void;
   onToggleSlugMode?: () => void;
+  editorial?: boolean;
 };
 
 export default function TitleSlugFields({
@@ -29,12 +30,21 @@ export default function TitleSlugFields({
   onSlugChange,
   onAutoSlug,
   onToggleSlugMode,
+  editorial = false,
 }: TitleSlugFieldsProps) {
   return (
     <>
-      <AdminTextField inputRef={titleInputRef} label="Title" value={title} onChange={onTitleChange} />
+      <AdminTextField
+        inputRef={titleInputRef}
+        inputClassName={editorial ? "admin-title-input" : "admin-input"}
+        label={editorial ? "" : "Title"}
+        ariaLabel="Title"
+        value={title}
+        onChange={onTitleChange}
+        placeholder={editorial ? "Untitled" : undefined}
+      />
       {titleError && <p className="admin-error-inline">{titleError}</p>}
-      <div className="admin-field">
+      <div className={`admin-field ${editorial ? "admin-slug-field" : ""}`}>
         <div className="admin-field-head">
           <span>Slug</span>
           {onToggleSlugMode ? (
@@ -48,6 +58,7 @@ export default function TitleSlugFields({
             ariaLabel="Slug"
             label=""
             inputRef={slugInputRef}
+            inputClassName={editorial ? "admin-slug-input" : "admin-input"}
             value={slug}
             onChange={onSlugChange}
             className="admin-field"

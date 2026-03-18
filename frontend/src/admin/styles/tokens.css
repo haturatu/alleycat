@@ -1,23 +1,26 @@
 :root {
-  --admin-bg: #f6f2ea;
-  --admin-bg-accent: #efe5d6;
-  --admin-surface: #fffdf9;
-  --admin-surface-muted: rgba(255, 252, 246, 0.72);
-  --admin-ink: #1f1f1f;
-  --admin-ink-soft: #5e564c;
-  --admin-border: rgba(92, 72, 46, 0.18);
-  --admin-border-strong: rgba(76, 54, 28, 0.32);
-  --admin-sidebar: #141311;
-  --admin-sidebar-ink: #f7f2e9;
-  --admin-accent: #8f6d45;
-  --admin-accent-strong: #6e5435;
-  --admin-danger: #b00020;
-  --admin-success: #1f7a34;
-  --admin-shadow-soft: 0 18px 48px rgba(41, 27, 11, 0.08);
-  --admin-shadow-card: 0 10px 30px rgba(32, 20, 8, 0.08);
+  --admin-bg: #fcfcfd;
+  --admin-bg-accent: #f5f7fb;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #f3f5f8;
+  --admin-surface-container: #f8fafc;
+  --admin-surface-container-high: #f3f4f6;
+  --admin-surface-container-highest: #e5e7eb;
+  --admin-ink: #111827;
+  --admin-ink-soft: #6b7280;
+  --admin-border: rgba(15, 23, 42, 0.09);
+  --admin-border-strong: rgba(15, 23, 42, 0.16);
+  --admin-sidebar: #0f172a;
+  --admin-sidebar-ink: #f8fafc;
+  --admin-accent: #4f6bff;
+  --admin-accent-strong: #3551f3;
+  --admin-danger: #ba1a1a;
+  --admin-success: #386a20;
+  --admin-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --admin-shadow-card: 0 8px 24px rgba(15, 23, 42, 0.06);
   --admin-radius-sm: 8px;
-  --admin-radius-md: 14px;
-  --admin-radius-lg: 24px;
+  --admin-radius-md: 12px;
+  --admin-radius-lg: 18px;
 }
 
 #root,
@@ -34,7 +37,8 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background:
-    radial-gradient(circle at top left, rgba(143, 109, 69, 0.18), transparent 28%),
+    radial-gradient(circle at top left, rgba(79, 107, 255, 0.03), transparent 18%),
+    radial-gradient(circle at top right, rgba(148, 163, 184, 0.05), transparent 18%),
     linear-gradient(180deg, var(--admin-bg-accent) 0%, var(--admin-bg) 100%);
   color: var(--admin-ink);
 }
