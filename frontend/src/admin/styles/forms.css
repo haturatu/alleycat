@@ -249,7 +249,7 @@
 
 .admin-settings-locales .admin-choice-group {
   gap: 6px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .admin-choice-pill {
@@ -258,6 +258,10 @@
   min-height: 42px;
   padding: 9px 14px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   border-radius: 999px;
 }
 
@@ -266,6 +270,7 @@
   min-height: 34px;
   padding: 5px 8px;
   font-size: 0.8rem;
+  align-self: center;
   justify-content: center;
 }
 
@@ -392,6 +397,7 @@
 
 .admin-slug-input {
   border-radius: 999px;
+  width: 100%;
   max-width: 480px;
 }
 
@@ -409,15 +415,20 @@
   display: inline-flex;
   gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .admin-tab-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--admin-border-strong);
   background: #fff;
   min-height: 34px;
   padding: 6px 10px;
   border-radius: 999px;
   cursor: pointer;
+  min-width: 0;
 }
 
 .admin-markdown-tabs button:focus-visible {
@@ -675,6 +686,14 @@
     align-items: stretch;
   }
 
+  .admin-slug-inline > .admin-field {
+    flex: 1 1 100%;
+  }
+
+  .admin-slug-input {
+    max-width: 100%;
+  }
+
   .admin-combobox-row,
   .admin-file-row,
   .admin-field-head {
@@ -689,6 +708,11 @@
   .admin-markdown-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-markdown-tabs .admin-tab-trigger {
+    width: 100%;
   }
 
   .admin-settings-subgrid {

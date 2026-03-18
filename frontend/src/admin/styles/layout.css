@@ -263,6 +263,12 @@
   gap: 10px;
 }
 
+.admin-header > .admin-primary,
+.admin-header > .admin-secondary,
+.admin-header > .admin-ghost {
+  align-self: center;
+}
+
 .admin-unsaved-banner {
   display: flex;
   align-items: center;
