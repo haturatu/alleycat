@@ -1,8 +1,16 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@cms": path.resolve(__dirname, "src/cms"),
+      "@site": path.resolve(__dirname, "src/site"),
+      "@shared": path.resolve(__dirname, "src/shared"),
+    },
+  },
   base: process.env.VITE_BASE || "/",
   server: {
     host: "0.0.0.0",

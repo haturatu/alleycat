@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import CmsApp from "@cms/App";
+import SiteApp from "@site/App";
 
 const loadScript = (src: string, attrs: Record<string, string> = {}) => {
   const script = document.createElement("script");
@@ -13,6 +14,7 @@ const loadScript = (src: string, attrs: Record<string, string> = {}) => {
 };
 
 const isAdminApp = import.meta.env.VITE_ADMIN === "true";
+const App = isAdminApp ? CmsApp : SiteApp;
 if (!isAdminApp) {
   const analyticsUrl = import.meta.env.VITE_ANALYTICS_URL;
   const analyticsSiteId = import.meta.env.VITE_ANALYTICS_SITE_ID;
