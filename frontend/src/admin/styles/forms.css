@@ -154,7 +154,6 @@
 .admin-editor-canvas .admin-field,
 .admin-editor-canvas [data-rac] {
   display: grid;
-  width: 100%;
 }
 
 .admin-inline {
