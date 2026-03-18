@@ -9,7 +9,9 @@ import {
   AdminTextAreaField,
   AdminTextField,
 } from "./components/AriaControls";
+import FormStatusMessage from "./components/FormStatusMessage";
 import SaveButton from "./components/SaveButton";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 
 const translationLanguageOptions = [
   "en",
@@ -77,6 +79,8 @@ export default function AdminSettings() {
   const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
   const [error, setError] = useState("");
   const canManageSecrets = hasRole(["admin"]);
+
+  useAdminPageTitle("Settings");
 
   useEffect(() => {
     const load = async () => {
@@ -192,7 +196,7 @@ export default function AdminSettings() {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className="admin-note">Loading settings…</div>;
   }
 
   return (
@@ -201,7 +205,7 @@ export default function AdminSettings() {
         <h1>Settings</h1>
         <SaveButton onClick={save} saving={saving} />
       </header>
-      {error && <p className="admin-error">{error}</p>}
+      <FormStatusMessage error={error} />
       <div className="admin-form">
         <AdminTextField label="Site name" value={settings.site_name} onChange={(value) => update("site_name", value)} />
         <AdminTextField label="Description" value={settings.description} onChange={(value) => update("description", value)} />

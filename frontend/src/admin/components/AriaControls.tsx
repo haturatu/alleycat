@@ -4,8 +4,6 @@ import {
   Checkbox,
   CheckboxGroup,
   ComboBox,
-  Cell,
-  Column,
   Dialog,
   FileTrigger,
   Input,
@@ -17,16 +15,12 @@ import {
   Popover,
   Radio,
   RadioGroup,
-  Row,
   Select,
   SelectValue,
   Tab,
   TabList,
   TabPanel,
   Tabs,
-  Table,
-  TableBody,
-  TableHeader,
   TextArea,
   TextField,
 } from "react-aria-components";
@@ -299,6 +293,7 @@ type AdminTableColumn<T> = {
   id: string;
   name: ReactNode;
   width?: string;
+  className?: string;
   render: (item: T) => ReactNode;
   isRowHeader?: boolean;
 };
@@ -568,32 +563,43 @@ export function AdminTable<T extends { id: string }>({
 }: AdminTableProps<T>) {
   return (
     <div className="admin-table-wrap">
-      <Table aria-label={ariaLabel} className="admin-table">
-        <TableHeader>
-          {columns.map((column) => (
-            <Column
-              className="admin-table-column"
-              id={column.id}
-              isRowHeader={column.isRowHeader}
-              key={column.id}
-              style={column.width ? { width: column.width } : undefined}
-            >
-              {column.name}
-            </Column>
+      <table aria-label={ariaLabel} className="admin-table">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th
+                className={column.className ? `admin-table-column ${column.className}` : "admin-table-column"}
+                key={column.id}
+                scope="col"
+                style={column.width ? { width: column.width } : undefined}
+              >
+                {column.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              {columns.map((column) => {
+                const className = column.className ? `admin-table-cell ${column.className}` : "admin-table-cell";
+                if (column.isRowHeader) {
+                  return (
+                    <th className={className} key={column.id} scope="row">
+                      {column.render(item)}
+                    </th>
+                  );
+                }
+                return (
+                  <td className={className} key={column.id}>
+                    {column.render(item)}
+                  </td>
+                );
+              })}
+            </tr>
           ))}
-        </TableHeader>
-        <TableBody items={items}>
-          {(item) => (
-            <Row id={item.id}>
-              {columns.map((column) => (
-                <Cell className="admin-table-cell" key={column.id}>
-                  {column.render(item)}
-                </Cell>
-              ))}
-            </Row>
-          )}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   );
 }

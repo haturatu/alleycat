@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { pb, PostRecord } from "../lib/pb";
 import { formatDate } from "../utils/text";
 import {
   AdminButton,
-  AdminCheckboxField,
   AdminConfirmDialog,
   AdminSelectField,
   AdminTable,
   AdminTextField,
 } from "./components/AriaControls";
+import FormStatusMessage from "./components/FormStatusMessage";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 
 const extractMediaIds = (value?: string) => {
   const ids = new Set<string>();
@@ -24,11 +25,8 @@ const extractMediaIds = (value?: string) => {
 
 export default function AdminPosts() {
   const [posts, setPosts] = useState<PostRecord[]>([]);
-  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -36,16 +34,39 @@ export default function AdminPosts() {
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const [pendingPublishValue, setPendingPublishValue] = useState<boolean | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useAdminPageTitle("Posts");
+
+  const query = searchParams.get("q") ?? "";
+  const page = Math.max(1, Number(searchParams.get("page") || "1") || 1);
+  const parsedPerPage = Number(searchParams.get("perPage") || "20");
+  const perPage = [20, 50, 100].includes(parsedPerPage) ? parsedPerPage : 20;
 
   const buildFilter = (value: string) => {
     const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     return `title ~ "${safe}" || slug ~ "${safe}" || tags ~ "${safe}" || category ~ "${safe}"`;
   };
 
+  const updateParams = (updates: Record<string, string | number | null>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "" || value === 1 || value === 20) {
+        next.delete(key);
+      } else {
+        next.set(key, String(value));
+      }
+    });
+    setSearchParams(next, { replace: true });
+  };
+
   useEffect(() => {
     let alive = true;
     const loadPosts = async () => {
       setLoading(true);
+      setError("");
       try {
         const trimmed = query.trim();
         const filter = trimmed ? buildFilter(trimmed) : undefined;
@@ -74,7 +95,14 @@ export default function AdminPosts() {
           setPosts([]);
           setTotalPages(1);
           setTotalItems(0);
+          setError("Posts could not be loaded. Refresh or adjust the current filters.");
         }
+      } catch {
+        if (!alive) return;
+        setPosts([]);
+        setTotalPages(1);
+        setTotalItems(0);
+        setError("Posts could not be loaded. Refresh or adjust the current filters.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -119,24 +147,32 @@ export default function AdminPosts() {
   const bulkSetPublished = async (value: boolean) => {
     if (selected.size === 0) return;
     setBulkLoading(true);
+    setError("");
     const now = new Date().toISOString();
     const byId = new Map(posts.map((post) => [post.id, post]));
-    await Promise.all(
-      Array.from(selected).map(async (id) => {
-        const post = byId.get(id);
-        const payload: Record<string, unknown> = { published: value };
-        if (value && (!post?.published_at || post.published_at === "")) {
-          payload.published_at = now;
-        }
-        await pb.collection("posts").update(id, payload);
-      })
-    );
-    setSelected(new Set());
-    setBulkLoading(false);
-    setReloadToken((n) => n + 1);
+    try {
+      await Promise.all(
+        Array.from(selected).map(async (id) => {
+          const post = byId.get(id);
+          const payload: Record<string, unknown> = { published: value };
+          if (value && (!post?.published_at || post.published_at === "")) {
+            payload.published_at = now;
+          }
+          await pb.collection("posts").update(id, payload);
+        })
+      );
+      setSelected(new Set());
+      setReloadToken((n) => n + 1);
+    } catch {
+      setError("Selected posts could not be updated. Try again.");
+    } finally {
+      setBulkLoading(false);
+    }
   };
 
   const remove = async (id: string) => {
+    setDeleteLoading(true);
+    setError("");
     let mediaIds: string[] = [];
     let translationIds: string[] = [];
     try {
@@ -160,36 +196,42 @@ export default function AdminPosts() {
       translationIds = [];
     }
 
-    await Promise.all(
-      translationIds.map((translationId) => pb.collection("post_translations").delete(translationId))
-    );
-    await pb.collection("posts").delete(id);
+    try {
+      await Promise.all(
+        translationIds.map((translationId) => pb.collection("post_translations").delete(translationId))
+      );
+      await pb.collection("posts").delete(id);
 
-    if (mediaIds.length > 0) {
-      try {
-        const [postsAll, pagesAll, translationsAll] = await Promise.all([
-          pb.collection("posts").getFullList({ fields: "body,content" }),
-          pb.collection("pages").getFullList({ fields: "body,content" }),
-          pb.collection("post_translations").getFullList({ fields: "body,content" }),
-        ]);
-        const blobs = [
-          ...postsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
-          ...pagesAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
-          ...translationsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
-        ];
-        for (const mediaId of mediaIds) {
-          const marker = `/api/files/media/${mediaId}/`;
-          const inUse = blobs.some((text) => text.includes(marker));
-          if (!inUse) {
-            await pb.collection("media").delete(mediaId);
+      if (mediaIds.length > 0) {
+        try {
+          const [postsAll, pagesAll, translationsAll] = await Promise.all([
+            pb.collection("posts").getFullList({ fields: "body,content" }),
+            pb.collection("pages").getFullList({ fields: "body,content" }),
+            pb.collection("post_translations").getFullList({ fields: "body,content" }),
+          ]);
+          const blobs = [
+            ...postsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
+            ...pagesAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
+            ...translationsAll.map((item: any) => `${item.body ?? ""} ${item.content ?? ""}`),
+          ];
+          for (const mediaId of mediaIds) {
+            const marker = `/api/files/media/${mediaId}/`;
+            const inUse = blobs.some((text) => text.includes(marker));
+            if (!inUse) {
+              await pb.collection("media").delete(mediaId);
+            }
           }
+        } catch {
+          // ignore media cleanup errors
         }
-      } catch {
-        // ignore media cleanup errors
       }
-    }
 
-    setReloadToken((n) => n + 1);
+      setReloadToken((n) => n + 1);
+    } catch {
+      setError("This post could not be deleted. Try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -197,14 +239,15 @@ export default function AdminPosts() {
       <header className="admin-header">
         <h1>Posts</h1>
         <Link className="admin-primary" to="/posts/new">
-          New
+          New Post
         </Link>
       </header>
+      <FormStatusMessage error={error} />
       <AdminConfirmDialog
         open={publishConfirmOpen && pendingPublishValue !== null}
         title={pendingPublishValue ? "Publish selected posts" : "Unpublish selected posts"}
         message={`Set ${selected.size} selected posts to ${pendingPublishValue ? "published" : "unpublished"}?`}
-        confirmLabel="Apply"
+        confirmLabel={bulkLoading ? "Applying…" : "Apply Changes"}
         confirmDisabled={bulkLoading || pendingPublishValue === null}
         onCancel={() => {
           setPublishConfirmOpen(false);
@@ -220,8 +263,9 @@ export default function AdminPosts() {
       <AdminConfirmDialog
         open={deleteTargetId !== null}
         title="Delete post"
-        message="Delete this post?"
-        confirmLabel="Delete"
+        message="This post and its translations will be removed immediately. Delete them?"
+        confirmLabel={deleteLoading ? "Deleting…" : "Delete Post"}
+        confirmDisabled={deleteLoading}
         onCancel={() => setDeleteTargetId(null)}
         onConfirm={() => {
           const next = deleteTargetId;
@@ -233,23 +277,21 @@ export default function AdminPosts() {
         <AdminTextField
           ariaLabel="Search posts"
           className="admin-input"
-          label=""
+          label="Search"
           value={query}
           type="search"
-          placeholder="Search title, slug, tags..."
+          placeholder="Search title, slug, tags, or category…"
           onChange={(value) => {
-            setQuery(value);
-            setPage(1);
+            updateParams({ q: value || null, page: null });
           }}
         />
         <AdminSelectField
           ariaLabel="Rows per page"
           className="admin-field"
-          label=""
+          label="Rows per page"
           value={perPage}
           onChange={(value) => {
-            setPerPage(Number(value));
-            setPage(1);
+            updateParams({ perPage: Number(value), page: null });
           }}
           options={[
             { value: 20, label: "20 / page" },
@@ -266,7 +308,7 @@ export default function AdminPosts() {
               setPublishConfirmOpen(true);
             }}
           >
-            Publish
+            Publish Posts
           </AdminButton>
           <AdminButton
             disabled={bulkLoading || selected.size === 0}
@@ -275,7 +317,7 @@ export default function AdminPosts() {
               setPublishConfirmOpen(true);
             }}
           >
-            Unpublish
+            Unpublish Posts
           </AdminButton>
         </div>
       </div>
@@ -284,44 +326,46 @@ export default function AdminPosts() {
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
-            Prev
+          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+            Previous Page
           </AdminButton>
           <AdminButton
             disabled={loading || page >= totalPages}
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >
-            Next
+            Next Page
           </AdminButton>
         </div>
       </div>
+      {loading ? <p className="admin-note">Loading posts…</p> : null}
       <AdminTable
         ariaLabel="Posts"
         items={posts}
         columns={[
           {
             id: "select",
+            className: "admin-table-select-column",
             name: (
-              <AdminCheckboxField
-                ariaLabel="Select all"
-                label=""
+              <input
+                aria-label="Select all"
                 checked={allFilteredSelected}
+                className="admin-table-checkbox"
                 onChange={toggleSelectAll}
-                className="admin-check"
-                slot="selection"
+                type="checkbox"
               />
             ),
             width: "50px",
-            render: (item) => (
-              <AdminCheckboxField
-                ariaLabel={`Select ${item.title}`}
-                label=""
-                checked={selected.has(item.id)}
+            render: (item) => {
+              const isChecked = selected.has(item.id);
+              return (
+              <input
+                aria-label={`Select ${item.title}`}
+                checked={isChecked}
+                className="admin-table-checkbox"
                 onChange={() => toggleSelect(item.id)}
-                className="admin-check"
-                slot="selection"
+                type="checkbox"
               />
-            ),
+            )},
           },
           {
             id: "title",
@@ -337,7 +381,7 @@ export default function AdminPosts() {
           {
             id: "status",
             name: "Status",
-            render: (item) => (item.published ? "public" : "draft"),
+            render: (item) => (item.published ? "Published" : "Draft"),
           },
           {
             id: "actions",
@@ -351,19 +395,27 @@ export default function AdminPosts() {
           },
         ]}
       />
+      {!loading && !error && posts.length === 0 ? (
+        <div className="admin-empty-state">
+          <p>No posts match the current filters.</p>
+          <Link className="admin-primary" to="/posts/new">
+            Create a Post
+          </Link>
+        </div>
+      ) : null}
       <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
-            Prev
+          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+            Previous Page
           </AdminButton>
           <AdminButton
             disabled={loading || page >= totalPages}
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >
-            Next
+            Next Page
           </AdminButton>
         </div>
       </div>

@@ -1,28 +1,50 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { pb, PageRecord } from "../lib/pb";
 import { AdminButton, AdminConfirmDialog, AdminSelectField, AdminTable, AdminTextField } from "./components/AriaControls";
+import FormStatusMessage from "./components/FormStatusMessage";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 
 export default function AdminPages() {
   const [pages, setPages] = useState<PageRecord[]>([]);
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useAdminPageTitle("Pages");
+
+  const query = searchParams.get("q") ?? "";
+  const page = Math.max(1, Number(searchParams.get("page") || "1") || 1);
+  const parsedPerPage = Number(searchParams.get("perPage") || "20");
+  const perPage = [20, 50, 100].includes(parsedPerPage) ? parsedPerPage : 20;
 
   const buildFilter = (value: string) => {
     const safe = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     return `title ~ "${safe}" || url ~ "${safe}" || slug ~ "${safe}"`;
   };
 
+  const updateParams = (updates: Record<string, string | number | null>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "" || value === 1 || value === 20) {
+        next.delete(key);
+      } else {
+        next.set(key, String(value));
+      }
+    });
+    setSearchParams(next, { replace: true });
+  };
+
   useEffect(() => {
     let alive = true;
     const loadPages = async () => {
       setLoading(true);
+      setError("");
       const trimmed = query.trim();
       const filter = trimmed ? buildFilter(trimmed) : undefined;
       try {
@@ -39,6 +61,7 @@ export default function AdminPages() {
         setPages([]);
         setTotalPages(1);
         setTotalItems(0);
+        setError("Pages could not be loaded. Refresh or adjust the current filters.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -50,9 +73,16 @@ export default function AdminPages() {
   }, [page, perPage, query, reloadToken]);
 
   const remove = async (id: string) => {
-    if (!window.confirm("Delete this page?")) return;
-    await pb.collection("pages").delete(id);
-    setReloadToken((n) => n + 1);
+    setDeleteLoading(true);
+    setError("");
+    try {
+      await pb.collection("pages").delete(id);
+      setReloadToken((n) => n + 1);
+    } catch {
+      setError("This page could not be deleted. Try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -60,14 +90,16 @@ export default function AdminPages() {
       <header className="admin-header">
         <h1>Pages</h1>
         <Link className="admin-primary" to="/pages/new">
-          New
+          New Page
         </Link>
       </header>
+      <FormStatusMessage error={error} />
       <AdminConfirmDialog
         open={deleteTargetId !== null}
         title="Delete page"
-        message="Delete this page?"
-        confirmLabel="Delete"
+        message="This page will be removed immediately. Delete it?"
+        confirmLabel={deleteLoading ? "Deleting…" : "Delete Page"}
+        confirmDisabled={deleteLoading}
         onCancel={() => setDeleteTargetId(null)}
         onConfirm={() => {
           const next = deleteTargetId;
@@ -79,23 +111,21 @@ export default function AdminPages() {
         <AdminTextField
           ariaLabel="Search pages"
           className="admin-input"
-          label=""
+          label="Search"
           value={query}
           type="search"
-          placeholder="Search title, url, slug..."
+          placeholder="Search title, URL, or slug…"
           onChange={(value) => {
-            setQuery(value);
-            setPage(1);
+            updateParams({ q: value || null, page: null });
           }}
         />
         <AdminSelectField
           ariaLabel="Rows per page"
           className="admin-field"
-          label=""
+          label="Rows per page"
           value={perPage}
           onChange={(value) => {
-            setPerPage(Number(value));
-            setPage(1);
+            updateParams({ perPage: Number(value), page: null });
           }}
           options={[
             { value: 20, label: "20 / page" },
@@ -109,17 +139,18 @@ export default function AdminPages() {
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
-            Prev
+          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+            Previous Page
           </AdminButton>
           <AdminButton
             disabled={loading || page >= totalPages}
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >
-            Next
+            Next Page
           </AdminButton>
         </div>
       </div>
+      {loading ? <p className="admin-note">Loading pages…</p> : null}
       <AdminTable
         ariaLabel="Pages"
         items={pages}
@@ -138,12 +169,12 @@ export default function AdminPages() {
           {
             id: "menu",
             name: "Menu",
-            render: (item) => (item.menuVisible ? "visible" : "hidden"),
+            render: (item) => (item.menuVisible ? "Visible" : "Hidden"),
           },
           {
             id: "status",
             name: "Status",
-            render: (item) => (item.published ? "public" : "draft"),
+            render: (item) => (item.published ? "Published" : "Draft"),
           },
           {
             id: "actions",
@@ -157,19 +188,27 @@ export default function AdminPages() {
           },
         ]}
       />
+      {!loading && !error && pages.length === 0 ? (
+        <div className="admin-empty-state">
+          <p>No pages match the current filters.</p>
+          <Link className="admin-primary" to="/pages/new">
+            Create a Page
+          </Link>
+        </div>
+      ) : null}
       <div className="admin-pagination admin-pagination-bottom">
         <span>
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => setPage((p) => Math.max(1, p - 1))}>
-            Prev
+          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+            Previous Page
           </AdminButton>
           <AdminButton
             disabled={loading || page >= totalPages}
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >
-            Next
+            Next Page
           </AdminButton>
         </div>
       </div>

@@ -19,7 +19,7 @@ export default function AdminLayout() {
   const sidebarContent = (
     <>
         <h2>Admin</h2>
-        <nav>
+        <nav aria-label="Admin">
         <NavLink className={({ isActive }) => (isActive ? "is-current" : undefined)} to="/posts" onClick={closeSidebar}>
           Posts
         </NavLink>
@@ -38,6 +38,9 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-shell" data-sidebar-open={sidebarOpen}>
+      <a className="admin-skip-link" href="#admin-content">
+        Skip to content
+      </a>
       <aside className="admin-sidebar">{sidebarContent}</aside>
       <div className="admin-sidebar-mobile">
         <AdminDialog open={sidebarOpen} onClose={closeSidebar} title="Admin navigation">
@@ -50,7 +53,7 @@ export default function AdminLayout() {
           <div className="admin-modal-body admin-mobile-nav">{sidebarContent}</div>
         </AdminDialog>
       </div>
-      <main className="admin-main">
+      <main className="admin-main" id="admin-content" tabIndex={-1}>
         <AdminButton
           ariaLabel="Toggle menu"
           className="admin-sidebar-toggle"

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { hasRole, isAuthed, pb } from "../lib/pb";
 import { AdminButton, AdminTextField } from "./components/AriaControls";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 import "../styles/admin.css";
 
 export default function AdminLogin() {
@@ -9,6 +10,8 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useAdminPageTitle("Login");
 
   if (isAuthed() && hasRole(["admin", "editor"])) {
     return <Navigate to="/posts" replace />;
@@ -42,7 +45,7 @@ export default function AdminLogin() {
         />
         {error && <p className="admin-error">{error}</p>}
         <AdminButton className="admin-primary" type="submit">
-          Login
+          Sign In
         </AdminButton>
       </form>
     </div>

@@ -103,7 +103,7 @@ export default function ContentEditorField({
                     rows={14}
                     onPaste={(e) => void handleMarkdownImagePaste(e)}
                     onChange={(e) => onMarkdownBodyChange(e.target.value)}
-                    placeholder="Write Markdown here..."
+                    placeholder="Write Markdown here…"
                   />
                 ),
               },

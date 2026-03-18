@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Route, RouterProvider, createBrowserRouter, createRoutesFromElements } from "react-router-dom";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import ArchivePage from "./pages/ArchivePage";
@@ -17,11 +17,10 @@ export default function App() {
   const isAdminApp = import.meta.env.VITE_ADMIN === "true";
   const base = import.meta.env.VITE_BASE || "/";
   const basename = base === "/" ? undefined : base.replace(/\/$/, "");
-
-  return (
-    <BrowserRouter basename={basename}>
-      {isAdminApp ? (
-        <Routes>
+  const router = createBrowserRouter(
+    createRoutesFromElements(
+      isAdminApp ? (
+        <>
           <Route path="/" element={<AdminLogin />} />
           <Route
             element={
@@ -36,19 +35,20 @@ export default function App() {
             <Route path="/pages/:id" element={<AdminPageEditor />} />
             <Route path="/settings" element={<AdminSettings />} />
           </Route>
-        </Routes>
+        </>
       ) : (
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<HomePage />} />
-            <Route path="archive" element={<ArchivePage />} />
-            <Route path="archive/:slug" element={<ArchivePage />} />
-            <Route path="archive/:slug/:page" element={<ArchivePage />} />
-            <Route path="posts/:slug/*" element={<PostPage />} />
-            <Route path="*" element={<PageRoute />} />
-          </Route>
-        </Routes>
-      )}
-    </BrowserRouter>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="archive" element={<ArchivePage />} />
+          <Route path="archive/:slug" element={<ArchivePage />} />
+          <Route path="archive/:slug/:page" element={<ArchivePage />} />
+          <Route path="posts/:slug/*" element={<PostPage />} />
+          <Route path="*" element={<PageRoute />} />
+        </Route>
+      )
+    ),
+    { basename }
   );
+
+  return <RouterProvider router={router} />;
 }

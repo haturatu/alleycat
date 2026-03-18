@@ -19,6 +19,7 @@ import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
 import TitleSlugFields from "./components/TitleSlugFields";
 import TranslationStatusModal from "./components/TranslationStatusModal";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
 import usePublishState from "./hooks/usePublishState";
@@ -125,6 +126,8 @@ export default function AdminPostEditor() {
   const [translationModalOpen, setTranslationModalOpen] = useState(false);
   const [translationJob, setTranslationJob] = useState<TranslationJobRecord | null>(null);
   const [translationJobLoading, setTranslationJobLoading] = useState(false);
+
+  useAdminPageTitle(id === "new" ? "New Post" : "Edit Post");
 
   const currentTags = useMemo(() => parseTags(tags), [tags]);
   const tagSuggestions = useMemo(

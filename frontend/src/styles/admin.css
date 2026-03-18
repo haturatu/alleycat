@@ -20,6 +20,23 @@ body {
   overflow: hidden;
 }
 
+.admin-skip-link {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  transform: translateY(-200%);
+  background: #141311;
+  color: #f7f2e9;
+  padding: 10px 14px;
+  text-decoration: none;
+  border-radius: 8px;
+  z-index: 20;
+}
+
+.admin-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 .admin-sidebar {
   background: #141311;
   color: #f7f2e9;
@@ -49,7 +66,7 @@ body {
   text-decoration: none;
   background: transparent;
   border: none;
-  padding: 6px 0;
+  padding: 10px 0;
   text-align: left;
   cursor: pointer;
 }
@@ -133,9 +150,31 @@ body {
   background: #1f1f1f;
   color: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 16px;
   cursor: pointer;
   text-decoration: none;
+}
+
+.admin-button-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-button-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95em;
+}
+
+.admin-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  animation: admin-spin 0.8s linear infinite;
 }
 
 .admin-primary:disabled {
@@ -174,14 +213,24 @@ body {
 }
 
 .admin-input {
-  padding: 8px;
+  padding: 10px 12px;
   border: 1px solid #ccc;
   min-width: 240px;
   flex: 1 1 280px;
 }
 
 .admin-input[data-focused],
-.admin-input:focus {
+.admin-input:focus-visible,
+.admin-sidebar a:focus-visible,
+.admin-ghost:focus-visible,
+.admin-primary:focus-visible,
+.admin-toolbar-actions button:focus-visible,
+.admin-actions button:focus-visible,
+.editor-toolbar button:focus-visible,
+.admin-markdown-tabs button:focus-visible,
+.admin-tag-suggestions button:focus-visible,
+.admin-modal-close:focus-visible,
+.admin-select-trigger:focus-visible {
   outline: none;
   border-color: #8f6d45;
   box-shadow: 0 0 0 3px rgba(143, 109, 69, 0.14);
@@ -194,7 +243,7 @@ body {
 }
 
 .admin-toolbar-actions button {
-  padding: 8px 16px;
+  padding: 10px 16px;
   border: none;
   cursor: pointer;
 }
@@ -247,19 +296,24 @@ body {
   vertical-align: top;
 }
 
+.admin-table-select-column {
+  width: 50px;
+  text-align: center;
+  vertical-align: middle;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.admin-table th.admin-table-select-column,
+.admin-table td.admin-table-select-column {
+  text-align: center;
+}
+
 .admin-table tbody tr {
   border-bottom: 1px solid #eee;
 }
 
-.admin-table [data-rac-row] {
-  border-bottom: 1px solid #eee;
-}
-
 .admin-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.admin-table [data-rac-row]:last-child {
   border-bottom: none;
 }
 
@@ -268,16 +322,7 @@ body {
   width: 90px;
 }
 
-.admin-table [data-rac-cell]:last-child,
-.admin-table [data-rac-column-header]:last-child {
-  width: 90px;
-}
-
 .admin-table td:last-child {
-  text-align: right;
-}
-
-.admin-table [data-rac-cell]:last-child {
   text-align: right;
 }
 
@@ -298,6 +343,7 @@ body {
   background: none;
   color: #b00020;
   cursor: pointer;
+  padding: 10px 0;
 }
 
 .admin-form {
@@ -366,7 +412,7 @@ body {
 .admin-form input,
 .admin-form textarea,
 .admin-form select {
-  padding: 8px;
+  padding: 10px 12px;
   border: 1px solid #ccc;
   width: 100%;
   box-sizing: border-box;
@@ -408,8 +454,8 @@ body {
 }
 
 .admin-checkbox-box {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   margin-left: 16px;
   border: 1px solid #8f6d45;
   border-radius: 4px;
@@ -430,6 +476,15 @@ body {
   outline-offset: 2px;
 }
 
+.admin-table-checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+  display: block;
+  accent-color: #1f1f1f;
+  cursor: pointer;
+}
+
 .admin-tag-suggestions {
   display: flex;
   flex-wrap: wrap;
@@ -445,7 +500,7 @@ body {
 .admin-choice-pill {
   border: 1px solid #ccc;
   background: #fff;
-  padding: 4px 8px;
+  padding: 8px 12px;
   cursor: pointer;
 }
 
@@ -462,7 +517,7 @@ body {
 .admin-tag-suggestions button {
   border: 1px solid #ccc;
   background: #fff;
-  padding: 4px 8px;
+  padding: 8px 12px;
   cursor: pointer;
 }
 
@@ -490,8 +545,24 @@ body {
 .editor-toolbar button {
   border: 1px solid #ccc;
   background: #fff;
-  padding: 4px 8px;
+  padding: 8px 12px;
   cursor: pointer;
+}
+
+.admin-empty-state {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 20px;
+  margin-top: 12px;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .editor-toolbar button[aria-pressed="true"] {

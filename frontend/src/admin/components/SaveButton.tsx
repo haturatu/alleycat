@@ -1,4 +1,5 @@
 import { AdminButton } from "./AriaControls";
+import LoadingSpinner from "./LoadingSpinner";
 
 type SaveButtonProps = {
   onClick: () => void;
@@ -13,11 +14,19 @@ export default function SaveButton({
   saving,
   disabled = false,
   idleLabel = "Save",
-  savingLabel = "Saving...",
+  savingLabel = "Saving…",
 }: SaveButtonProps) {
   return (
     <AdminButton className="admin-primary" onPress={onClick} disabled={saving || disabled}>
-      {saving ? savingLabel : idleLabel}
+      <span className="admin-button-label">
+        <span>{idleLabel}</span>
+        {saving ? (
+          <span className="admin-button-progress" aria-live="polite">
+            <LoadingSpinner label={savingLabel} />
+            <span>{savingLabel}</span>
+          </span>
+        ) : null}
+      </span>
     </AdminButton>
   );
 }

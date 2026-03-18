@@ -10,6 +10,7 @@ import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "./co
 import FormStatusMessage from "./components/FormStatusMessage";
 import PublishFields from "./components/PublishFields";
 import TitleSlugFields from "./components/TitleSlugFields";
+import useAdminPageTitle from "./hooks/useAdminPageTitle";
 import useUnsavedChangesGuard from "./hooks/useUnsavedChangesGuard";
 import useEditorFormState from "./hooks/useEditorFormState";
 import usePublishState from "./hooks/usePublishState";
@@ -43,6 +44,8 @@ export default function AdminPageEditor() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+
+  useAdminPageTitle(id === "new" ? "New Page" : "Edit Page");
 
   const setFieldError = (field: keyof FieldErrors, message?: string) => {
     setFieldErrors((prev) => {
