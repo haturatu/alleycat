@@ -155,7 +155,7 @@ export default function RichEditor({
             onPress={() => editor.chain().focus().toggleBold().run()}
             type="button"
           >
-            Bold
+            B
           </AdminButton>
           <AdminButton
             ariaLabel="Toggle italic"
@@ -163,7 +163,7 @@ export default function RichEditor({
             onPress={() => editor.chain().focus().toggleItalic().run()}
             type="button"
           >
-            Italic
+            I
           </AdminButton>
           <AdminButton
             ariaLabel="Toggle heading level 2"
@@ -179,7 +179,7 @@ export default function RichEditor({
             onPress={() => editor.chain().focus().toggleBulletList().run()}
             type="button"
           >
-            Bullet
+            •
           </AdminButton>
         </div>
         <div className="editor-toolbar-group">
@@ -189,7 +189,7 @@ export default function RichEditor({
             onPress={() => editor.chain().focus().toggleCode().run()}
             type="button"
           >
-            Code
+            {"</>"}
           </AdminButton>
           <AdminButton
             ariaLabel="Toggle code block"
@@ -197,7 +197,7 @@ export default function RichEditor({
             onPress={() => editor.chain().focus().toggleCodeBlock().run()}
             type="button"
           >
-            Code Block
+            {"{ }"}
           </AdminButton>
         </div>
         <div className="editor-toolbar-group">

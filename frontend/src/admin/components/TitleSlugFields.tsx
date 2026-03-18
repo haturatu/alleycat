@@ -72,7 +72,7 @@ export default function TitleSlugFields({
         <p className="admin-error-inline">{slugError}</p>
       ) : (
         <p className="admin-note">
-          {slugEditedManually ? "Manual mode is on. You can switch back to automatic generation." : "Slug follows title automatically until you lock it."}
+          {slugEditedManually ? "Manual mode is on." : "Slug follows title automatically."}
         </p>
       )}
     </>

@@ -136,4 +136,15 @@
     padding: 10px 12px;
     font-size: 0.84rem;
   }
+
+  .editor .ProseMirror pre,
+  .editor .ProseMirror pre code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .editor .ProseMirror pre code {
+    min-width: 0;
+  }
 }

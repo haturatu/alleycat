@@ -677,7 +677,14 @@ export default function AdminPostEditor() {
           <p className="admin-eyebrow">Post Editor</p>
           <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
         </div>
-        <SaveButton onClick={save} saving={saving} />
+        <div className="admin-header-actions">
+          {saving || isDirty || saveMessage ? (
+            <span className="admin-inline-status">
+              {saving ? "Saving…" : isDirty ? "Unsaved" : "Saved"}
+            </span>
+          ) : null}
+          <SaveButton onClick={save} saving={saving} />
+        </div>
       </header>
       <FormStatusMessage error={error} success={saveMessage} />
       <TranslationStatusModal
@@ -818,7 +825,7 @@ export default function AdminPostEditor() {
         <aside className="admin-editor-rail">
           <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Publishing</p>
-            <p className="admin-note">Control release timing and whether this draft is visible.</p>
+            <p className="admin-note">Release timing and visibility.</p>
             <PublishFields
               publishedAt={publishedAt}
               published={published}
@@ -828,7 +835,7 @@ export default function AdminPostEditor() {
           </div>
           <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Metadata</p>
-            <p className="admin-note">Organize the draft so it lands in the right archive and author context.</p>
+            <p className="admin-note">Category, author, and tags.</p>
             <AdminComboBoxField
               ariaLabel="Category"
               label="Category"
@@ -893,7 +900,7 @@ export default function AdminPostEditor() {
           </div>
           <div className="admin-form admin-form-section admin-rail-section admin-rail-panel">
             <p className="admin-section-label">Assets</p>
-            <p className="admin-note">Attach supporting media without interrupting the writing flow.</p>
+            <p className="admin-note">Featured image and attachments.</p>
             <AdminFileTriggerField
               label="Featured image"
               buttonLabel="Choose image"

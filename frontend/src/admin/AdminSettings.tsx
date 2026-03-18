@@ -275,7 +275,12 @@ export default function AdminSettings() {
           <p className="admin-eyebrow">System Configuration</p>
           <h1>Settings</h1>
         </div>
-        <SaveButton onClick={save} saving={saving} />
+        <div className="admin-header-actions">
+          {saving || dirty ? (
+            <span className="admin-inline-status">{saving ? "Saving…" : "Unsaved"}</span>
+          ) : null}
+          <SaveButton onClick={save} saving={saving} />
+        </div>
       </header>
       <div className="admin-settings-nav" aria-label="Settings sections">
         <a href="#settings-foundation">Foundation</a>
@@ -352,7 +357,11 @@ export default function AdminSettings() {
           title="Translation Pipeline"
           note="Control source locale, target locales, generation model, and request pacing."
         >
-          <AdminCheckboxField label="Enable post translation" checked={settings.enable_post_translation} onChange={(checked) => update("enable_post_translation", checked)} />
+          <SettingRow
+            label="Enable post translation"
+            description="Generate translation jobs from source posts."
+            control={<AdminCheckboxField ariaLabel="Enable post translation" className="admin-check admin-setting-toggle" label="" checked={settings.enable_post_translation} onChange={(checked) => update("enable_post_translation", checked)} />}
+          />
           <AdminTextField
             label="Translation source locale"
             value={settings.translation_source_locale}
@@ -493,9 +502,21 @@ export default function AdminSettings() {
           title="Feeds And Syndication"
           note="Manage feed output and the amount of content exposed to external readers and indexers."
         >
-          <AdminTextField label="Feed items limit" type="number" value={String(settings.feed_items_limit)} onChange={(value) => update("feed_items_limit", Number(value))} />
-          <AdminCheckboxField label="Enable RSS/Atom feed" checked={settings.enable_feed_xml} onChange={(checked) => update("enable_feed_xml", checked)} />
-          <AdminCheckboxField label="Enable JSON feed" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />
+          <SettingRow
+            label="Feed items limit"
+            description="Maximum number of entries included in feed output."
+            control={<AdminTextField ariaLabel="Feed items limit" label="" type="number" value={String(settings.feed_items_limit)} onChange={(value) => update("feed_items_limit", Number(value))} />}
+          />
+          <SettingRow
+            label="Enable RSS/Atom feed"
+            description="Expose the XML feed for subscribers and aggregators."
+            control={<AdminCheckboxField ariaLabel="Enable RSS/Atom feed" className="admin-check admin-setting-toggle" label="" checked={settings.enable_feed_xml} onChange={(checked) => update("enable_feed_xml", checked)} />}
+          />
+          <SettingRow
+            label="Enable JSON feed"
+            description="Expose the JSON Feed endpoint."
+            control={<AdminCheckboxField ariaLabel="Enable JSON feed" className="admin-check admin-setting-toggle" label="" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />}
+          />
         </SettingsSection>
 
         <SettingsSection
@@ -504,12 +525,24 @@ export default function AdminSettings() {
           title="Analytics, Ads, And Comments"
           note="Third-party scripts and measurement tools live here so they stay separate from editorial controls."
         >
-          <AdminCheckboxField label="Enable analytics" checked={settings.enable_analytics} onChange={(checked) => update("enable_analytics", checked)} />
+          <SettingRow
+            label="Enable analytics"
+            description="Allow analytics scripts on the public site."
+            control={<AdminCheckboxField ariaLabel="Enable analytics" className="admin-check admin-setting-toggle" label="" checked={settings.enable_analytics} onChange={(checked) => update("enable_analytics", checked)} />}
+          />
           <AdminTextField label="Analytics URL" value={settings.analytics_url} onChange={(value) => update("analytics_url", value)} />
           <AdminTextField label="Analytics site id" value={settings.analytics_site_id} onChange={(value) => update("analytics_site_id", value)} />
-          <AdminCheckboxField label="Enable ads" checked={settings.enable_ads} onChange={(checked) => update("enable_ads", checked)} />
+          <SettingRow
+            label="Enable ads"
+            description="Load ad scripts and ad placements."
+            control={<AdminCheckboxField ariaLabel="Enable ads" className="admin-check admin-setting-toggle" label="" checked={settings.enable_ads} onChange={(checked) => update("enable_ads", checked)} />}
+          />
           <AdminTextField label="Ads client" value={settings.ads_client} onChange={(value) => update("ads_client", value)} />
-          <AdminCheckboxField label="Enable comments" checked={settings.enable_comments} onChange={(checked) => update("enable_comments", checked)} />
+          <SettingRow
+            label="Enable comments"
+            description="Render embedded comment threads on posts."
+            control={<AdminCheckboxField ariaLabel="Enable comments" className="admin-check admin-setting-toggle" label="" checked={settings.enable_comments} onChange={(checked) => update("enable_comments", checked)} />}
+          />
           <AdminTextAreaField
             label="Comment script tag (utterances/giscus)"
             value={settings.comments_script_tag}

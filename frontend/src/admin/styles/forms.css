@@ -39,7 +39,7 @@
   margin: 0;
   width: 100%;
   color: var(--admin-ink-soft);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 
@@ -84,7 +84,7 @@
 
 .admin-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -285,8 +285,8 @@
 .admin-settings-locales .admin-choice-pill {
   min-width: 44px;
   min-height: 34px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
+  padding: 5px 8px;
+  font-size: 0.8rem;
   justify-content: center;
 }
 
@@ -346,6 +346,7 @@
 .admin-editor-rail {
   position: sticky;
   top: 24px;
+  gap: 14px;
 }
 
 .admin-title-input {
@@ -445,7 +446,7 @@
 .admin-secondary-section summary {
   cursor: pointer;
   list-style: none;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--admin-ink-soft);
 }
@@ -510,8 +511,8 @@
 .admin-setting-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
-  gap: 16px;
-  align-items: center;
+  gap: 20px;
+  align-items: start;
   padding: 12px 0;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
@@ -534,6 +535,7 @@
 
 .admin-setting-control {
   min-width: 0;
+  align-self: center;
 }
 
 .admin-setting-control > * {
