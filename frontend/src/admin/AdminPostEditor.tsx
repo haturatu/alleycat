@@ -114,7 +114,7 @@ export default function AdminPostEditor() {
   const [activeTagSuggestion, setActiveTagSuggestion] = useState(-1);
   const [activeCategorySuggestion, setActiveCategorySuggestion] = useState(-1);
   const [excerptLength, setExcerptLength] = useState(0);
-  const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+  const { saveMessage, clearSaveMessage, isDirty, lastSavedAt, markDirty, markSaved } = useEditorFormState();
 
   const [sourcePostId, setSourcePostId] = useState("");
   const [sourceLocale, setSourceLocale] = useState("ja");
@@ -680,7 +680,7 @@ export default function AdminPostEditor() {
         <div className="admin-header-actions">
           {saving || isDirty || saveMessage ? (
             <span className="admin-inline-status">
-              {saving ? "Saving…" : isDirty ? "Unsaved" : "Saved"}
+              {saving ? "Saving…" : isDirty ? "Unsaved" : lastSavedAt ? `Saved ${lastSavedAt}` : "Saved"}
             </span>
           ) : null}
           <SaveButton onClick={save} saving={saving} />

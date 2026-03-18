@@ -43,7 +43,7 @@ export default function AdminPageEditor() {
   const [saving, setSaving] = useState(false);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const { saveMessage, clearSaveMessage, isDirty, markDirty, markSaved } = useEditorFormState();
+  const { saveMessage, clearSaveMessage, isDirty, lastSavedAt, markDirty, markSaved } = useEditorFormState();
   const titleInputRef = useRef<HTMLInputElement>(null);
   const slugInputRef = useRef<HTMLInputElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -212,7 +212,14 @@ export default function AdminPageEditor() {
           <p className="admin-eyebrow">Site Structure</p>
           <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
         </div>
-        <SaveButton onClick={save} saving={saving} />
+        <div className="admin-header-actions">
+          {saving || isDirty || saveMessage ? (
+            <span className="admin-inline-status">
+              {saving ? "Saving…" : isDirty ? "Unsaved" : lastSavedAt ? `Saved ${lastSavedAt}` : "Saved"}
+            </span>
+          ) : null}
+          <SaveButton onClick={save} saving={saving} />
+        </div>
       </header>
       <FormStatusMessage error={error} success={saveMessage} />
       <div className="admin-editor-shell">

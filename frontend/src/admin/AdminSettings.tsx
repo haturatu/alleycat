@@ -143,6 +143,7 @@ export default function AdminSettings() {
   const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState("");
   const canManageSecrets = hasRole(["admin"]);
 
   useAdminPageTitle("Settings");
@@ -229,6 +230,7 @@ export default function AdminSettings() {
       const updated = await pb.collection("settings").update(settingsId, payload);
       setSettings({ ...defaults, ...updated });
       setDirty(false);
+      setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
 
       const trimmedGeminiKey = geminiApiKey.trim();
       if (canManageSecrets && trimmedGeminiKey !== "") {
@@ -245,6 +247,7 @@ export default function AdminSettings() {
         setGeminiApiKey("");
         setHasGeminiApiKey(true);
         setDirty(false);
+        setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       }
     } catch (err) {
       if (err instanceof ClientResponseError) {
@@ -276,8 +279,10 @@ export default function AdminSettings() {
           <h1>Settings</h1>
         </div>
         <div className="admin-header-actions">
-          {saving || dirty ? (
-            <span className="admin-inline-status">{saving ? "Saving…" : "Unsaved"}</span>
+          {saving || dirty || lastSavedAt ? (
+            <span className="admin-inline-status">
+              {saving ? "Saving…" : dirty ? "Unsaved" : `Saved ${lastSavedAt}`}
+            </span>
           ) : null}
           <SaveButton onClick={save} saving={saving} />
         </div>
@@ -299,21 +304,18 @@ export default function AdminSettings() {
         </div>
       ) : null}
       <FormStatusMessage error={error} />
-      <div className="admin-settings-overview">
+      <div className="admin-settings-overview" aria-label="Settings summary">
         <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Theme</span>
           <strong>{settings.theme}</strong>
-          <p>{themeLocked ? "Theme files are locked by public assets." : "Theme can be changed from this workspace."}</p>
         </article>
         <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Translation</span>
           <strong>{settings.enable_post_translation ? "On" : "Off"}</strong>
-          <p>{parseLocales(settings.translation_locales).length} target locale(s) configured for post generation.</p>
         </article>
         <article className="admin-settings-overview-item">
           <span className="admin-summary-label">Distribution</span>
           <strong>{settings.enable_feed_xml || settings.enable_feed_json ? "Feeds live" : "Feeds off"}</strong>
-          <p>RSS, JSON Feed, and archive sizing are managed from the same control plane.</p>
         </article>
       </div>
       <div className="admin-settings-shell">

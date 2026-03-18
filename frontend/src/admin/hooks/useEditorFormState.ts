@@ -3,6 +3,7 @@ import { useState } from "react";
 export default function useEditorFormState() {
   const [saveMessage, setSaveMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string>("");
 
   const clearSaveMessage = () => setSaveMessage("");
   const markDirty = () => {
@@ -12,6 +13,7 @@ export default function useEditorFormState() {
   const markSaved = (message = "") => {
     setIsDirty(false);
     setSaveMessage(message);
+    setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
   };
 
   return {
@@ -20,6 +22,7 @@ export default function useEditorFormState() {
     clearSaveMessage,
     isDirty,
     setIsDirty,
+    lastSavedAt,
     markDirty,
     markSaved,
   };

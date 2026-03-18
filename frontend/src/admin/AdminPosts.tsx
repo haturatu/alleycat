@@ -315,21 +315,12 @@ export default function AdminPosts() {
       </div>
       {loading ? <p className="admin-note">Loading posts…</p> : null}
       <div className="admin-list-shell">
-        <div className={`admin-table-utility admin-list-strip ${selected.size > 0 ? "is-active" : "is-passive"}`}>
-          <div className="admin-table-utility-copy">
-            <p className="admin-section-label">Queue</p>
-            <p className="admin-table-selection">
-              {selected.size > 0 ? `${selected.size} selected` : `${totalItems} posts`}
-            </p>
-            <p className="admin-note">
-              {selected.size > 0
-                ? "Publish or unpublish the selected rows."
-                : query.trim()
-                  ? `Showing matches for "${query.trim()}".`
-                  : "Select rows to change visibility in bulk."}
-            </p>
-          </div>
-          {selected.size > 0 ? (
+        {selected.size > 0 ? (
+          <div className="admin-table-utility admin-list-strip is-active">
+            <div className="admin-table-utility-copy">
+              <p className="admin-table-selection">{selected.size} selected</p>
+              <p className="admin-note">Publish or unpublish the selected rows.</p>
+            </div>
             <div className="admin-toolbar-actions">
               <AdminButton
                 className="admin-primary"
@@ -352,8 +343,8 @@ export default function AdminPosts() {
                 Unpublish
               </AdminButton>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <AdminTable
           ariaLabel="Posts"
           items={posts}

@@ -193,11 +193,14 @@
 }
 
 .admin-table-utility.is-active {
-  padding: 0 0 14px;
+  position: sticky;
+  top: 74px;
+  z-index: 3;
+  padding: 10px 0 14px;
   border: none;
   border-bottom: 1px solid rgba(79, 107, 255, 0.18);
   border-radius: 0;
-  background: transparent;
+  background: linear-gradient(180deg, rgba(252, 252, 253, 0.96), rgba(252, 252, 253, 0.88));
 }
 
 .admin-table-selection {

@@ -310,17 +310,17 @@
 }
 
 .admin-settings-overview {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  display: flex;
+  gap: 18px;
   margin: 4px 0 10px;
-  padding: 0 0 18px;
+  padding: 0 0 12px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .admin-settings-overview-item {
-  display: grid;
-  gap: 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   padding: 0 18px 0 0;
   border-radius: 0;
   background: transparent;
@@ -334,24 +334,19 @@
 }
 
 .admin-settings-overview-item strong {
-  font-size: 1.5rem;
+  font-size: 0.95rem;
   line-height: 1;
-  letter-spacing: -0.04em;
-}
-
-.admin-settings-overview-item p {
-  margin: 0;
-  color: var(--admin-ink-soft);
+  letter-spacing: 0;
 }
 
 @media (max-width: 960px) {
   .admin-settings-overview {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    display: grid;
+    gap: 10px;
   }
 
   .admin-settings-overview-item {
-    padding: 0 0 12px;
+    padding: 0 0 10px;
     border-right: none;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   }

@@ -345,21 +345,26 @@
 
 .admin-editor-rail {
   position: sticky;
-  top: 24px;
+  top: 88px;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 16px;
   gap: 14px;
+  scrollbar-width: thin;
 }
 
 .admin-title-input {
   width: 100%;
-  padding: 0 0 10px;
+  padding: 10px 0 10px;
   border: none;
   border-bottom: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 0;
   background: transparent;
-  font-size: clamp(2.5rem, 4.4vw, 4rem);
-  line-height: 1;
-  letter-spacing: -0.06em;
-  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  font-weight: 500;
   color: var(--admin-ink);
 }
 
@@ -377,6 +382,18 @@
   gap: 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.admin-slug-inline {
+  align-items: center;
+}
+
+.admin-slug-inline > .admin-field {
+  flex: 1 1 320px;
+}
+
+.admin-slug-action {
+  min-width: 76px;
 }
 
 .admin-slug-input {
@@ -615,6 +632,10 @@
   .admin-editor-rail {
     position: static;
     top: auto;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    padding-bottom: 0;
   }
 
   .admin-settings-fields {
@@ -632,6 +653,10 @@
 
   .admin-inline > * {
     flex-basis: auto;
+  }
+
+  .admin-slug-inline {
+    align-items: stretch;
   }
 
   .admin-combobox-row,

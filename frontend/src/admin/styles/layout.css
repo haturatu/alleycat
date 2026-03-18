@@ -1,6 +1,6 @@
 .admin-shell {
   display: grid;
-  grid-template-columns: 292px 1fr;
+  grid-template-columns: 256px 1fr;
   min-height: 100vh;
   color: var(--admin-ink);
   font-family: "IBM Plex Sans", "IBM Plex Sans JP", sans-serif;
@@ -27,7 +27,7 @@
 .admin-sidebar {
   background: var(--admin-sidebar);
   color: var(--admin-sidebar-ink);
-  padding: 28px 20px 24px;
+  padding: 24px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -59,7 +59,7 @@
 .admin-brand {
   display: grid;
   gap: 12px;
-  padding: 6px 8px 16px;
+  padding: 4px 6px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: 8px;
 }
@@ -102,7 +102,7 @@
   background: transparent;
   border: none;
   min-height: 42px;
-  padding: 10px 14px;
+  padding: 9px 12px;
   text-align: left;
   cursor: pointer;
   border-radius: 999px;

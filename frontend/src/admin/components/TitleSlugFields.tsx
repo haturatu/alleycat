@@ -47,13 +47,8 @@ export default function TitleSlugFields({
       <div className={`admin-field ${editorial ? "admin-slug-field" : ""}`}>
         <div className="admin-field-head">
           <span>Slug</span>
-          {onToggleSlugMode ? (
-            <AdminButton type="button" className="admin-secondary" onPress={onToggleSlugMode}>
-              {slugEditedManually ? "Use Auto Slug" : "Lock Slug"}
-            </AdminButton>
-          ) : null}
         </div>
-        <div className="admin-inline">
+        <div className={`admin-inline ${editorial ? "admin-slug-inline" : ""}`}>
           <AdminTextField
             ariaLabel="Slug"
             label=""
@@ -63,8 +58,13 @@ export default function TitleSlugFields({
             onChange={onSlugChange}
             className="admin-field"
           />
+          {onToggleSlugMode ? (
+            <AdminButton type="button" className="admin-secondary admin-slug-action" onPress={onToggleSlugMode}>
+              {slugEditedManually ? "Auto" : "Manual"}
+            </AdminButton>
+          ) : null}
           <AdminButton type="button" disabled={autoDisabled} onPress={onAutoSlug}>
-            Generate Slug
+            Generate
           </AdminButton>
         </div>
       </div>
