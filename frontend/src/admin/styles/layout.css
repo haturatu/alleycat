@@ -1,0 +1,435 @@
+.admin-shell {
+  display: grid;
+  grid-template-columns: 264px 1fr;
+  height: 100vh;
+  color: var(--admin-ink);
+  font-family: "IBM Plex Sans", "IBM Plex Sans JP", sans-serif;
+  overflow: hidden;
+}
+
+.admin-skip-link {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  transform: translateY(-200%);
+  background: var(--admin-sidebar);
+  color: var(--admin-sidebar-ink);
+  padding: 10px 14px;
+  text-decoration: none;
+  border-radius: var(--admin-radius-sm);
+  z-index: 20;
+}
+
+.admin-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.admin-sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%),
+    var(--admin-sidebar);
+  color: var(--admin-sidebar-ink);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-sidebar-mobile {
+  display: none;
+}
+
+.admin-sidebar h2 {
+  font-size: 1.8rem;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin: 0;
+  color: var(--admin-sidebar-ink);
+}
+
+.admin-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-brand {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+}
+
+.admin-eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(247, 242, 233, 0.66);
+}
+
+.admin-brand-note,
+.admin-main-note {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.admin-brand-note {
+  color: rgba(247, 242, 233, 0.72);
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.admin-sidebar a,
+.admin-ghost {
+  display: inline-flex;
+  align-items: center;
+  color: var(--admin-sidebar-ink);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  min-height: 42px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--admin-radius-sm);
+}
+
+.admin-sidebar a.is-current {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+  text-decoration: none;
+}
+
+.admin-main {
+  padding: 40px 36px 56px;
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100vh;
+  min-width: 0;
+  transition: transform 0.2s ease;
+}
+
+.admin-main-chrome {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--admin-border);
+  animation: admin-rise-in 0.4s ease both;
+}
+
+.admin-main .admin-eyebrow {
+  color: var(--admin-accent-strong);
+}
+
+.admin-main-note {
+  color: var(--admin-ink-soft);
+  max-width: 56ch;
+}
+
+.admin-sidebar-toggle {
+  display: none;
+}
+
+.admin-mobile-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-mobile-nav .admin-brand {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--admin-border);
+  margin-bottom: 8px;
+}
+
+.admin-mobile-nav .admin-eyebrow {
+  color: var(--admin-accent-strong);
+}
+
+.admin-mobile-nav .admin-brand-note {
+  color: var(--admin-ink-soft);
+}
+
+.admin-mobile-nav .admin-nav a,
+.admin-mobile-nav .admin-nav .admin-ghost {
+  color: var(--admin-ink);
+  background: rgba(246, 242, 234, 0.82);
+  border: 1px solid var(--admin-border);
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  min-height: 48px;
+}
+
+.admin-mobile-nav .admin-nav a.is-current {
+  background: rgba(143, 109, 69, 0.12);
+  border-color: var(--admin-border-strong);
+  box-shadow: inset 3px 0 0 var(--admin-accent);
+}
+
+.admin-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-toolbar-section {
+  align-items: start;
+}
+
+.admin-toolbar-heading {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.admin-inline-status {
+  margin: 0 0 0 auto;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--admin-ink-soft);
+  font-size: 0.9rem;
+}
+
+.admin-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.admin-login-shell {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.admin-login-panel {
+  min-width: 0;
+}
+
+.admin-login-story {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 36px;
+  border-radius: var(--admin-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 32%),
+    linear-gradient(135deg, rgba(255, 241, 220, 0.1), transparent 58%),
+    var(--admin-sidebar);
+  color: var(--admin-sidebar-ink);
+  box-shadow: var(--admin-shadow-card);
+  animation: admin-rise-in 0.45s ease both;
+}
+
+.admin-login-story .admin-eyebrow {
+  color: rgba(247, 242, 233, 0.74);
+}
+
+.admin-login-story h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 0.92;
+  letter-spacing: -0.06em;
+  max-width: 10ch;
+}
+
+.admin-login-copy {
+  margin: 0;
+  max-width: 42ch;
+  color: rgba(247, 242, 233, 0.78);
+  line-height: 1.65;
+}
+
+.admin-login-kicker {
+  margin: 0;
+  max-width: 34ch;
+  color: rgba(247, 242, 233, 0.62);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.admin-login-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.admin-login-head {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-login-head h2 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.admin-login-form {
+  animation: admin-rise-in 0.45s ease 0.08s both;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.admin-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: rgba(255, 253, 249, 0.72);
+  box-shadow: var(--admin-shadow-soft);
+  animation: admin-rise-in 0.4s ease both;
+}
+
+.admin-toolbar > * {
+  min-width: 0;
+}
+
+.admin-pagination {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-label {
+  font-weight: 500;
+  color: var(--admin-ink-soft);
+}
+
+.admin-pagination-top {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.admin-pagination-bottom {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .admin-sidebar {
+    display: none !important;
+  }
+
+  .admin-sidebar-mobile {
+    display: block;
+  }
+
+  .admin-drawer-backdrop {
+    justify-items: start;
+    padding: 0;
+  }
+
+  .admin-drawer-shell {
+    width: min(320px, calc(100vw - 24px));
+    height: 100vh;
+    margin-right: auto;
+  }
+
+  .admin-drawer-shell .admin-modal {
+    min-height: 100vh;
+    border-radius: 0;
+    padding: 20px 18px;
+  }
+
+  .admin-sidebar-toggle {
+    display: inline-flex;
+    margin-bottom: 16px;
+  }
+
+  .admin-main {
+    padding: 24px 18px 36px;
+    height: auto;
+    min-height: 100vh;
+    max-width: 100%;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .admin-login {
+    padding: 18px;
+  }
+
+  .admin-login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-login-story {
+    padding: 28px 22px;
+  }
+
+  .admin-login-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-toolbar {
+    padding: 14px;
+    align-items: stretch;
+  }
+
+  .admin-inline-status {
+    margin-left: 0;
+  }
+
+  .admin-header h1 {
+    font-size: clamp(1.7rem, 7vw, 2.2rem);
+  }
+
+  .admin-pagination {
+    gap: 10px;
+  }
+}

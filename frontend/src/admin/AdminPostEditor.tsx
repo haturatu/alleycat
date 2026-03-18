@@ -128,6 +128,8 @@ export default function AdminPostEditor() {
   const [translationJob, setTranslationJob] = useState<TranslationJobRecord | null>(null);
   const [translationJobLoading, setTranslationJobLoading] = useState(false);
   const [pendingLocaleSwitch, setPendingLocaleSwitch] = useState<string | null>(null);
+  const [loadingPost, setLoadingPost] = useState(id !== "new");
+  const [loadFailed, setLoadFailed] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const slugInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -247,6 +249,8 @@ export default function AdminPostEditor() {
       if (!alive) return;
 
       if (!id || id === "new") {
+        setLoadingPost(false);
+        setLoadFailed(false);
         setTitle("");
         setSlug("");
         setBody("");
@@ -310,11 +314,15 @@ export default function AdminPostEditor() {
         setTranslationEnabled(localeConfig.enabled);
         setSelectedLocale(initialLocale);
         setSlugEditedManually(true);
+        setLoadFailed(false);
+        setLoadingPost(false);
 
         applyRecordToForm(source);
       } catch (err) {
         if (!alive) return;
-        setError("Failed to load post. Check permissions or post ID.");
+        setError("Post not found or you do not have permission to edit it.");
+        setLoadFailed(true);
+        setLoadingPost(false);
         console.error(err);
       }
     };
@@ -397,6 +405,14 @@ export default function AdminPostEditor() {
       .then((items) => setAuthors(items as Array<{ id: string; name?: string; email?: string }>))
       .catch(() => setAuthors([]));
   }, []);
+
+  useEffect(() => {
+    if (id && id !== "new") return;
+    if (author) return;
+    const currentAuthorId = (pb.authStore.model as { id?: string } | null)?.id;
+    if (!currentAuthorId) return;
+    setAuthor(currentAuthorId);
+  }, [author, id]);
 
   useEffect(() => {
     pb.collection("posts")
@@ -658,7 +674,10 @@ export default function AdminPostEditor() {
   return (
     <section>
       <header className="admin-header">
-        <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
+        <div>
+          <p className="admin-eyebrow">Post Editor</p>
+          <h1>{id === "new" ? "New Post" : "Edit Post"}</h1>
+        </div>
         <SaveButton onClick={save} saving={saving} />
       </header>
       <FormStatusMessage error={error} success={saveMessage} />
@@ -680,168 +699,216 @@ export default function AdminPostEditor() {
           if (nextLocale) applyLocaleSwitch(nextLocale);
         }}
       />
-      <div className="admin-form">
-        {id !== "new" && localeOptions.length > 0 && (
-          <AdminRadioGroupField
-            ariaLabel="Edit locale"
-            label="Edit locale"
-            value={selectedLocale}
-            onChange={(value) => switchLocale(value)}
-            options={localeOptions.map((locale) => ({
-              value: locale,
-              label: locale === sourceLocale ? `${locale} (source)` : locale,
-              disabled: saving,
-            }))}
-          />
-        )}
-        <TitleSlugFields
-          title={title}
-          slug={slug}
-          slugEditedManually={slugEditedManually}
-          titleError={fieldErrors.title}
-          slugError={fieldErrors.slug}
-          titleInputRef={titleInputRef}
-          slugInputRef={slugInputRef}
-          onTitleChange={onTitleChange}
-          onSlugChange={onSlugChange}
-          onAutoSlug={onAutoSlug}
-        />
-        <PublishFields
-          publishedAt={publishedAt}
-          published={published}
-          onPublishedAtChange={onPublishedAtChange}
-          onPublishedChange={onPublishedChange}
-        />
-        <AdminComboBoxField
-          ariaLabel="Category"
-          label="Category"
-          value={category}
-          onInputChange={(value) => {
-            setCategory(value);
-            markDirty();
-            setActiveCategorySuggestion(-1);
-          }}
-          onSelectionChange={(value) => {
-            setCategory(value);
-            markDirty();
-            setActiveCategorySuggestion(-1);
-          }}
-          options={categorySuggestions.map((item) => ({ value: item, label: item }))}
-          onKeyDown={onCategoryInputKeyDown}
-          onBlur={applyCategoryInput}
-          enterKeyHint="done"
-        />
-        <AdminSelectField
-          label="Author"
-          value={author}
-          onChange={(value) => {
-            setAuthor(value);
-            markDirty();
-          }}
-          options={[
-            { value: "", label: "(none)" },
-            ...authors.map((user) => ({
-              value: user.id,
-              label: user.name || user.email || user.id,
-            })),
-          ]}
-        />
-        <AdminComboBoxField
-          ariaLabel="Tags"
-          inputRef={tagInputRef}
-          label="Tags"
-          value={tagInput}
-          onInputChange={(next) => {
-            setTagInput(next);
-            markDirty();
-            setActiveTagSuggestion(-1);
-          }}
-          onSelectionChange={(value) => addTag(value)}
-          options={tagSuggestions.map((tag) => ({ value: tag, label: tag }))}
-          onKeyDown={onTagInputKeyDown}
-          onBlur={applyTagInputOnBlur}
-          placeholder="Type tag and press Enter"
-          enterKeyHint="done"
-        />
-        {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
-        {currentTags.length > 0 && (
-          <div className="admin-tag-suggestions">
-            {currentTags.map((tag) => (
-              <AdminButton key={`selected-${tag}`} onPress={() => removeTag(tag)}>
-                {tag} ×
-              </AdminButton>
-            ))}
+      {loadingPost ? (
+        <div className="admin-empty-state">
+          <p>Loading post…</p>
+        </div>
+      ) : null}
+      {!loadingPost && loadFailed ? (
+        <div className="admin-empty-state admin-error-state">
+          <p>Post not found or you do not have permission to edit it.</p>
+          <div className="admin-toolbar-actions">
+            <AdminButton className="admin-primary" onPress={() => navigate("/posts")}>
+              Back to Posts
+            </AdminButton>
+            <AdminButton onPress={() => window.location.reload()}>
+              Retry
+            </AdminButton>
           </div>
-        )}
-        <AdminFileTriggerField
-          label="Featured image"
-          buttonLabel="Choose image"
-          acceptedFileTypes={["image/*"]}
-          description={featuredImage ? featuredImage.name : "No image selected."}
-          onSelect={(files) => {
-            setFeaturedImage(files?.[0] ?? null);
-            markDirty();
-          }}
-        />
-        <AdminFileTriggerField
-          label="Attachments"
-          buttonLabel="Choose files"
-          allowsMultiple
-          description={
-            attachments.length > 0
-              ? `${attachments.length} file(s): ${attachments.map((file) => file.name).join(", ")}`
-              : "No files selected."
-          }
-          onSelect={(files) => {
-            setAttachments(files ?? []);
-            markDirty();
-          }}
-        />
-        <AdminTextAreaField
-          label="Excerpt"
-          value={
-            excerptLength > 0
-              ? buildExcerpt(
-                  editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
-                  excerptLength
-                )
-              : excerpt
-          }
-          onChange={(value) => {
-            setExcerpt(value);
-            markDirty();
-          }}
-          rows={3}
-          disabled={excerptLength > 0}
-        />
-        {excerptLength > 0 && (
-          <p className="admin-note">
-            Excerpt is auto-generated from content ({excerptLength} chars).
-          </p>
-        )}
-        <ContentEditorField
-          body={body}
-          markdownBody={markdownBody}
-          editorMode={editorMode}
-          markdownViewMode={markdownViewMode}
-          onBodyChange={(value) => {
-            setBody(value);
-            markDirty();
-            setFieldError("body", validateBody(value));
-          }}
-          onMarkdownBodyChange={(value) => {
-            setMarkdownBody(value);
-            markDirty();
-            setFieldError("body", validateBody(value));
-          }}
-          onEditorModeChange={(mode) => {
-            setEditorMode(mode);
-            markDirty();
-          }}
-          onMarkdownViewModeChange={setMarkdownViewMode}
-        />
-        {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
+        </div>
+      ) : null}
+      {!loadingPost && !loadFailed ? (
+      <div className="admin-editor-shell">
+        <div className="admin-editor-main">
+          <div className="admin-form admin-form-section">
+            <p className="admin-section-label">Content</p>
+            <p className="admin-note">Set title and slug, then move directly into the body editor. Supporting fields follow below.</p>
+            <TitleSlugFields
+              title={title}
+              slug={slug}
+              slugEditedManually={slugEditedManually}
+              titleError={fieldErrors.title}
+              slugError={fieldErrors.slug}
+              titleInputRef={titleInputRef}
+              slugInputRef={slugInputRef}
+              onTitleChange={onTitleChange}
+              onSlugChange={onSlugChange}
+              onAutoSlug={onAutoSlug}
+              onToggleSlugMode={() => {
+                if (slugEditedManually) {
+                  onAutoSlug();
+                  return;
+                }
+                setSlugEditedManually(true);
+                markDirty();
+              }}
+            />
+            <ContentEditorField
+              body={body}
+              markdownBody={markdownBody}
+              editorMode={editorMode}
+              markdownViewMode={markdownViewMode}
+              onBodyChange={(value) => {
+                setBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+              onMarkdownBodyChange={(value) => {
+                setMarkdownBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+              onEditorModeChange={(mode) => {
+                setEditorMode(mode);
+                markDirty();
+              }}
+              onMarkdownViewModeChange={setMarkdownViewMode}
+            />
+            {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
+            <AdminTextAreaField
+              label="Excerpt"
+              value={
+                excerptLength > 0
+                  ? buildExcerpt(
+                      editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
+                      excerptLength
+                    )
+                  : excerpt
+              }
+              onChange={(value) => {
+                setExcerpt(value);
+                markDirty();
+              }}
+              rows={5}
+              disabled={excerptLength > 0}
+            />
+            {excerptLength > 0 && (
+              <p className="admin-note">
+                Excerpt is auto-generated from content ({excerptLength} chars).
+              </p>
+            )}
+            {id !== "new" && localeOptions.length > 0 && (
+              <AdminRadioGroupField
+                ariaLabel="Edit locale"
+                label="Edit locale"
+                value={selectedLocale}
+                onChange={(value) => switchLocale(value)}
+                options={localeOptions.map((locale) => ({
+                  value: locale,
+                  label: locale === sourceLocale ? `${locale} (source)` : locale,
+                  disabled: saving,
+                }))}
+              />
+            )}
+          </div>
+        </div>
+        <aside className="admin-editor-rail">
+          <div className="admin-form admin-form-section admin-rail-section">
+            <p className="admin-section-label">Publishing</p>
+            <p className="admin-note">Control release timing and whether this draft is visible.</p>
+            <PublishFields
+              publishedAt={publishedAt}
+              published={published}
+              onPublishedAtChange={onPublishedAtChange}
+              onPublishedChange={onPublishedChange}
+            />
+          </div>
+          <div className="admin-form admin-form-section admin-rail-section">
+            <p className="admin-section-label">Metadata</p>
+            <p className="admin-note">Organize the draft so it lands in the right archive and author context.</p>
+            <AdminComboBoxField
+              ariaLabel="Category"
+              label="Category"
+              value={category}
+              onInputChange={(value) => {
+                setCategory(value);
+                markDirty();
+                setActiveCategorySuggestion(-1);
+              }}
+              onSelectionChange={(value) => {
+                setCategory(value);
+                markDirty();
+                setActiveCategorySuggestion(-1);
+              }}
+              options={categorySuggestions.map((item) => ({ value: item, label: item }))}
+              onKeyDown={onCategoryInputKeyDown}
+              onBlur={applyCategoryInput}
+              enterKeyHint="done"
+            />
+            <AdminSelectField
+              label="Author"
+              value={author}
+              onChange={(value) => {
+                setAuthor(value);
+                markDirty();
+              }}
+              options={[
+                { value: "", label: "(none)" },
+                ...authors.map((user) => ({
+                  value: user.id,
+                  label: user.name || user.email || user.id,
+                })),
+              ]}
+            />
+            <AdminComboBoxField
+              ariaLabel="Tags"
+              inputRef={tagInputRef}
+              label="Tags"
+              value={tagInput}
+              onInputChange={(next) => {
+                setTagInput(next);
+                markDirty();
+                setActiveTagSuggestion(-1);
+              }}
+              onSelectionChange={(value) => addTag(value)}
+              options={tagSuggestions.map((tag) => ({ value: tag, label: tag }))}
+              onKeyDown={onTagInputKeyDown}
+              onBlur={applyTagInputOnBlur}
+              placeholder="Type tag and press Enter"
+              enterKeyHint="done"
+            />
+            {fieldErrors.tags && <p className="admin-error-inline">{fieldErrors.tags}</p>}
+            {currentTags.length > 0 && (
+              <div className="admin-tag-suggestions admin-selected-tags">
+                {currentTags.map((tag) => (
+                  <AdminButton key={`selected-${tag}`} onPress={() => removeTag(tag)}>
+                    {tag} ×
+                  </AdminButton>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="admin-form admin-form-section admin-rail-section">
+            <p className="admin-section-label">Assets</p>
+            <p className="admin-note">Attach supporting media without interrupting the writing flow.</p>
+            <AdminFileTriggerField
+              label="Featured image"
+              buttonLabel="Choose image"
+              acceptedFileTypes={["image/*"]}
+              description={featuredImage ? featuredImage.name : "No image selected."}
+              onSelect={(files) => {
+                setFeaturedImage(files?.[0] ?? null);
+                markDirty();
+              }}
+            />
+            <AdminFileTriggerField
+              label="Attachments"
+              buttonLabel="Choose files"
+              allowsMultiple
+              description={
+                attachments.length > 0
+                  ? `${attachments.length} file(s): ${attachments.map((file) => file.name).join(", ")}`
+                  : "No files selected."
+              }
+              onSelect={(files) => {
+                setAttachments(files ?? []);
+                markDirty();
+              }}
+            />
+          </div>
+        </aside>
       </div>
+      ) : null}
     </section>
   );
 }

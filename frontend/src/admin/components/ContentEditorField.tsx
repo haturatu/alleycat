@@ -72,7 +72,12 @@ export default function ContentEditorField({
   return (
     <div className="admin-field">
       <div className="admin-field-head">
-        <span>Content</span>
+        <div className="admin-editor-headline">
+          <span>Content</span>
+          <p className="admin-note">
+            Use Rich editor for visual drafting and Markdown when you need tighter control over code-heavy posts.
+          </p>
+        </div>
         <AdminSelectField
           className="admin-editor-mode"
           label="Editor mode"

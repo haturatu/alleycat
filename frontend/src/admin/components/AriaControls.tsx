@@ -207,6 +207,7 @@ type AdminCheckboxGroupFieldProps = {
   options: ChoiceOption[];
   onChange: (values: string[]) => void;
   ariaLabel?: string;
+  className?: string;
 };
 
 export function AdminCheckboxGroupField({
@@ -215,11 +216,12 @@ export function AdminCheckboxGroupField({
   options,
   onChange,
   ariaLabel,
+  className = "admin-field",
 }: AdminCheckboxGroupFieldProps) {
   return (
     <CheckboxGroup
       aria-label={ariaLabel}
-      className="admin-field"
+      className={className}
       value={values}
       onChange={(next) => onChange([...next])}
     >
@@ -458,14 +460,27 @@ type AdminDialogProps = {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  overlayClassName?: string;
+  shellClassName?: string;
 };
 
-export function AdminDialog({ open, onClose, title, children }: AdminDialogProps) {
+export function AdminDialog({
+  open,
+  onClose,
+  title,
+  children,
+  overlayClassName,
+  shellClassName,
+}: AdminDialogProps) {
   if (!open) return null;
 
   return (
-    <ModalOverlay className="admin-modal-backdrop" isOpen={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <Modal className="admin-modal-shell is-open" isDismissable>
+    <ModalOverlay
+      className={overlayClassName ? `admin-modal-backdrop ${overlayClassName}` : "admin-modal-backdrop"}
+      isOpen={open}
+      onOpenChange={(isOpen) => !isOpen && onClose()}
+    >
+      <Modal className={shellClassName ? `admin-modal-shell ${shellClassName}` : "admin-modal-shell is-open"} isDismissable>
         <Dialog className="admin-modal" aria-label={title}>
           {children}
         </Dialog>
@@ -596,6 +611,7 @@ export function AdminTable<T extends { id: string }>({
                 }
                 return (
                   <td className={className} key={column.id}>
+                    <span className="admin-table-mobile-label">{column.name}</span>
                     {column.render(item)}
                   </td>
                 );

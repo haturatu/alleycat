@@ -88,7 +88,10 @@ export default function AdminPages() {
   return (
     <section>
       <header className="admin-header">
-        <h1>Pages</h1>
+        <div>
+          <p className="admin-eyebrow">Pages</p>
+          <h1>Pages</h1>
+        </div>
         <Link className="admin-primary" to="/pages/new">
           New Page
         </Link>
@@ -107,42 +110,53 @@ export default function AdminPages() {
           if (next) void remove(next);
         }}
       />
-      <div className="admin-toolbar">
-        <AdminTextField
-          ariaLabel="Search pages"
-          className="admin-input"
-          label="Search"
-          value={query}
-          type="search"
-          placeholder="Search title, URL, or slug…"
-          onChange={(value) => {
-            updateParams({ q: value || null, page: null });
-          }}
-        />
-        <AdminSelectField
-          ariaLabel="Rows per page"
-          className="admin-field"
-          label="Rows per page"
-          value={perPage}
-          onChange={(value) => {
-            updateParams({ perPage: Number(value), page: null });
-          }}
-          options={[
-            { value: 20, label: "20 / page" },
-            { value: 50, label: "50 / page" },
-            { value: 100, label: "100 / page" },
-          ]}
-        />
+      <div className="admin-stack">
+        <section className="admin-toolbar admin-toolbar-section">
+          <div className="admin-toolbar-heading">
+            <p className="admin-section-label">Search and filter</p>
+            <p className="admin-toolbar-note">
+              {query.trim()
+                ? `Filtering pages by "${query.trim()}".`
+                : "Search titles, URLs, and slugs to narrow the current structure."}
+            </p>
+          </div>
+          <AdminTextField
+            ariaLabel="Search pages"
+            className="admin-input"
+            label="Search"
+            value={query}
+            type="search"
+            placeholder="Search title, URL, or slug…"
+            onChange={(value) => {
+              updateParams({ q: value || null, page: null });
+            }}
+          />
+          <AdminSelectField
+            ariaLabel="Rows per page"
+            className="admin-field"
+            label="Rows per page"
+            value={perPage}
+            onChange={(value) => {
+              updateParams({ perPage: Number(value), page: null });
+            }}
+            options={[
+              { value: 20, label: "20 / page" },
+              { value: 50, label: "50 / page" },
+              { value: 100, label: "100 / page" },
+            ]}
+          />
+        </section>
       </div>
       <div className="admin-pagination admin-pagination-top">
-        <span>
+        <span className="admin-pagination-label">
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+          <AdminButton className="admin-secondary" disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
             Previous Page
           </AdminButton>
           <AdminButton
+            className="admin-secondary"
             disabled={loading || page >= totalPages}
             onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >
@@ -151,10 +165,20 @@ export default function AdminPages() {
         </div>
       </div>
       {loading ? <p className="admin-note">Loading pages…</p> : null}
-      <AdminTable
-        ariaLabel="Pages"
-        items={pages}
-        columns={[
+      <div className="admin-list-shell">
+        <div className="admin-table-utility">
+          <div className="admin-table-utility-copy">
+            <p className="admin-section-label">Structure</p>
+            <p className="admin-table-selection">{pages.filter((item) => item.menuVisible).length} menu entries visible</p>
+            <p className="admin-note">
+              {query.trim() ? `Filtered by "${query.trim()}".` : `${totalItems} total pages in the current structure.`}
+            </p>
+          </div>
+        </div>
+        <AdminTable
+          ariaLabel="Pages"
+          items={pages}
+          columns={[
           {
             id: "title",
             name: "Title",
@@ -169,12 +193,20 @@ export default function AdminPages() {
           {
             id: "menu",
             name: "Menu",
-            render: (item) => (item.menuVisible ? "Visible" : "Hidden"),
+            render: (item) => (
+              <span className={item.menuVisible ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
+                {item.menuVisible ? "Visible" : "Hidden"}
+              </span>
+            ),
           },
           {
             id: "status",
             name: "Status",
-            render: (item) => (item.published ? "Published" : "Draft"),
+            render: (item) => (
+              <span className={item.published ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
+                {item.published ? "Published" : "Draft"}
+              </span>
+            ),
           },
           {
             id: "actions",
@@ -182,12 +214,15 @@ export default function AdminPages() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete Page</AdminButton>
+                <AdminButton ariaLabel={`Delete ${item.title}`} className="admin-danger-button" onPress={() => setDeleteTargetId(item.id)}>
+                  🗑
+                </AdminButton>
               </div>
             ),
           },
-        ]}
-      />
+          ]}
+        />
+      </div>
       {!loading && !error && pages.length === 0 ? (
         <div className="admin-empty-state">
           <p>No pages match the current filters.</p>
@@ -197,14 +232,15 @@ export default function AdminPages() {
         </div>
       ) : null}
       <div className="admin-pagination admin-pagination-bottom">
-        <span>
+        <span className="admin-pagination-label">
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+          <AdminButton className="admin-secondary" disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
             Previous Page
           </AdminButton>
           <AdminButton
+            className="admin-secondary"
             disabled={loading || page >= totalPages}
             onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >

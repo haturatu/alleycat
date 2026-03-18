@@ -208,90 +208,106 @@ export default function AdminPageEditor() {
   return (
     <section>
       <header className="admin-header">
-        <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
+        <div>
+          <p className="admin-eyebrow">Site Structure</p>
+          <h1>{id === "new" ? "New Page" : "Edit Page"}</h1>
+        </div>
         <SaveButton onClick={save} saving={saving} />
       </header>
       <FormStatusMessage error={error} success={saveMessage} />
-      <div className="admin-form">
-        <TitleSlugFields
-          title={title}
-          slug={slug}
-          slugEditedManually={slugEditedManually}
-          titleError={fieldErrors.title}
-          slugError={fieldErrors.slug}
-          autoDisabled={saving}
-          titleInputRef={titleInputRef}
-          slugInputRef={slugInputRef}
-          onTitleChange={onTitleChange}
-          onSlugChange={onSlugChange}
-          onAutoSlug={onAutoSlug}
-        />
-        <AdminTextField
-          inputRef={urlInputRef}
-          label="URL"
-          value={url}
-          onChange={(next) => {
-            setUrl(next);
-            markDirty();
-            const previewURL = next.trim() || `/${slugify(title)}/`;
-            setFieldError("url", validateURL(previewURL));
-          }}
-          placeholder="/ab/"
-        />
-        {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
-        <AdminCheckboxField
-          label="Show in menu"
-          checked={menuVisible}
-          onChange={(checked) => {
-            setMenuVisible(checked);
-            markDirty();
-          }}
-        />
-        <PublishFields
-          publishedAt={publishedAt}
-          published={published}
-          onPublishedAtChange={onPublishedAtChange}
-          onPublishedChange={onPublishedChange}
-        />
-        <AdminTextField
-          label="Menu order"
-          type="number"
-          value={String(menuOrder)}
-          onChange={(value) => {
-            setMenuOrder(Number(value));
-            markDirty();
-          }}
-        />
-        <AdminTextField
-          label="Menu title"
-          value={menuTitle}
-          onChange={(value) => {
-            setMenuTitle(value);
-            markDirty();
-          }}
-        />
-        <ContentEditorField
-          body={body}
-          markdownBody={markdownBody}
-          editorMode={editorMode}
-          markdownViewMode={markdownViewMode}
-          onBodyChange={(value) => {
-            setBody(value);
-            markDirty();
-            setFieldError("body", validateBody(value));
-          }}
-          onMarkdownBodyChange={(value) => {
-            setMarkdownBody(value);
-            markDirty();
-            setFieldError("body", validateBody(value));
-          }}
-          onEditorModeChange={(mode) => {
-            setEditorMode(mode);
-            markDirty();
-          }}
-          onMarkdownViewModeChange={setMarkdownViewMode}
-        />
-        {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
+      <div className="admin-editor-shell">
+        <div className="admin-editor-main">
+          <div className="admin-form admin-form-section">
+            <p className="admin-section-label">Page content</p>
+            <TitleSlugFields
+              title={title}
+              slug={slug}
+              slugEditedManually={slugEditedManually}
+              titleError={fieldErrors.title}
+              slugError={fieldErrors.slug}
+              autoDisabled={saving}
+              titleInputRef={titleInputRef}
+              slugInputRef={slugInputRef}
+              onTitleChange={onTitleChange}
+              onSlugChange={onSlugChange}
+              onAutoSlug={onAutoSlug}
+            />
+            <AdminTextField
+              inputRef={urlInputRef}
+              label="URL"
+              value={url}
+              onChange={(next) => {
+                setUrl(next);
+                markDirty();
+                const previewURL = next.trim() || `/${slugify(title)}/`;
+                setFieldError("url", validateURL(previewURL));
+              }}
+              placeholder="/ab/"
+            />
+            {fieldErrors.url && <p className="admin-error-inline">{fieldErrors.url}</p>}
+            <ContentEditorField
+              body={body}
+              markdownBody={markdownBody}
+              editorMode={editorMode}
+              markdownViewMode={markdownViewMode}
+              onBodyChange={(value) => {
+                setBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+              onMarkdownBodyChange={(value) => {
+                setMarkdownBody(value);
+                markDirty();
+                setFieldError("body", validateBody(value));
+              }}
+              onEditorModeChange={(mode) => {
+                setEditorMode(mode);
+                markDirty();
+              }}
+              onMarkdownViewModeChange={setMarkdownViewMode}
+            />
+            {fieldErrors.body && <p className="admin-error-inline">{fieldErrors.body}</p>}
+          </div>
+        </div>
+        <aside className="admin-editor-rail">
+          <div className="admin-form admin-form-section">
+            <p className="admin-section-label">Navigation</p>
+            <AdminCheckboxField
+              label="Show in menu"
+              checked={menuVisible}
+              onChange={(checked) => {
+                setMenuVisible(checked);
+                markDirty();
+              }}
+            />
+            <AdminTextField
+              label="Menu order"
+              type="number"
+              value={String(menuOrder)}
+              onChange={(value) => {
+                setMenuOrder(Number(value));
+                markDirty();
+              }}
+            />
+            <AdminTextField
+              label="Menu title"
+              value={menuTitle}
+              onChange={(value) => {
+                setMenuTitle(value);
+                markDirty();
+              }}
+            />
+          </div>
+          <div className="admin-form admin-form-section">
+            <p className="admin-section-label">Publishing</p>
+            <PublishFields
+              publishedAt={publishedAt}
+              published={published}
+              onPublishedAtChange={onPublishedAtChange}
+              onPublishedChange={onPublishedChange}
+            />
+          </div>
+        </aside>
       </div>
     </section>
   );

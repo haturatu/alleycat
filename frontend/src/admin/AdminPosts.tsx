@@ -237,7 +237,10 @@ export default function AdminPosts() {
   return (
     <section>
       <header className="admin-header">
-        <h1>Posts</h1>
+        <div>
+          <p className="admin-eyebrow">Posts</p>
+          <h1>Posts</h1>
+        </div>
         <Link className="admin-primary" to="/posts/new">
           New Post
         </Link>
@@ -273,75 +276,108 @@ export default function AdminPosts() {
           if (next) void remove(next);
         }}
       />
-      <div className="admin-toolbar">
-        <AdminTextField
-          ariaLabel="Search posts"
-          className="admin-input"
-          label="Search"
-          value={query}
-          type="search"
-          placeholder="Search title, slug, tags, or category…"
-          onChange={(value) => {
-            updateParams({ q: value || null, page: null });
-          }}
-        />
-        <AdminSelectField
-          ariaLabel="Rows per page"
-          className="admin-field"
-          label="Rows per page"
-          value={perPage}
-          onChange={(value) => {
-            updateParams({ perPage: Number(value), page: null });
-          }}
-          options={[
-            { value: 20, label: "20 / page" },
-            { value: 50, label: "50 / page" },
-            { value: 100, label: "100 / page" },
-          ]}
-        />
-        <div className="admin-toolbar-actions">
-          <AdminButton
-            className="admin-primary"
-            disabled={bulkLoading || selected.size === 0}
-            onPress={() => {
-              setPendingPublishValue(true);
-              setPublishConfirmOpen(true);
+      <div className="admin-stack">
+        <section className="admin-toolbar admin-toolbar-section">
+          <div className="admin-toolbar-heading">
+            <p className="admin-section-label">Search and filter</p>
+            <p className="admin-toolbar-note">Narrow the queue by title, slug, tags, or category.</p>
+          </div>
+          <AdminTextField
+            ariaLabel="Search posts"
+            className="admin-input"
+            label="Search"
+            value={query}
+            type="search"
+            placeholder="Search title, slug, tags, or category…"
+            onChange={(value) => {
+              updateParams({ q: value || null, page: null });
             }}
-          >
-            Publish Posts
-          </AdminButton>
-          <AdminButton
-            disabled={bulkLoading || selected.size === 0}
-            onPress={() => {
-              setPendingPublishValue(false);
-              setPublishConfirmOpen(true);
+          />
+          <AdminSelectField
+            ariaLabel="Rows per page"
+            className="admin-field"
+            label="Rows per page"
+            value={perPage}
+            onChange={(value) => {
+              updateParams({ perPage: Number(value), page: null });
             }}
-          >
-            Unpublish Posts
-          </AdminButton>
-        </div>
-      </div>
-      <div className="admin-pagination admin-pagination-top">
-        <span>
-          Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
-        </span>
-        <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
-            Previous Page
-          </AdminButton>
-          <AdminButton
-            disabled={loading || page >= totalPages}
-            onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
-          >
-            Next Page
-          </AdminButton>
-        </div>
+            options={[
+              { value: 20, label: "20 / page" },
+              { value: 50, label: "50 / page" },
+              { value: 100, label: "100 / page" },
+            ]}
+          />
+        </section>
+        <section className="admin-toolbar admin-toolbar-section">
+          <div className="admin-toolbar-heading">
+            <p className="admin-section-label">Bulk actions</p>
+            <p className="admin-toolbar-note">
+              {selected.size > 0
+                ? `${selected.size} post(s) selected for publishing changes.`
+                : "Select rows from the table to publish or unpublish in bulk."}
+            </p>
+          </div>
+          <div className="admin-toolbar-actions">
+            <AdminButton
+              className="admin-primary"
+              disabled={bulkLoading || selected.size === 0}
+              onPress={() => {
+                setPendingPublishValue(true);
+                setPublishConfirmOpen(true);
+              }}
+            >
+              Publish Posts
+            </AdminButton>
+            <AdminButton
+              disabled={bulkLoading || selected.size === 0}
+              onPress={() => {
+                setPendingPublishValue(false);
+                setPublishConfirmOpen(true);
+              }}
+            >
+              Unpublish Posts
+            </AdminButton>
+          </div>
+          <p className="admin-inline-status">{selected.size} selected</p>
+        </section>
       </div>
       {loading ? <p className="admin-note">Loading posts…</p> : null}
-      <AdminTable
-        ariaLabel="Posts"
-        items={posts}
-        columns={[
+      <div className="admin-list-shell">
+        <div className="admin-table-utility">
+          <div className="admin-table-utility-copy">
+            <p className="admin-section-label">Selection</p>
+            <p className="admin-table-selection">{selected.size} selected</p>
+            <p className="admin-note">
+              {query.trim() ? `Filtered by "${query.trim()}".` : `${totalItems} total posts in the current queue.`}
+            </p>
+          </div>
+          <div className="admin-toolbar-actions">
+            <AdminButton
+              className="admin-primary"
+              disabled={bulkLoading || selected.size === 0}
+              onPress={() => {
+                setPendingPublishValue(true);
+                setPublishConfirmOpen(true);
+              }}
+            >
+              Publish
+            </AdminButton>
+            <AdminButton
+              className="admin-secondary"
+              disabled={bulkLoading || selected.size === 0}
+              onPress={() => {
+                setPendingPublishValue(false);
+                setPublishConfirmOpen(true);
+              }}
+            >
+              Unpublish
+            </AdminButton>
+          </div>
+        </div>
+        <AdminTable
+          ariaLabel="Posts"
+          items={posts}
+          columns={[
           {
             id: "select",
             className: "admin-table-select-column",
@@ -381,7 +417,11 @@ export default function AdminPosts() {
           {
             id: "status",
             name: "Status",
-            render: (item) => (item.published ? "Published" : "Draft"),
+            render: (item) => (
+              <span className={item.published ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
+                {item.published ? "Published" : "Draft"}
+              </span>
+            ),
           },
           {
             id: "actions",
@@ -389,12 +429,15 @@ export default function AdminPosts() {
             width: "90px",
             render: (item) => (
               <div className="admin-actions">
-                <AdminButton onPress={() => setDeleteTargetId(item.id)}>Delete Post</AdminButton>
+                <AdminButton ariaLabel={`Delete ${item.title}`} className="admin-danger-button" onPress={() => setDeleteTargetId(item.id)}>
+                  🗑
+                </AdminButton>
               </div>
             ),
           },
-        ]}
-      />
+          ]}
+        />
+      </div>
       {!loading && !error && posts.length === 0 ? (
         <div className="admin-empty-state">
           <p>No posts match the current filters.</p>
@@ -404,14 +447,15 @@ export default function AdminPosts() {
         </div>
       ) : null}
       <div className="admin-pagination admin-pagination-bottom">
-        <span>
+        <span className="admin-pagination-label">
           Page {page} / {Math.max(1, totalPages)} ({totalItems} items)
         </span>
         <div className="admin-toolbar-actions">
-          <AdminButton disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
+          <AdminButton className="admin-secondary" disabled={loading || page <= 1} onPress={() => updateParams({ page: page - 1 })}>
             Previous Page
           </AdminButton>
           <AdminButton
+            className="admin-secondary"
             disabled={loading || page >= totalPages}
             onPress={() => updateParams({ page: Math.min(totalPages, page + 1) })}
           >

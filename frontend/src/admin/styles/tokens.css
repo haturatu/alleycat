@@ -1,0 +1,55 @@
+:root {
+  --admin-bg: #f6f2ea;
+  --admin-bg-accent: #efe5d6;
+  --admin-surface: #fffdf9;
+  --admin-surface-muted: rgba(255, 252, 246, 0.72);
+  --admin-ink: #1f1f1f;
+  --admin-ink-soft: #5e564c;
+  --admin-border: rgba(92, 72, 46, 0.18);
+  --admin-border-strong: rgba(76, 54, 28, 0.32);
+  --admin-sidebar: #141311;
+  --admin-sidebar-ink: #f7f2e9;
+  --admin-accent: #8f6d45;
+  --admin-accent-strong: #6e5435;
+  --admin-danger: #b00020;
+  --admin-success: #1f7a34;
+  --admin-shadow-soft: 0 18px 48px rgba(41, 27, 11, 0.08);
+  --admin-shadow-card: 0 10px 30px rgba(32, 20, 8, 0.08);
+  --admin-radius-sm: 8px;
+  --admin-radius-md: 14px;
+  --admin-radius-lg: 24px;
+}
+
+.admin-shell,
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(143, 109, 69, 0.18), transparent 28%),
+    linear-gradient(180deg, var(--admin-bg-accent) 0%, var(--admin-bg) 100%);
+  color: var(--admin-ink);
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes admin-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

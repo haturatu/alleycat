@@ -13,6 +13,7 @@ type TitleSlugFieldsProps = {
   onTitleChange: (value: string) => void;
   onSlugChange: (value: string) => void;
   onAutoSlug: () => void;
+  onToggleSlugMode?: () => void;
 };
 
 export default function TitleSlugFields({
@@ -27,13 +28,21 @@ export default function TitleSlugFields({
   onTitleChange,
   onSlugChange,
   onAutoSlug,
+  onToggleSlugMode,
 }: TitleSlugFieldsProps) {
   return (
     <>
       <AdminTextField inputRef={titleInputRef} label="Title" value={title} onChange={onTitleChange} />
       {titleError && <p className="admin-error-inline">{titleError}</p>}
       <div className="admin-field">
-        <span>Slug</span>
+        <div className="admin-field-head">
+          <span>Slug</span>
+          {onToggleSlugMode ? (
+            <AdminButton type="button" className="admin-secondary" onPress={onToggleSlugMode}>
+              {slugEditedManually ? "Use Auto Slug" : "Lock Slug"}
+            </AdminButton>
+          ) : null}
+        </div>
         <div className="admin-inline">
           <AdminTextField
             ariaLabel="Slug"
@@ -52,7 +61,7 @@ export default function TitleSlugFields({
         <p className="admin-error-inline">{slugError}</p>
       ) : (
         <p className="admin-note">
-          {slugEditedManually ? "Slug is locked (manual)." : "Slug follows title automatically."}
+          {slugEditedManually ? "Manual mode is on. You can switch back to automatic generation." : "Slug follows title automatically until you lock it."}
         </p>
       )}
     </>

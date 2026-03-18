@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ClientResponseError } from "pocketbase";
 import { hasRole, pb } from "../lib/pb";
 import {
-  AdminButton,
   AdminCheckboxField,
   AdminCheckboxGroupField,
   AdminSelectField,
@@ -68,6 +67,49 @@ const defaults = {
 };
 
 type SettingsRecord = typeof defaults & { id?: string };
+
+function SettingsSection({
+  eyebrow,
+  title,
+  note,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  note: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="admin-form admin-settings-section">
+      <div className="admin-settings-section-head">
+        <p className="admin-section-label">{eyebrow}</p>
+        <h2>{title}</h2>
+        <p className="admin-note">{note}</p>
+      </div>
+      <div className="admin-settings-fields">{children}</div>
+    </section>
+  );
+}
+
+function SettingsSubsection({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="admin-settings-subsection">
+      <div className="admin-settings-subsection-head">
+        <h3>{title}</h3>
+        <p className="admin-note">{note}</p>
+      </div>
+      <div className="admin-settings-subgrid">{children}</div>
+    </div>
+  );
+}
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState<SettingsRecord>(defaults);
@@ -202,115 +244,182 @@ export default function AdminSettings() {
   return (
     <section>
       <header className="admin-header">
-        <h1>Settings</h1>
+        <div>
+          <p className="admin-eyebrow">System Configuration</p>
+          <h1>Settings</h1>
+        </div>
         <SaveButton onClick={save} saving={saving} />
       </header>
       <FormStatusMessage error={error} />
-      <div className="admin-form">
-        <AdminTextField label="Site name" value={settings.site_name} onChange={(value) => update("site_name", value)} />
-        <AdminTextField label="Description" value={settings.description} onChange={(value) => update("description", value)} />
-        <AdminTextField label="Welcome text" value={settings.welcome_text} onChange={(value) => update("welcome_text", value)} />
-        <AdminTextField label="Home top image" value={settings.home_top_image} onChange={(value) => update("home_top_image", value)} />
-        <AdminTextField label="Home top image alt" value={settings.home_top_image_alt} onChange={(value) => update("home_top_image_alt", value)} />
-        <AdminTextAreaField label="Footer HTML" value={settings.footer_html} onChange={(value) => update("footer_html", value)} rows={3} />
-        <AdminSelectField
-          label="Theme"
-          value={settings.theme}
-          onChange={(value) => update("theme", value)}
-          disabled={themeLocked}
-          options={[
-            { value: "ember", label: "Ember (default)" },
-            { value: "terminal", label: "Terminal" },
-            { value: "wiki", label: "Wiki" },
-            { value: "docs", label: "Docs" },
-            { value: "minimal", label: "Minimal" },
-          ]}
-        />
-        {themeCheckDone && themeLocked && (
-          <p className="admin-note">Theme selection is disabled because /frontend/public has assets.</p>
-        )}
-        <AdminTextField label="Site URL (feeds)" value={settings.site_url} onChange={(value) => update("site_url", value)} placeholder="https://example.com" />
-        <AdminTextField label="Site language" value={settings.site_language} onChange={(value) => update("site_language", value)} placeholder="ja" />
-        <AdminCheckboxField label="Enable post translation" checked={settings.enable_post_translation} onChange={(checked) => update("enable_post_translation", checked)} />
-        <AdminTextField
-          label="Translation source locale"
-          value={settings.translation_source_locale}
-          onChange={(value) => update("translation_source_locale", value)}
-          placeholder="ja"
-        />
-        <AdminCheckboxGroupField
-          ariaLabel="Translation target locales"
-          label="Translation target locales"
-          values={parseLocales(settings.translation_locales)}
-          onChange={(values) => update("translation_locales", values.join(", "))}
-          options={translationLanguageOptions.map((locale) => ({
-            value: locale,
-            label: locale,
-          }))}
-        />
-        <AdminTextField label="Translation locales (comma separated)" value={settings.translation_locales} onChange={(value) => update("translation_locales", value)} placeholder="en, zh-cn" />
-        <AdminTextField label="Gemini model" value={settings.translation_model} onChange={(value) => update("translation_model", value)} placeholder="gemini-1.5-flash" />
-        <AdminTextField
-          label="Translation requests/minute"
-          type="number"
-          value={String(settings.translation_requests_per_minute)}
-          onChange={(value) => update("translation_requests_per_minute", Number(value))}
-          min={1}
-          max={1000}
-        />
-        {canManageSecrets && (
-          <AdminTextField
-            label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
-            type="password"
-            value={geminiApiKey}
-            onChange={setGeminiApiKey}
-            placeholder="Leave blank to keep current key"
+      <div className="admin-summary-grid admin-settings-summary">
+        <article className="admin-summary-card">
+          <span className="admin-summary-label">Theme</span>
+          <strong>{settings.theme}</strong>
+          <p>{themeLocked ? "Theme files are locked by public assets." : "Theme can be changed from this workspace."}</p>
+        </article>
+        <article className="admin-summary-card">
+          <span className="admin-summary-label">Translation</span>
+          <strong>{settings.enable_post_translation ? "On" : "Off"}</strong>
+          <p>{parseLocales(settings.translation_locales).length} target locale(s) configured for post generation.</p>
+        </article>
+        <article className="admin-summary-card">
+          <span className="admin-summary-label">Distribution</span>
+          <strong>{settings.enable_feed_xml || settings.enable_feed_json ? "Feeds live" : "Feeds off"}</strong>
+          <p>RSS, JSON Feed, and archive sizing are managed from the same control plane.</p>
+        </article>
+      </div>
+      <div className="admin-settings-shell">
+        <SettingsSection
+          eyebrow="Identity"
+          title="Site Foundation"
+          note="Brand, welcome copy, and core presentation settings for the public-facing site."
+        >
+          <AdminTextField label="Site name" value={settings.site_name} onChange={(value) => update("site_name", value)} />
+          <AdminTextField label="Description" value={settings.description} onChange={(value) => update("description", value)} />
+          <AdminTextField label="Welcome text" value={settings.welcome_text} onChange={(value) => update("welcome_text", value)} />
+          <AdminTextField label="Site URL (feeds)" value={settings.site_url} onChange={(value) => update("site_url", value)} placeholder="https://example.com" />
+          <AdminTextField label="Site language" value={settings.site_language} onChange={(value) => update("site_language", value)} placeholder="ja" />
+          <AdminTextField label="Home top image" value={settings.home_top_image} onChange={(value) => update("home_top_image", value)} />
+          <AdminTextField label="Home top image alt" value={settings.home_top_image_alt} onChange={(value) => update("home_top_image_alt", value)} />
+          <AdminTextAreaField label="Footer HTML" value={settings.footer_html} onChange={(value) => update("footer_html", value)} rows={3} />
+          <AdminSelectField
+            label="Theme"
+            value={settings.theme}
+            onChange={(value) => update("theme", value)}
+            disabled={themeLocked}
+            options={[
+              { value: "ember", label: "Ember (default)" },
+              { value: "terminal", label: "Terminal" },
+              { value: "wiki", label: "Wiki" },
+              { value: "docs", label: "Docs" },
+              { value: "minimal", label: "Minimal" },
+            ]}
           />
-        )}
-        <AdminTextField label="Feed items limit" type="number" value={String(settings.feed_items_limit)} onChange={(value) => update("feed_items_limit", Number(value))} />
-        <AdminCheckboxField label="Enable RSS/Atom feed" checked={settings.enable_feed_xml} onChange={(checked) => update("enable_feed_xml", checked)} />
-        <AdminCheckboxField label="Enable JSON feed" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />
-        <AdminCheckboxField label="Enable code highlight" checked={settings.enable_code_highlight} onChange={(checked) => update("enable_code_highlight", checked)} />
-        <AdminSelectField
-          label="Highlight theme"
-          value={settings.highlight_theme}
-          onChange={(value) => update("highlight_theme", value)}
-          options={[
-            { value: "github-dark", label: "github-dark" },
-            { value: "github", label: "github" },
-            { value: "atom-one-dark", label: "atom-one-dark" },
-            { value: "atom-one-light", label: "atom-one-light" },
-            { value: "monokai", label: "monokai" },
-            { value: "tokyo-night-dark", label: "tokyo-night-dark" },
-            { value: "tokyo-night-light", label: "tokyo-night-light" },
-            { value: "solarized-dark", label: "solarized-dark" },
-            { value: "solarized-light", label: "solarized-light" },
-            { value: "dracula", label: "dracula" },
-            { value: "vs", label: "vs" },
-          ]}
-        />
-        <AdminTextField label="Home page size" type="number" value={String(settings.home_page_size)} onChange={(value) => update("home_page_size", Number(value))} />
-        <AdminTextField label="Archive page size" type="number" value={String(settings.archive_page_size)} onChange={(value) => update("archive_page_size", Number(value))} />
-        <AdminTextField label="Excerpt length (0 = manual)" type="number" value={String(settings.excerpt_length)} onChange={(value) => update("excerpt_length", Number(value))} />
-        <AdminCheckboxField label="Show table of contents" checked={settings.show_toc} onChange={(checked) => update("show_toc", checked)} />
-        <AdminCheckboxField label="Show archive tags" checked={settings.show_archive_tags} onChange={(checked) => update("show_archive_tags", checked)} />
-        <AdminCheckboxField label="Show tags" checked={settings.show_tags} onChange={(checked) => update("show_tags", checked)} />
-        <AdminCheckboxField label="Show categories" checked={settings.show_categories} onChange={(checked) => update("show_categories", checked)} />
-        <AdminCheckboxField label="Show related posts" checked={settings.show_related_posts} onChange={(checked) => update("show_related_posts", checked)} />
-        <AdminCheckboxField label="Show archive search slot" checked={settings.show_archive_search} onChange={(checked) => update("show_archive_search", checked)} />
-        <AdminCheckboxField label="Enable analytics" checked={settings.enable_analytics} onChange={(checked) => update("enable_analytics", checked)} />
-        <AdminTextField label="Analytics URL" value={settings.analytics_url} onChange={(value) => update("analytics_url", value)} />
-        <AdminTextField label="Analytics site id" value={settings.analytics_site_id} onChange={(value) => update("analytics_site_id", value)} />
-        <AdminCheckboxField label="Enable ads" checked={settings.enable_ads} onChange={(checked) => update("enable_ads", checked)} />
-        <AdminTextField label="Ads client" value={settings.ads_client} onChange={(value) => update("ads_client", value)} />
-        <AdminCheckboxField label="Enable comments" checked={settings.enable_comments} onChange={(checked) => update("enable_comments", checked)} />
-        <AdminTextAreaField
-          label="Comment script tag (utterances/giscus)"
-          value={settings.comments_script_tag}
-          onChange={(value) => update("comments_script_tag", value)}
-          rows={4}
-          placeholder={`<script src="https://utteranc.es/client.js" repo="owner/repo" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>`}
-        />
+          {themeCheckDone && themeLocked && (
+            <p className="admin-note admin-settings-inline-note">
+              Theme selection is disabled because `/frontend/public` has custom assets.
+            </p>
+          )}
+        </SettingsSection>
+
+        <SettingsSection
+          eyebrow="Automation"
+          title="Translation Pipeline"
+          note="Control source locale, target locales, generation model, and request pacing."
+        >
+          <AdminCheckboxField label="Enable post translation" checked={settings.enable_post_translation} onChange={(checked) => update("enable_post_translation", checked)} />
+          <AdminTextField
+            label="Translation source locale"
+            value={settings.translation_source_locale}
+            onChange={(value) => update("translation_source_locale", value)}
+            placeholder="ja"
+          />
+          <AdminCheckboxGroupField
+            ariaLabel="Translation target locales"
+            label="Translation target locales"
+            values={parseLocales(settings.translation_locales)}
+            onChange={(values) => update("translation_locales", values.join(", "))}
+            className="admin-settings-locales"
+            options={translationLanguageOptions.map((locale) => ({
+              value: locale,
+              label: locale,
+            }))}
+          />
+          <AdminTextField label="Translation locales (comma separated)" value={settings.translation_locales} onChange={(value) => update("translation_locales", value)} placeholder="en, zh-cn" />
+          <AdminTextField label="Gemini model" value={settings.translation_model} onChange={(value) => update("translation_model", value)} placeholder="gemini-1.5-flash" />
+          <AdminTextField
+            label="Translation requests/minute"
+            type="number"
+            value={String(settings.translation_requests_per_minute)}
+            onChange={(value) => update("translation_requests_per_minute", Number(value))}
+            min={1}
+            max={1000}
+          />
+          {canManageSecrets && (
+            <AdminTextField
+              label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
+              type="password"
+              value={geminiApiKey}
+              onChange={setGeminiApiKey}
+              placeholder={hasGeminiApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
+            />
+          )}
+        </SettingsSection>
+
+        <SettingsSection
+          eyebrow="Publishing"
+          title="Reader Experience"
+          note="Tune archive density, excerpts, code presentation, and content scaffolding."
+        >
+          <div className="admin-settings-fields admin-settings-fields-single">
+            <SettingsSubsection title="Archive" note="Controls that shape archive listings and discovery surfaces.">
+              <AdminTextField label="Home page size" type="number" value={String(settings.home_page_size)} onChange={(value) => update("home_page_size", Number(value))} />
+              <AdminTextField label="Archive page size" type="number" value={String(settings.archive_page_size)} onChange={(value) => update("archive_page_size", Number(value))} />
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show archive tags</strong><small>Display tag groupings on archive pages.</small></span>} checked={settings.show_archive_tags} onChange={(checked) => update("show_archive_tags", checked)} />
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show archive search slot</strong><small>Expose search controls inside archive listings.</small></span>} checked={settings.show_archive_search} onChange={(checked) => update("show_archive_search", checked)} />
+            </SettingsSubsection>
+            <SettingsSubsection title="Post page" note="Elements that appear while reading an individual post.">
+              <AdminTextField label="Excerpt length (0 = manual)" type="number" value={String(settings.excerpt_length)} onChange={(value) => update("excerpt_length", Number(value))} />
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show table of contents</strong><small>Display a heading index for longer posts.</small></span>} checked={settings.show_toc} onChange={(checked) => update("show_toc", checked)} />
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show tags</strong><small>Display tags on post pages.</small></span>} checked={settings.show_tags} onChange={(checked) => update("show_tags", checked)} />
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show related posts</strong><small>Suggest additional reading at the end of a post.</small></span>} checked={settings.show_related_posts} onChange={(checked) => update("show_related_posts", checked)} />
+            </SettingsSubsection>
+            <SettingsSubsection title="Discovery" note="Taxonomy and navigation aids that help readers browse further.">
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Show categories</strong><small>Expose category labels and navigation paths.</small></span>} checked={settings.show_categories} onChange={(checked) => update("show_categories", checked)} />
+            </SettingsSubsection>
+            <SettingsSubsection title="Code display" note="Syntax highlighting and formatting for technical writing.">
+              <AdminCheckboxField className="admin-check admin-setting-toggle" label={<span><strong>Enable code highlight</strong><small>Apply syntax coloring to fenced code blocks.</small></span>} checked={settings.enable_code_highlight} onChange={(checked) => update("enable_code_highlight", checked)} />
+              <AdminSelectField
+                label="Highlight theme"
+                value={settings.highlight_theme}
+                onChange={(value) => update("highlight_theme", value)}
+                options={[
+                  { value: "github-dark", label: "github-dark" },
+                  { value: "github", label: "github" },
+                  { value: "atom-one-dark", label: "atom-one-dark" },
+                  { value: "atom-one-light", label: "atom-one-light" },
+                  { value: "monokai", label: "monokai" },
+                  { value: "tokyo-night-dark", label: "tokyo-night-dark" },
+                  { value: "tokyo-night-light", label: "tokyo-night-light" },
+                  { value: "solarized-dark", label: "solarized-dark" },
+                  { value: "solarized-light", label: "solarized-light" },
+                  { value: "dracula", label: "dracula" },
+                  { value: "vs", label: "vs" },
+                ]}
+              />
+            </SettingsSubsection>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection
+          eyebrow="Distribution"
+          title="Feeds And Syndication"
+          note="Manage feed output and the amount of content exposed to external readers and indexers."
+        >
+          <AdminTextField label="Feed items limit" type="number" value={String(settings.feed_items_limit)} onChange={(value) => update("feed_items_limit", Number(value))} />
+          <AdminCheckboxField label="Enable RSS/Atom feed" checked={settings.enable_feed_xml} onChange={(checked) => update("enable_feed_xml", checked)} />
+          <AdminCheckboxField label="Enable JSON feed" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />
+        </SettingsSection>
+
+        <SettingsSection
+          eyebrow="Integrations"
+          title="Analytics, Ads, And Comments"
+          note="Third-party scripts and measurement tools live here so they stay separate from editorial controls."
+        >
+          <AdminCheckboxField label="Enable analytics" checked={settings.enable_analytics} onChange={(checked) => update("enable_analytics", checked)} />
+          <AdminTextField label="Analytics URL" value={settings.analytics_url} onChange={(value) => update("analytics_url", value)} />
+          <AdminTextField label="Analytics site id" value={settings.analytics_site_id} onChange={(value) => update("analytics_site_id", value)} />
+          <AdminCheckboxField label="Enable ads" checked={settings.enable_ads} onChange={(checked) => update("enable_ads", checked)} />
+          <AdminTextField label="Ads client" value={settings.ads_client} onChange={(value) => update("ads_client", value)} />
+          <AdminCheckboxField label="Enable comments" checked={settings.enable_comments} onChange={(checked) => update("enable_comments", checked)} />
+          <AdminTextAreaField
+            label="Comment script tag (utterances/giscus)"
+            value={settings.comments_script_tag}
+            onChange={(value) => update("comments_script_tag", value)}
+            rows={4}
+            placeholder={`<script src="https://utteranc.es/client.js" repo="owner/repo" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>`}
+          />
+        </SettingsSection>
       </div>
     </section>
   );

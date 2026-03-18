@@ -1,0 +1,94 @@
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 19, 17, 0.45);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.admin-modal-shell {
+  width: min(640px, 100%);
+}
+
+.admin-modal {
+  width: 100%;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 252, 247, 0.98));
+}
+
+.admin-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-modal-body {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+@media (max-width: 960px) {
+  .admin-modal-backdrop {
+    padding: 14px;
+  }
+
+  .admin-modal {
+    padding: 18px;
+  }
+
+  .admin-modal-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.admin-modal-close {
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: var(--admin-radius-sm);
+}
+
+.admin-icon-button {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.admin-select-popover {
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+}
+
+.admin-select-list {
+  display: grid;
+}
+
+.admin-select-option {
+  padding: 10px 12px;
+}
+
+.admin-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.admin-status-label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-ink-soft);
+  margin-bottom: 6px;
+}
