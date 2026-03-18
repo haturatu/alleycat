@@ -1,7 +1,7 @@
-@import "./tokens.css";
-@import "./layout.css";
-@import "./surfaces.css";
-@import "./forms.css";
-@import "./tables.css";
-@import "./editor.css";
-@import "./modals.css";
+@import url("./tokens.css");
+@import url("./layout.css");
+@import url("./surfaces.css");
+@import url("./forms.css");
+@import url("./tables.css");
+@import url("./editor.css");
+@import url("./modals.css");

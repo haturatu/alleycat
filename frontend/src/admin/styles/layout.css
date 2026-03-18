@@ -34,8 +34,8 @@
   position: sticky;
   top: 0;
   min-height: 100vh;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+  border-right: 1px solid rgb(255 255 255 / 6%);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 3%);
 }
 
 .admin-sidebar-mobile {
@@ -60,7 +60,7 @@
   display: grid;
   gap: 12px;
   padding: 4px 6px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
   margin-bottom: 8px;
 }
 
@@ -69,7 +69,7 @@
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(247, 242, 233, 0.66);
+  color: rgb(247 242 233 / 66%);
 }
 
 .admin-brand-note,
@@ -80,7 +80,7 @@
 }
 
 .admin-brand-note {
-  color: rgba(247, 242, 233, 0.72);
+  color: rgb(247 242 233 / 72%);
   max-width: 20ch;
   font-size: 0.82rem;
 }
@@ -111,8 +111,8 @@
 
 .admin-sidebar a.is-current {
   font-weight: 700;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  background: rgb(255 255 255 / 3%);
   box-shadow: inset 2px 0 0 var(--admin-accent);
   text-decoration: none;
 }
@@ -127,7 +127,7 @@
   min-height: 100vh;
   min-width: 0;
   transition: transform 0.2s ease;
-  background: rgba(252, 252, 253, 0.92);
+  background: rgb(252 252 253 / 92%);
 }
 
 .admin-main-chrome {
@@ -137,7 +137,7 @@
   padding: 0 0 16px;
   border-radius: 0;
   border: none;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
   background: transparent;
   box-shadow: none;
   animation: admin-rise-in 0.4s ease both;
@@ -183,35 +183,6 @@
   text-overflow: ellipsis;
 }
 
-.admin-mobile-nav .admin-brand {
-  display: none !important;
-}
-
-.admin-mobile-nav .admin-nav a,
-.admin-mobile-nav .admin-nav .admin-ghost {
-  color: var(--admin-ink);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  width: 100%;
-  min-width: 0;
-  display: flex;
-  justify-content: space-between;
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 600;
-  min-height: 52px;
-  border-radius: 0;
-  padding: 14px 0;
-}
-
-.admin-mobile-nav .admin-nav a.is-current {
-  background: transparent;
-  border-color: rgba(15, 23, 42, 0.14);
-  box-shadow: inset 4px 0 0 var(--admin-accent);
-  padding-left: 12px;
-}
-
 .admin-stack {
   display: grid;
   gap: 14px;
@@ -231,7 +202,7 @@
   margin: 0 0 0 auto;
   padding: 10px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid rgb(15 23 42 / 8%);
   background: var(--admin-surface);
   color: var(--admin-ink-soft);
   font-size: 0.9rem;
@@ -249,13 +220,41 @@
   min-height: 38px;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 999px;
   border: 1px solid transparent;
   background: var(--admin-surface-container);
   color: var(--admin-ink-soft);
   text-decoration: none;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 0 0 1px rgb(15 23 42 / 8%);
   border-radius: 10px;
+}
+
+.admin-mobile-nav .admin-brand {
+  display: none !important;
+}
+
+.admin-mobile-nav .admin-nav a,
+.admin-mobile-nav .admin-nav .admin-ghost {
+  color: var(--admin-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  min-height: 52px;
+  border-radius: 0;
+  padding: 14px 0;
+}
+
+.admin-mobile-nav .admin-nav a.is-current {
+  background: transparent;
+  border-color: rgb(15 23 42 / 14%);
+  box-shadow: inset 4px 0 0 var(--admin-accent);
+  padding-left: 12px;
 }
 
 .admin-header-actions {
@@ -272,8 +271,8 @@
   margin-bottom: 14px;
   padding: 14px 16px;
   border-radius: var(--admin-radius-sm);
-  border: 1px solid rgba(79, 107, 255, 0.14);
-  background: rgba(79, 107, 255, 0.06);
+  border: 1px solid rgb(79 107 255 / 14%);
+  background: rgb(79 107 255 / 6%);
   box-shadow: none;
 }
 
@@ -303,8 +302,8 @@
   padding: 40px;
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 32%),
-    radial-gradient(circle at top right, rgba(79, 107, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgb(255 255 255 / 6%), transparent 32%),
+    radial-gradient(circle at top right, rgb(79 107 255 / 14%), transparent 32%),
     var(--admin-sidebar);
   color: var(--admin-sidebar-ink);
   box-shadow: var(--admin-shadow-card);
@@ -312,7 +311,7 @@
 }
 
 .admin-login-story .admin-eyebrow {
-  color: rgba(247, 242, 233, 0.74);
+  color: rgb(247 242 233 / 74%);
 }
 
 .admin-login-story h1 {
@@ -326,14 +325,14 @@
 .admin-login-copy {
   margin: 0;
   max-width: 42ch;
-  color: rgba(247, 242, 233, 0.78);
+  color: rgb(247 242 233 / 78%);
   line-height: 1.65;
 }
 
 .admin-login-kicker {
   margin: 0;
   max-width: 34ch;
-  color: rgba(247, 242, 233, 0.62);
+  color: rgb(247 242 233 / 62%);
   font-size: 0.95rem;
   line-height: 1.6;
 }
@@ -384,7 +383,7 @@
   z-index: 4;
   padding: 14px 0 18px;
   margin-bottom: 22px;
-  background: linear-gradient(180deg, rgba(247, 248, 250, 0.96), rgba(247, 248, 250, 0.82) 72%, transparent);
+  background: linear-gradient(180deg, rgb(247 248 250 / 96%), rgb(247 248 250 / 82%) 72%, transparent);
   backdrop-filter: blur(10px);
 }
 
@@ -413,8 +412,8 @@
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgb(15 23 42 / 8%);
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
 }
 
 .admin-list-strip {
@@ -433,7 +432,7 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 12px 0 0;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgb(15 23 42 / 8%);
 }
 
 .admin-pagination-label {
@@ -450,7 +449,7 @@
   margin-top: 16px;
 }
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .admin-shell {
     grid-template-columns: 1fr;
     height: auto;
@@ -469,7 +468,7 @@
   .admin-drawer-backdrop {
     justify-items: start;
     padding: 0;
-    background: rgba(15, 23, 42, 0.36);
+    background: rgb(15 23 42 / 36%);
   }
 
   .admin-drawer-shell {
@@ -486,8 +485,7 @@
     padding: 18px 20px 28px;
     width: 100%;
     box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden auto;
     -webkit-overflow-scrolling: touch;
   }
 

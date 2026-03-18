@@ -37,7 +37,7 @@
   color: var(--admin-ink-soft);
   background: transparent;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
 }
 
 .admin-table-select-column {
@@ -54,12 +54,12 @@
 }
 
 .admin-table tbody tr {
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  border-bottom: 1px solid rgb(15 23 42 / 6%);
   transition: background-color 0.15s ease;
 }
 
 .admin-table tbody tr:hover {
-  background: rgba(79, 107, 255, 0.035);
+  background: rgb(79 107 255 / 3.5%);
 }
 
 .admin-table tbody tr:last-child {
@@ -81,14 +81,6 @@
   white-space: nowrap;
 }
 
-.admin-table-status-column .admin-status-badge {
-  white-space: nowrap;
-}
-
-.admin-table td:nth-child(2) a {
-  font-weight: 600;
-}
-
 .admin-table-title {
   display: grid;
   gap: 5px;
@@ -99,11 +91,16 @@
   display: -webkit-box;
   overflow: hidden;
   max-width: 100%;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: normal;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.45;
+}
+
+.admin-table td:nth-child(2) a {
+  font-weight: 600;
 }
 
 .admin-table-subline {
@@ -138,13 +135,19 @@
   padding: 10px 0;
 }
 
+.admin-actions button:focus-visible {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px rgb(91 108 255 / 14%);
+}
+
 .admin-danger-button {
   width: 40px;
   min-width: 40px;
   justify-content: center;
   padding: 0;
   border-radius: 10px;
-  background: rgba(186, 26, 26, 0.06);
+  background: rgb(186 26 26 / 6%);
 }
 
 .admin-status-badge {
@@ -157,13 +160,17 @@
   font-weight: 600;
 }
 
+.admin-table-status-column .admin-status-badge {
+  white-space: nowrap;
+}
+
 .admin-status-badge.is-published {
-  background: rgba(22, 163, 74, 0.1);
+  background: rgb(22 163 74 / 10%);
   color: #166534;
 }
 
 .admin-status-badge.is-draft {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgb(148 163 184 / 18%);
   color: var(--admin-ink-soft);
 }
 
@@ -178,7 +185,7 @@
   gap: 12px;
   padding: 0 0 14px;
   border: none;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
   border-radius: 0;
   background: transparent;
 }
@@ -198,9 +205,9 @@
   z-index: 3;
   padding: 10px 0 14px;
   border: none;
-  border-bottom: 1px solid rgba(79, 107, 255, 0.18);
+  border-bottom: 1px solid rgb(79 107 255 / 18%);
   border-radius: 0;
-  background: linear-gradient(180deg, rgba(252, 252, 253, 0.96), rgba(252, 252, 253, 0.88));
+  background: linear-gradient(180deg, rgb(252 252 253 / 96%), rgb(252 252 253 / 88%));
 }
 
 .admin-table-selection {
@@ -211,10 +218,10 @@
 }
 
 .admin-list-shell .admin-table-wrap {
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgb(15 23 42 / 8%);
 }
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .admin-table-wrap {
     overflow: visible;
     border: none;
@@ -258,7 +265,7 @@
     min-width: 0;
     overflow: visible;
     border: none;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgb(15 23 42 / 8%);
     border-radius: 0;
     background: transparent;
     box-shadow: none;
@@ -302,7 +309,7 @@
     flex-direction: column;
     align-items: stretch;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgb(15 23 42 / 8%);
     border-radius: 0;
   }
 }

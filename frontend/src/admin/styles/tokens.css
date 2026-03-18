@@ -1,23 +1,23 @@
 :root {
   --admin-bg: #fcfcfd;
   --admin-bg-accent: #f5f7fb;
-  --admin-surface: #ffffff;
+  --admin-surface: #fff;
   --admin-surface-muted: #f3f5f8;
   --admin-surface-container: #f8fafc;
   --admin-surface-container-high: #f3f4f6;
   --admin-surface-container-highest: #e5e7eb;
   --admin-ink: #111827;
   --admin-ink-soft: #6b7280;
-  --admin-border: rgba(15, 23, 42, 0.09);
-  --admin-border-strong: rgba(15, 23, 42, 0.16);
+  --admin-border: rgb(15 23 42 / 9%);
+  --admin-border-strong: rgb(15 23 42 / 16%);
   --admin-sidebar: #0f172a;
   --admin-sidebar-ink: #f8fafc;
   --admin-accent: #4f6bff;
   --admin-accent-strong: #3551f3;
   --admin-danger: #ba1a1a;
   --admin-success: #386a20;
-  --admin-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --admin-shadow-card: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --admin-shadow-soft: 0 1px 2px rgb(15 23 42 / 4%);
+  --admin-shadow-card: 0 8px 24px rgb(15 23 42 / 6%);
   --admin-radius-sm: 8px;
   --admin-radius-md: 12px;
   --admin-radius-lg: 18px;
@@ -33,12 +33,11 @@ body {
 }
 
 body {
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden auto;
   -webkit-overflow-scrolling: touch;
   background:
-    radial-gradient(circle at top left, rgba(79, 107, 255, 0.03), transparent 18%),
-    radial-gradient(circle at top right, rgba(148, 163, 184, 0.05), transparent 18%),
+    radial-gradient(circle at top left, rgb(79 107 255 / 3%), transparent 18%),
+    radial-gradient(circle at top right, rgb(148 163 184 / 5%), transparent 18%),
     linear-gradient(180deg, var(--admin-bg-accent) 0%, var(--admin-bg) 100%);
   color: var(--admin-ink);
 }
