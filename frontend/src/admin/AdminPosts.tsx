@@ -280,7 +280,11 @@ export default function AdminPosts() {
         <section className="admin-toolbar admin-toolbar-section">
           <div className="admin-toolbar-heading">
             <p className="admin-section-label">Search and filter</p>
-            <p className="admin-toolbar-note">Narrow the queue by title, slug, tags, or category.</p>
+            <p className="admin-toolbar-note">
+              {query.trim()
+                ? `Filtering posts by "${query.trim()}".`
+                : "Narrow the queue by title, slug, tags, or category."}
+            </p>
           </div>
           <AdminTextField
             ariaLabel="Search posts"
@@ -308,71 +312,47 @@ export default function AdminPosts() {
             ]}
           />
         </section>
-        <section className="admin-toolbar admin-toolbar-section">
-          <div className="admin-toolbar-heading">
-            <p className="admin-section-label">Bulk actions</p>
-            <p className="admin-toolbar-note">
-              {selected.size > 0
-                ? `${selected.size} post(s) selected for publishing changes.`
-                : "Select rows from the table to publish or unpublish in bulk."}
-            </p>
-          </div>
-          <div className="admin-toolbar-actions">
-            <AdminButton
-              className="admin-primary"
-              disabled={bulkLoading || selected.size === 0}
-              onPress={() => {
-                setPendingPublishValue(true);
-                setPublishConfirmOpen(true);
-              }}
-            >
-              Publish Posts
-            </AdminButton>
-            <AdminButton
-              disabled={bulkLoading || selected.size === 0}
-              onPress={() => {
-                setPendingPublishValue(false);
-                setPublishConfirmOpen(true);
-              }}
-            >
-              Unpublish Posts
-            </AdminButton>
-          </div>
-          <p className="admin-inline-status">{selected.size} selected</p>
-        </section>
       </div>
       {loading ? <p className="admin-note">Loading posts…</p> : null}
       <div className="admin-list-shell">
-        <div className="admin-table-utility">
+        <div className={`admin-table-utility ${selected.size > 0 ? "is-active" : "is-passive"}`}>
           <div className="admin-table-utility-copy">
-            <p className="admin-section-label">Selection</p>
-            <p className="admin-table-selection">{selected.size} selected</p>
+            <p className="admin-section-label">Queue</p>
+            <p className="admin-table-selection">
+              {selected.size > 0 ? `${selected.size} selected` : `${totalItems} posts`}
+            </p>
             <p className="admin-note">
-              {query.trim() ? `Filtered by "${query.trim()}".` : `${totalItems} total posts in the current queue.`}
+              {selected.size > 0
+                ? "Publish or unpublish the selected rows."
+                : query.trim()
+                  ? `Showing matches for "${query.trim()}".`
+                  : "Select rows to change visibility in bulk."}
             </p>
           </div>
-          <div className="admin-toolbar-actions">
-            <AdminButton
-              className="admin-primary"
-              disabled={bulkLoading || selected.size === 0}
-              onPress={() => {
-                setPendingPublishValue(true);
-                setPublishConfirmOpen(true);
-              }}
-            >
-              Publish
-            </AdminButton>
-            <AdminButton
-              className="admin-secondary"
-              disabled={bulkLoading || selected.size === 0}
-              onPress={() => {
-                setPendingPublishValue(false);
-                setPublishConfirmOpen(true);
-              }}
-            >
-              Unpublish
-            </AdminButton>
-          </div>
+          {selected.size > 0 ? (
+            <div className="admin-toolbar-actions">
+              <AdminButton
+                className="admin-primary"
+                disabled={bulkLoading}
+                onPress={() => {
+                  setPendingPublishValue(true);
+                  setPublishConfirmOpen(true);
+                }}
+              >
+                Publish
+              </AdminButton>
+              <AdminButton
+                className="admin-secondary"
+                disabled={bulkLoading}
+                onPress={() => {
+                  setPendingPublishValue(false);
+                  setPublishConfirmOpen(true);
+                }}
+              >
+                Unpublish
+              </AdminButton>
+            </div>
+          ) : null}
         </div>
         <AdminTable
           ariaLabel="Posts"
@@ -406,17 +386,29 @@ export default function AdminPosts() {
           {
             id: "title",
             name: "Title",
+            mobileLabel: "Title",
             isRowHeader: true,
-            render: (item) => <Link to={`/posts/${item.id}`}>{item.title}</Link>,
+            render: (item) => (
+              <div className="admin-table-title">
+                <Link to={`/posts/${item.id}`}>{item.title}</Link>
+                <span className="admin-table-subline">/{item.slug || item.id}/</span>
+              </div>
+            ),
           },
           {
             id: "date",
             name: "Date",
-            render: (item) => formatDate(item.published_at),
+            mobileLabel: "Date",
+            className: "admin-table-meta-column",
+            width: "104px",
+            render: (item) => formatDate(item.published_at) || "Not scheduled",
           },
           {
             id: "status",
             name: "Status",
+            mobileLabel: "Status",
+            className: "admin-table-status-column",
+            width: "126px",
             render: (item) => (
               <span className={item.published ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
                 {item.published ? "Published" : "Draft"}
@@ -425,8 +417,9 @@ export default function AdminPosts() {
           },
           {
             id: "actions",
-            name: "Actions",
-            width: "90px",
+            name: "Action",
+            mobileLabel: "Action",
+            width: "72px",
             render: (item) => (
               <div className="admin-actions">
                 <AdminButton ariaLabel={`Delete ${item.title}`} className="admin-danger-button" onPress={() => setDeleteTargetId(item.id)}>

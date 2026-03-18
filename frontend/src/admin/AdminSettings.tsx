@@ -69,18 +69,20 @@ const defaults = {
 type SettingsRecord = typeof defaults & { id?: string };
 
 function SettingsSection({
+  id,
   eyebrow,
   title,
   note,
   children,
 }: {
+  id: string;
   eyebrow: string;
   title: string;
   note: string;
   children: ReactNode;
 }) {
   return (
-    <section className="admin-form admin-settings-section">
+    <section className="admin-form admin-settings-section" id={id}>
       <div className="admin-settings-section-head">
         <p className="admin-section-label">{eyebrow}</p>
         <h2>{title}</h2>
@@ -120,6 +122,7 @@ export default function AdminSettings() {
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
   const canManageSecrets = hasRole(["admin"]);
 
   useAdminPageTitle("Settings");
@@ -148,6 +151,7 @@ export default function AdminSettings() {
           }
         }
         setLoading(false);
+        setDirty(false);
       }
     };
     load();
@@ -172,6 +176,7 @@ export default function AdminSettings() {
 
   const update = (key: keyof SettingsRecord, value: string | number | boolean) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
   };
 
   const parseLocales = (value: string) =>
@@ -203,6 +208,7 @@ export default function AdminSettings() {
       delete payload.id;
       const updated = await pb.collection("settings").update(settingsId, payload);
       setSettings({ ...defaults, ...updated });
+      setDirty(false);
 
       const trimmedGeminiKey = geminiApiKey.trim();
       if (canManageSecrets && trimmedGeminiKey !== "") {
@@ -218,6 +224,7 @@ export default function AdminSettings() {
         }
         setGeminiApiKey("");
         setHasGeminiApiKey(true);
+        setDirty(false);
       }
     } catch (err) {
       if (err instanceof ClientResponseError) {
@@ -250,6 +257,22 @@ export default function AdminSettings() {
         </div>
         <SaveButton onClick={save} saving={saving} />
       </header>
+      <div className="admin-settings-nav" aria-label="Settings sections">
+        <a href="#settings-foundation">Foundation</a>
+        <a href="#settings-translation">Translation</a>
+        <a href="#settings-reader">Reader</a>
+        <a href="#settings-distribution">Distribution</a>
+        <a href="#settings-integrations">Integrations</a>
+      </div>
+      {dirty ? (
+        <div className="admin-unsaved-banner">
+          <div>
+            <p className="admin-section-label">Unsaved Changes</p>
+            <p className="admin-note">Settings have changed. Save when you are ready.</p>
+          </div>
+          <SaveButton onClick={save} saving={saving} />
+        </div>
+      ) : null}
       <FormStatusMessage error={error} />
       <div className="admin-summary-grid admin-settings-summary">
         <article className="admin-summary-card">
@@ -270,6 +293,7 @@ export default function AdminSettings() {
       </div>
       <div className="admin-settings-shell">
         <SettingsSection
+          id="settings-foundation"
           eyebrow="Identity"
           title="Site Foundation"
           note="Brand, welcome copy, and core presentation settings for the public-facing site."
@@ -303,6 +327,7 @@ export default function AdminSettings() {
         </SettingsSection>
 
         <SettingsSection
+          id="settings-translation"
           eyebrow="Automation"
           title="Translation Pipeline"
           note="Control source locale, target locales, generation model, and request pacing."
@@ -340,13 +365,17 @@ export default function AdminSettings() {
               label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
               type="password"
               value={geminiApiKey}
-              onChange={setGeminiApiKey}
+              onChange={(value) => {
+                setGeminiApiKey(value);
+                setDirty(true);
+              }}
               placeholder={hasGeminiApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
             />
           )}
         </SettingsSection>
 
         <SettingsSection
+          id="settings-reader"
           eyebrow="Publishing"
           title="Reader Experience"
           note="Tune archive density, excerpts, code presentation, and content scaffolding."
@@ -392,6 +421,7 @@ export default function AdminSettings() {
         </SettingsSection>
 
         <SettingsSection
+          id="settings-distribution"
           eyebrow="Distribution"
           title="Feeds And Syndication"
           note="Manage feed output and the amount of content exposed to external readers and indexers."
@@ -402,6 +432,7 @@ export default function AdminSettings() {
         </SettingsSection>
 
         <SettingsSection
+          id="settings-integrations"
           eyebrow="Integrations"
           title="Analytics, Ads, And Comments"
           note="Third-party scripts and measurement tools live here so they stay separate from editorial controls."

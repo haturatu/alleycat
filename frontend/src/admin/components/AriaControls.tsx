@@ -295,6 +295,7 @@ type ChoiceOption = {
 type AdminTableColumn<T> = {
   id: string;
   name: ReactNode;
+  mobileLabel?: string;
   width?: string;
   className?: string;
   render: (item: T) => ReactNode;
@@ -611,7 +612,9 @@ export function AdminTable<T extends { id: string }>({
                 }
                 return (
                   <td className={className} key={column.id}>
-                    <span className="admin-table-mobile-label">{column.name}</span>
+                    {column.mobileLabel ? (
+                      <span className="admin-table-mobile-label">{column.mobileLabel}</span>
+                    ) : null}
                     {column.render(item)}
                   </td>
                 );

@@ -7,7 +7,7 @@
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
   border-radius: var(--admin-radius-md);
   overflow: hidden;
 }
@@ -15,6 +15,7 @@
 .admin-table-column,
 .admin-table-cell {
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .admin-table th,
@@ -23,14 +24,16 @@
   text-align: left;
   vertical-align: top;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .admin-table thead th {
-  font-size: 0.76rem;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--admin-ink-soft);
   background: rgba(246, 242, 234, 0.66);
+  white-space: nowrap;
 }
 
 .admin-table-select-column {
@@ -61,19 +64,50 @@
 
 .admin-table th:last-child,
 .admin-table td:last-child {
-  width: 90px;
+  width: 72px;
 }
 
 .admin-table td:last-child {
   text-align: right;
 }
 
+.admin-table-meta-column,
+.admin-table-status-column,
+.admin-table-url-column {
+  white-space: nowrap;
+}
+
+.admin-table-status-column .admin-status-badge {
+  white-space: nowrap;
+}
+
 .admin-table td:nth-child(2) a {
-  display: inline-block;
+  font-weight: 600;
+}
+
+.admin-table-title {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.admin-table-title a {
+  display: -webkit-box;
+  overflow: hidden;
   max-width: 100%;
   word-break: break-word;
-  font-weight: 600;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   line-height: 1.45;
+}
+
+.admin-table-subline {
+  font-size: 0.85rem;
+  color: var(--admin-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-table-checkbox {
@@ -142,7 +176,7 @@
   border: 1px solid var(--admin-border);
   border-bottom: none;
   border-radius: var(--admin-radius-md) var(--admin-radius-md) 0 0;
-  background: rgba(255, 253, 249, 0.78);
+  background: rgba(255, 253, 249, 0.7);
 }
 
 .admin-table-utility-copy {
@@ -150,9 +184,19 @@
   gap: 4px;
 }
 
+.admin-table-utility.is-passive {
+  background: rgba(255, 253, 249, 0.5);
+}
+
+.admin-table-utility.is-active {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(255, 247, 236, 0.96));
+  border-color: var(--admin-border-strong);
+}
+
 .admin-table-selection {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   line-height: 1;
   font-weight: 700;
 }
@@ -190,12 +234,18 @@
   .admin-table tbody {
     display: grid;
     gap: 12px;
+    min-width: 0;
   }
 
   .admin-table tbody tr {
     display: grid;
     gap: 8px;
     padding: 14px;
+    box-sizing: border-box;
+    width: calc(100% - 2px);
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius-md);
     background: var(--admin-surface);
@@ -207,6 +257,8 @@
     padding: 0;
     text-align: left !important;
     border: none;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .admin-table td:last-child,

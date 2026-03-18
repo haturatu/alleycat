@@ -63,7 +63,7 @@
 }
 
 .admin-secondary {
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 250, 242, 0.92);
   color: var(--admin-ink);
   border: 1px solid var(--admin-border-strong);
   min-height: 42px;

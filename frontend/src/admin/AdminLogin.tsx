@@ -35,12 +35,12 @@ export default function AdminLogin() {
     <div className="admin-login">
       <div className="admin-login-shell">
         <section className="admin-login-panel admin-login-story">
-          <p className="admin-eyebrow">Editorial Console</p>
+          <p className="admin-eyebrow">Admin</p>
           <h1>Shape the next publish cycle with intention.</h1>
           <p className="admin-login-copy">
-            Review drafts, manage structure, and push updates through a workspace designed for deliberate publishing.
+            Sign in to manage posts, pages, media, and site settings.
           </p>
-          <p className="admin-login-kicker">Draft clearly. Review deliberately. Publish without losing the thread.</p>
+          <p className="admin-login-kicker">Write clearly. Review quickly. Publish with less friction.</p>
           <div className="admin-login-metrics">
             <article className="admin-summary-card">
               <span className="admin-summary-label">Workspace</span>
@@ -68,7 +68,7 @@ export default function AdminLogin() {
             type="password"
             required
           />
-          {error && <p className="admin-error">{error}</p>}
+          <p className="admin-login-error" aria-live="polite">{error || "\u00a0"}</p>
           <AdminButton className="admin-primary" type="submit">
             Sign In
           </AdminButton>

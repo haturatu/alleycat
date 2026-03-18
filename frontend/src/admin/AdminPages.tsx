@@ -166,7 +166,7 @@ export default function AdminPages() {
       </div>
       {loading ? <p className="admin-note">Loading pages…</p> : null}
       <div className="admin-list-shell">
-        <div className="admin-table-utility">
+        <div className="admin-table-utility is-passive">
           <div className="admin-table-utility-copy">
             <p className="admin-section-label">Structure</p>
             <p className="admin-table-selection">{pages.filter((item) => item.menuVisible).length} menu entries visible</p>
@@ -182,17 +182,24 @@ export default function AdminPages() {
           {
             id: "title",
             name: "Title",
+            mobileLabel: "Title",
             isRowHeader: true,
             render: (item) => <Link to={`/pages/${item.id}`}>{item.title}</Link>,
           },
           {
             id: "url",
             name: "URL",
+            mobileLabel: "URL",
+            className: "admin-table-url-column",
+            width: "160px",
             render: (item) => item.url,
           },
           {
             id: "menu",
             name: "Menu",
+            mobileLabel: "Menu",
+            className: "admin-table-status-column",
+            width: "120px",
             render: (item) => (
               <span className={item.menuVisible ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
                 {item.menuVisible ? "Visible" : "Hidden"}
@@ -202,6 +209,9 @@ export default function AdminPages() {
           {
             id: "status",
             name: "Status",
+            mobileLabel: "Status",
+            className: "admin-table-status-column",
+            width: "126px",
             render: (item) => (
               <span className={item.published ? "admin-status-badge is-published" : "admin-status-badge is-draft"}>
                 {item.published ? "Published" : "Draft"}
@@ -210,8 +220,9 @@ export default function AdminPages() {
           },
           {
             id: "actions",
-            name: "Actions",
-            width: "90px",
+            name: "Action",
+            mobileLabel: "Action",
+            width: "72px",
             render: (item) => (
               <div className="admin-actions">
                 <AdminButton ariaLabel={`Delete ${item.title}`} className="admin-danger-button" onPress={() => setDeleteTargetId(item.id)}>

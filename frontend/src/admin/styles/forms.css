@@ -24,6 +24,11 @@
   box-shadow: 0 0 0 3px rgba(143, 109, 69, 0.14);
 }
 
+.admin-login-form .admin-input:focus-visible,
+.admin-login-form .admin-input[data-focused] {
+  box-shadow: 0 0 0 4px rgba(143, 109, 69, 0.18);
+}
+
 .admin-toolbar-actions {
   display: flex;
   gap: 8px;
@@ -379,6 +384,76 @@
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-setting-toggle {
+  grid-template-columns: minmax(0, 1fr) 52px;
+  column-gap: 16px;
+  min-height: 52px;
+}
+
+.admin-setting-toggle > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-setting-toggle strong {
+  font-size: 0.98rem;
+}
+
+.admin-setting-toggle small {
+  color: var(--admin-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-setting-toggle .admin-checkbox-box {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  justify-self: end;
+  position: relative;
+  color: transparent;
+  background: rgba(94, 86, 76, 0.16);
+  border-color: transparent;
+}
+
+.admin-setting-toggle .admin-checkbox-box::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+  transition: transform 0.15s ease;
+}
+
+.admin-setting-toggle .admin-checkbox-box::before {
+  content: "×";
+  position: absolute;
+  right: 7px;
+  top: 5px;
+  font-size: 0.7rem;
+  color: rgba(31, 31, 31, 0.46);
+}
+
+.admin-setting-toggle .admin-boolean-checkbox:checked + .admin-checkbox-box {
+  background: var(--admin-ink);
+  border-color: var(--admin-ink);
+}
+
+.admin-setting-toggle .admin-boolean-checkbox:checked + .admin-checkbox-box::after {
+  transform: translateX(18px);
+}
+
+.admin-setting-toggle .admin-boolean-checkbox:checked + .admin-checkbox-box::before {
+  content: "✓";
+  left: 8px;
+  right: auto;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .admin-setting-toggle {

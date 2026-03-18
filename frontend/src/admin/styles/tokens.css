@@ -20,16 +20,19 @@
   --admin-radius-lg: 24px;
 }
 
+#root,
 .admin-shell,
 html,
 body {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
 }
 
 body {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background:
     radial-gradient(circle at top left, rgba(143, 109, 69, 0.18), transparent 28%),
     linear-gradient(180deg, var(--admin-bg-accent) 0%, var(--admin-bg) 100%);

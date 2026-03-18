@@ -16,14 +16,15 @@ export default function AdminLayout() {
 
   const closeSidebar = () => setSidebarOpen(false);
 
-  const sidebarContent = (
+  const sidebarContent = (showBrand = true) => (
     <>
+      {showBrand ? (
         <div className="admin-brand">
-          <p className="admin-eyebrow">Admin</p>
           <h2>Admin</h2>
           <p className="admin-brand-note">Manage content, structure, and settings from one workspace.</p>
         </div>
-        <nav aria-label="Admin" className="admin-nav">
+      ) : null}
+      <nav aria-label="Admin" className="admin-nav">
         <NavLink className={({ isActive }) => (isActive ? "is-current" : undefined)} to="/posts" onClick={closeSidebar}>
           Posts
         </NavLink>
@@ -45,30 +46,27 @@ export default function AdminLayout() {
       <a className="admin-skip-link" href="#admin-content">
         Skip to content
       </a>
-      <aside className="admin-sidebar">{sidebarContent}</aside>
+      <aside className="admin-sidebar">{sidebarContent()}</aside>
       <div className="admin-sidebar-mobile">
         <AdminDialog
           open={sidebarOpen}
           onClose={closeSidebar}
-          title="Admin navigation"
+          title="Admin"
           overlayClassName="admin-drawer-backdrop"
           shellClassName="admin-drawer-shell"
         >
-          <div className="admin-modal-head">
-            <div>
-              <p className="admin-section-label">Admin</p>
-              <h2>Admin</h2>
-            </div>
+          <div className="admin-modal-head admin-drawer-head">
             <AdminButton ariaLabel="Close navigation" className="admin-modal-close admin-icon-button" onPress={closeSidebar}>
               ←
             </AdminButton>
+            <h2>Admin</h2>
           </div>
-          <div className="admin-modal-body admin-mobile-nav">{sidebarContent}</div>
+          <div className="admin-modal-body admin-mobile-nav">{sidebarContent(false)}</div>
         </AdminDialog>
       </div>
       <main className="admin-main" id="admin-content" tabIndex={-1}>
         <div className="admin-main-chrome">
-          <p className="admin-eyebrow">Publishing</p>
+          <p className="admin-eyebrow">Content</p>
           <p className="admin-main-note">Structured tools for drafting, reviewing, and shipping content.</p>
         </div>
         <AdminButton

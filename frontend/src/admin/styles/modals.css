@@ -29,6 +29,20 @@
   border-bottom: 1px solid var(--admin-border);
 }
 
+.admin-drawer-shell {
+  width: min(360px, 100%);
+}
+
+.admin-drawer-shell .admin-modal {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 252, 247, 0.99));
+  box-shadow: 24px 0 44px rgba(20, 19, 17, 0.2);
+}
+
+.admin-drawer-shell .admin-modal-head {
+  align-items: center;
+}
+
 .admin-modal-body {
   display: grid;
   gap: 16px;
@@ -59,6 +73,7 @@
 .admin-icon-button {
   width: 44px;
   min-width: 44px;
+  min-height: 44px;
   padding: 0;
   justify-content: center;
   font-size: 1.4rem;
