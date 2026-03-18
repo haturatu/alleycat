@@ -4,6 +4,7 @@
 
 - [alleycat](#alleycat)
   - [Structure](#structure)
+  - [Architecture](#architecture)
   - [Usage](#usage)
     - [docker-compose (recommended)](#docker-compose-recommended)
     - [Local (without Docker)](#local-without-docker)
@@ -23,6 +24,47 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 ## Structure
 - `backend/` PocketBase (Go) server.
 - `frontend/` Vite + React public site and admin CMS (separate port).
+
+## Architecture
+```mermaid
+flowchart LR
+  subgraph Client["Client Surfaces"]
+    Public["Public site<br/>frontend/src/pages<br/>frontend/src/components"]
+    Admin["Admin CMS<br/>frontend/src/admin"]
+  end
+
+  subgraph Frontend["Frontend App"]
+    Router["React Router entry"]
+    Shared["Shared libs / utils<br/>frontend/src/lib<br/>frontend/src/utils"]
+    Theme["Public styles and themes<br/>frontend/src/styles<br/>frontend/public<br/>frontend/default-public-asset"]
+    SSR["SSR server<br/>frontend/server/server.mjs"]
+  end
+
+  subgraph Backend["Backend Services"]
+    PB["PocketBase app<br/>backend/app.go"]
+    Collections["Collections / media / translation CLI<br/>backend/collections.go<br/>backend/media.go<br/>backend/translation.go"]
+    SSRData["SSR data and feed layer<br/>backend/ssr/*.go"]
+    Data["Persistent data<br/>backend/pb_data"]
+  end
+
+  Public --> Router
+  Admin --> Router
+  Router --> Shared
+  Public --> Theme
+  Public --> SSR
+  SSR --> PB
+  PB --> Collections
+  PB --> SSRData
+  PB <--> Data
+  Collections <--> Data
+  SSRData <--> Data
+```
+
+- `frontend/src/pages` and `frontend/src/components` drive the public reading experience.
+- `frontend/src/admin` contains the CMS, including editor UI, settings, and admin-specific styles.
+- `frontend/server/server.mjs` serves the public app, while `/admin` is served separately on the admin port.
+- `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
+- `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.
 
 ## Usage
 ### docker-compose (recommended)
