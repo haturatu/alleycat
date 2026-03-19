@@ -432,13 +432,6 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 	return nil
 }
 
-func writeCommonDerivedFiles(root string, settings SettingsRecord) error {
-	if err := writeFeedFiles(root, settings); err != nil {
-		return err
-	}
-	return writeSitemapFiles(root, settings)
-}
-
 func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
 	if err := exportRecordedRoute(root, "/robots.txt", prerenderRobots(settings)); err != nil {
 		return err
@@ -515,26 +508,6 @@ func removeSnapshotRoute(root, route string) error {
 		return err
 	}
 	return nil
-}
-
-type sourcePostPair struct {
-	current  *PostRecord
-	original *PostRecord
-}
-
-func collectAffectedSourcePosts(current, original *PostRecord) []sourcePostPair {
-	return []sourcePostPair{{current: current, original: original}}
-}
-
-func translationToSourcePost(item *PostTranslationRecord) *PostRecord {
-	if item == nil {
-		return nil
-	}
-	return &PostRecord{
-		ID:       item.SourcePost,
-		Tags:     item.Tags,
-		Category: item.Category,
-	}
 }
 
 func filepathDir(path string) string {
