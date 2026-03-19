@@ -88,7 +88,6 @@ func renderHead(title string, settings SettingsRecord) string {
     }
     .body pre {
       margin: 1rem 0;
-      padding: 0.95rem 1rem;
       border: 1px solid rgba(127, 127, 127, 0.24);
       border-radius: 10px;
       background: rgba(127, 127, 127, 0.08);
