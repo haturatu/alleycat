@@ -5,6 +5,9 @@ services:
     restart: always
     ports:
       - "8091:8091"
+    environment:
+      - SSR_REGEN_URL=http://frontend:5173/__internal/revalidate
+      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
     volumes:
       - pb_data:/pb/pb_data
     deploy:
@@ -22,6 +25,7 @@ services:
       - "5173:5173"
     environment:
       - PB_URL=http://pocketbase:8091
+      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
     depends_on:
       - pocketbase
       - admin

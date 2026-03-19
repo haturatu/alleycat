@@ -225,6 +225,37 @@ func listPublishedPosts() []PostRecord {
 	return posts
 }
 
+func listPublishedPostsStrict() ([]PostRecord, error) {
+	posts := make([]PostRecord, 0, 256)
+	page := 1
+	const perPage = 200
+	for {
+		data, err := getPosts(map[string]string{
+			"page":    fmt.Sprintf("%d", page),
+			"perPage": fmt.Sprintf("%d", perPage),
+			"filter":  "published = true",
+			"sort":    "-published_at",
+		})
+		if err != nil {
+			data, err = getPosts(map[string]string{
+				"page":    fmt.Sprintf("%d", page),
+				"perPage": fmt.Sprintf("%d", perPage),
+				"filter":  "published = true",
+				"sort":    "-date",
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		posts = append(posts, data.Items...)
+		if len(data.Items) < perPage {
+			break
+		}
+		page++
+	}
+	return posts, nil
+}
+
 func listPublishedPages() []PageRecord {
 	pages := make([]PageRecord, 0, 128)
 	page := 1
@@ -256,6 +287,37 @@ func listPublishedPages() []PageRecord {
 	return pages
 }
 
+func listPublishedPagesStrict() ([]PageRecord, error) {
+	pages := make([]PageRecord, 0, 128)
+	page := 1
+	const perPage = 200
+	for {
+		data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
+			"page":    fmt.Sprintf("%d", page),
+			"perPage": fmt.Sprintf("%d", perPage),
+			"filter":  "published = true",
+			"sort":    "-published_at",
+		})
+		if err != nil {
+			data, err = fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
+				"page":    fmt.Sprintf("%d", page),
+				"perPage": fmt.Sprintf("%d", perPage),
+				"filter":  "published = true",
+				"sort":    "-date",
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		pages = append(pages, data.Items...)
+		if len(data.Items) < perPage {
+			break
+		}
+		page++
+	}
+	return pages, nil
+}
+
 func listPublishedTranslationsByLocale(locale string) []PostTranslationRecord {
 	items := make([]PostTranslationRecord, 0, 256)
 	page := 1
@@ -277,6 +339,29 @@ func listPublishedTranslationsByLocale(locale string) []PostTranslationRecord {
 		page++
 	}
 	return items
+}
+
+func listPublishedTranslationsByLocaleStrict(locale string) ([]PostTranslationRecord, error) {
+	items := make([]PostTranslationRecord, 0, 256)
+	page := 1
+	const perPage = 200
+	for {
+		data, err := getPostTranslations(map[string]string{
+			"page":    fmt.Sprintf("%d", page),
+			"perPage": fmt.Sprintf("%d", perPage),
+			"filter":  fmt.Sprintf("published = true && locale = \"%s\"", escapeFilter(locale)),
+			"sort":    "-published_at",
+		})
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, data.Items...)
+		if len(data.Items) < perPage {
+			break
+		}
+		page++
+	}
+	return items, nil
 }
 
 func sitemapBaseURL(r *http.Request, settings SettingsRecord) string {

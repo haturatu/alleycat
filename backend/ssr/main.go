@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -15,12 +15,16 @@ import (
 var localePathPattern = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})))
+	warmStaticSnapshotAtBoot()
+
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(routeHandler))
 
-	log.Printf("SSR server listening on %s", listenAddr)
+	slog.Info("ssr server starting", "listen_addr", listenAddr, "pb_url", pbURL, "public_dir", activePublicDir, "static_export_dir", staticExportDir)
 	if err := http.ListenAndServe(listenAddr, mux); err != nil {
-		log.Fatal(err)
+		slog.Error("ssr server stopped", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -37,6 +41,10 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			status = `{"publicAssets":true}`
 		}
 		_, _ = w.Write([]byte(status))
+		return
+	}
+	if path == "/__internal/revalidate" {
+		handleRevalidate(w, r)
 		return
 	}
 	if strings.HasPrefix(path, "/api/files/") {
@@ -267,10 +275,6 @@ func writeHTMLStatus(w http.ResponseWriter, content string, status int) {
 
 func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 	path := r.URL.Path
-	if path == "/" {
-		return false
-	}
-
 	clean := cleanPath(path)
 	if strings.Contains(clean, "..") {
 		return false
@@ -290,6 +294,12 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
+	if r.URL.RawQuery == "" {
+		if servePrerenderedSnapshot(w, r, clean) {
+			return true
+		}
+	}
+
 	filePath := filepath.Join(activePublicDir, clean)
 	info, err := os.Stat(filePath)
 	if err != nil || info.IsDir() {
@@ -297,5 +307,22 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	http.ServeFile(w, r, filePath)
+	return true
+}
+
+func servePrerenderedSnapshot(w http.ResponseWriter, r *http.Request, clean string) bool {
+	root := getPrerenderedSnapshotDir()
+	if root == "" {
+		return false
+	}
+	target, err := snapshotFilePath(root, clean)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(target)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	http.ServeFile(w, r, target)
 	return true
 }

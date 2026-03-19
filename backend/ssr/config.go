@@ -10,6 +10,7 @@ var (
 	pbURL            = getEnv("PB_URL", "http://127.0.0.1:8090")
 	publicDir        = getEnv("PUBLIC_DIR", "/public")
 	defaultPublicDir = getEnv("DEFAULT_PUBLIC_DIR", "/default-public-asset")
+	staticExportDir  = getEnv("STATIC_EXPORT_DIR", "/tmp/alleycat-static")
 	activePublicDir  = resolvePublicDir()
 	listenAddr       = getEnv("LISTEN_ADDR", ":5173")
 )

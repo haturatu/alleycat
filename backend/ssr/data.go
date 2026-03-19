@@ -40,14 +40,23 @@ var mediaPathCache = struct {
 var filterEscapeReplacer = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 
 func getPosts(params map[string]string) (PBList[PostRecord], error) {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return ctx.queryPosts(params), nil
+	}
 	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
 }
 
 func getPostTranslations(params map[string]string) (PBList[PostTranslationRecord], error) {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return ctx.queryPostTranslations(params), nil
+	}
 	return fetchList[PostTranslationRecord](fmt.Sprintf("%s/api/collections/post_translations/records", pbURL), params)
 }
 
 func getPagesMenu() []PageRecord {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return append([]PageRecord(nil), ctx.menu...)
+	}
 	data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
 		"perPage": "200",
 		"filter":  "published = true && menuVisible = true",
@@ -60,6 +69,14 @@ func getPagesMenu() []PageRecord {
 }
 
 func getPageByURL(path string) *PageRecord {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		item, ok := ctx.pageByURL[path]
+		if !ok {
+			return nil
+		}
+		copy := item
+		return &copy
+	}
 	data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
 		"perPage": "1",
 		"filter":  fmt.Sprintf("url = \"%s\" && published = true", escapeFilter(path)),
@@ -71,6 +88,22 @@ func getPageByURL(path string) *PageRecord {
 }
 
 func getPostBySlugInLocale(slug string, locale string) *PostRecord {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		if normalizeLocale(locale) == "" {
+			item, ok := ctx.postBySlug[slug]
+			if !ok {
+				return nil
+			}
+			copy := item
+			return &copy
+		}
+		item, ok := ctx.translationByKey[normalizeLocale(locale)+"|"+slug]
+		if !ok {
+			return nil
+		}
+		post := translationToPost(item)
+		return &post
+	}
 	if locale == "" {
 		data, err := fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), map[string]string{
 			"perPage": "1",
@@ -97,6 +130,14 @@ func getPostByID(id string) *PostRecord {
 	if strings.TrimSpace(id) == "" {
 		return nil
 	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		item, ok := ctx.postByID[id]
+		if !ok {
+			return nil
+		}
+		copy := item
+		return &copy
+	}
 	post, err := fetchRecord[PostRecord](fmt.Sprintf("%s/api/collections/posts/records/%s", pbURL, url.PathEscape(id)))
 	if err != nil {
 		return nil
@@ -107,6 +148,14 @@ func getPostByID(id string) *PostRecord {
 func getPostTranslationBySlugLocale(slug string, locale string) *PostTranslationRecord {
 	if strings.TrimSpace(slug) == "" || strings.TrimSpace(locale) == "" {
 		return nil
+	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		item, ok := ctx.translationByKey[normalizeLocale(locale)+"|"+slug]
+		if !ok {
+			return nil
+		}
+		copy := item
+		return &copy
 	}
 	data, err := getPostTranslations(map[string]string{
 		"perPage": "1",
@@ -121,6 +170,9 @@ func getPostTranslationBySlugLocale(slug string, locale string) *PostTranslation
 func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
 	if strings.TrimSpace(sourcePostID) == "" {
 		return nil
+	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return append([]PostTranslationRecord(nil), ctx.translationsBySource[sourcePostID]...)
 	}
 	data, err := getPostTranslations(map[string]string{
 		"page":    "1",
@@ -137,6 +189,9 @@ func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
 func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
 	if post == nil {
 		return nil, nil
+	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return ctx.getAdjacentPostsInLocale(post, locale)
 	}
 	field := ""
 	value := ""
@@ -191,15 +246,12 @@ func getRelatedPostsInLocale(post *PostRecord, locale string, limit int) []PostR
 	if post == nil {
 		return nil
 	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return ctx.getRelatedPostsInLocale(post, locale, limit)
+	}
 	if limit <= 0 {
 		limit = 4
 	}
-
-	targetTags := make(map[string]struct{})
-	for _, tag := range parseTags(post.Tags) {
-		targetTags[strings.ToLower(tag)] = struct{}{}
-	}
-	targetCategory := strings.ToLower(strings.TrimSpace(post.Category))
 
 	var candidates []PostRecord
 	if locale == "" {
@@ -237,59 +289,7 @@ func getRelatedPostsInLocale(post *PostRecord, locale string, limit int) []PostR
 		}
 	}
 
-	type scoredPost struct {
-		post  PostRecord
-		score int
-		date  time.Time
-	}
-
-	scored := make([]scoredPost, 0, len(candidates))
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate.Slug) == "" || candidate.Slug == post.Slug {
-			continue
-		}
-
-		score := 0
-		if targetCategory != "" && strings.ToLower(strings.TrimSpace(candidate.Category)) == targetCategory {
-			score += 2
-		}
-
-		for _, tag := range parseTags(candidate.Tags) {
-			if _, ok := targetTags[strings.ToLower(tag)]; ok {
-				score++
-			}
-		}
-
-		if score == 0 {
-			continue
-		}
-
-		scored = append(scored, scoredPost{
-			post:  candidate,
-			score: score,
-			date:  postPublishedTime(candidate),
-		})
-	}
-
-	sort.SliceStable(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		if !scored[i].date.Equal(scored[j].date) {
-			return scored[i].date.After(scored[j].date)
-		}
-		return scored[i].post.Slug < scored[j].post.Slug
-	})
-
-	if len(scored) > limit {
-		scored = scored[:limit]
-	}
-
-	related := make([]PostRecord, 0, len(scored))
-	for _, item := range scored {
-		related = append(related, item.post)
-	}
-	return related
+	return scoreRelatedPosts(post, candidates, limit)
 }
 
 func postPublishedTime(post PostRecord) time.Time {
@@ -409,6 +409,9 @@ func collectCategories() []string {
 }
 
 func collectTaxonomies() ([]string, []string) {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return append([]string(nil), ctx.tags...), append([]string(nil), ctx.categories...)
+	}
 	now := time.Now()
 	taxonomyCache.mu.RLock()
 	cached := taxonomyCache.entry
@@ -477,6 +480,34 @@ func collectTaxonomies() ([]string, []string) {
 	return tags, categories
 }
 
+func collectTaxonomiesStrict(posts []PostRecord) ([]string, []string) {
+	tagValues := map[string]struct{}{}
+	categoryValues := map[string]struct{}{}
+	for _, post := range posts {
+		for _, tag := range parseTags(post.Tags) {
+			tagValues[tag] = struct{}{}
+		}
+		category := strings.TrimSpace(post.Category)
+		if category != "" {
+			categoryValues[category] = struct{}{}
+		}
+	}
+
+	tags := make([]string, 0, len(tagValues))
+	for value := range tagValues {
+		tags = append(tags, value)
+	}
+	sort.Strings(tags)
+
+	categories := make([]string, 0, len(categoryValues))
+	for value := range categoryValues {
+		categories = append(categories, value)
+	}
+	sort.Strings(categories)
+
+	return tags, categories
+}
+
 func translationToPost(item PostTranslationRecord) PostRecord {
 	return PostRecord{
 		ID:          item.ID,
@@ -502,4 +533,190 @@ func decodePathSegment(value string) string {
 		return value
 	}
 	return decoded
+}
+
+func (ctx *snapshotBuildContext) queryPosts(params map[string]string) PBList[PostRecord] {
+	items := append([]PostRecord(nil), ctx.publishedPosts...)
+	filter := strings.TrimSpace(params["filter"])
+	if category := extractFilterValue(filter, `category = "`); category != "" {
+		items = append([]PostRecord(nil), ctx.postsByCategory[category]...)
+	} else if tag := extractFilterValue(filter, `tags ~ "`); tag != "" {
+		items = append([]PostRecord(nil), ctx.postsByTag[tag]...)
+	}
+	if query := extractSearchQuery(filter); query != "" {
+		filtered := make([]PostRecord, 0, len(items))
+		for _, item := range items {
+			if snapshotPostMatchesQuery(item, query) {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	if excludeID := extractFilterValue(filter, `id != "`); excludeID != "" {
+		filtered := make([]PostRecord, 0, len(items))
+		for _, item := range items {
+			if item.ID != excludeID {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	if slug := extractFilterValue(filter, `slug = "`); slug != "" {
+		filtered := make([]PostRecord, 0, len(items))
+		for _, item := range items {
+			if strings.TrimSpace(item.Slug) == slug {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	return paginateSnapshotPosts(items, params["page"], params["perPage"])
+}
+
+func (ctx *snapshotBuildContext) queryPostTranslations(params map[string]string) PBList[PostTranslationRecord] {
+	filter := strings.TrimSpace(params["filter"])
+	locale := normalizeLocale(extractFilterValue(filter, `locale = "`))
+	sourceID := extractFilterValue(filter, `source_post = "`)
+	slug := extractFilterValue(filter, `slug = "`)
+	excludeID := extractFilterValue(filter, `id != "`)
+
+	var items []PostTranslationRecord
+	if sourceID != "" {
+		items = append([]PostTranslationRecord(nil), ctx.translationsBySource[sourceID]...)
+	} else if locale != "" {
+		items = append([]PostTranslationRecord(nil), ctx.translationsByLocale[locale]...)
+	} else {
+		for _, list := range ctx.translationsByLocale {
+			items = append(items, list...)
+		}
+	}
+
+	filtered := make([]PostTranslationRecord, 0, len(items))
+	for _, item := range items {
+		if locale != "" && normalizeLocale(item.Locale) != locale {
+			continue
+		}
+		if slug != "" && strings.TrimSpace(item.Slug) != slug {
+			continue
+		}
+		if excludeID != "" && item.ID == excludeID {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return paginateSnapshotTranslations(filtered, params["page"], params["perPage"])
+}
+
+func paginateSnapshotPosts(items []PostRecord, pageValue, perPageValue string) PBList[PostRecord] {
+	page, perPage := snapshotPageParams(pageValue, perPageValue)
+	totalItems := len(items)
+	totalPages := snapshotTotalPages(totalItems, perPage)
+	start, end := snapshotPageBounds(page, perPage, totalItems)
+	out := PBList[PostRecord]{
+		Page:       page,
+		PerPage:    perPage,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+	}
+	if start < end {
+		out.Items = append([]PostRecord(nil), items[start:end]...)
+	}
+	return out
+}
+
+func paginateSnapshotTranslations(items []PostTranslationRecord, pageValue, perPageValue string) PBList[PostTranslationRecord] {
+	page, perPage := snapshotPageParams(pageValue, perPageValue)
+	totalItems := len(items)
+	totalPages := snapshotTotalPages(totalItems, perPage)
+	start, end := snapshotPageBounds(page, perPage, totalItems)
+	out := PBList[PostTranslationRecord]{
+		Page:       page,
+		PerPage:    perPage,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+	}
+	if start < end {
+		out.Items = append([]PostTranslationRecord(nil), items[start:end]...)
+	}
+	return out
+}
+
+func snapshotPageParams(pageValue, perPageValue string) (int, int) {
+	page, _ := strconv.Atoi(pageValue)
+	if page <= 0 {
+		page = 1
+	}
+	perPage, _ := strconv.Atoi(perPageValue)
+	if perPage <= 0 {
+		perPage = 30
+	}
+	return page, perPage
+}
+
+func snapshotTotalPages(totalItems, perPage int) int {
+	if totalItems == 0 {
+		return 1
+	}
+	return (totalItems + perPage - 1) / perPage
+}
+
+func snapshotPageBounds(page, perPage, totalItems int) (int, int) {
+	start := (page - 1) * perPage
+	if start > totalItems {
+		start = totalItems
+	}
+	end := start + perPage
+	if end > totalItems {
+		end = totalItems
+	}
+	return start, end
+}
+
+func extractFilterValue(filter, prefix string) string {
+	index := strings.Index(filter, prefix)
+	if index < 0 {
+		return ""
+	}
+	rest := filter[index+len(prefix):]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+func extractSearchQuery(filter string) string {
+	const marker = `title ~ "`
+	index := strings.Index(filter, marker)
+	if index < 0 {
+		return ""
+	}
+	rest := filter[index+len(marker):]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+func snapshotPostMatchesQuery(item PostRecord, query string) bool {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return true
+	}
+	body := item.Body
+	if body == "" {
+		body = item.Content
+	}
+	excerpt := item.Excerpt
+	if strings.TrimSpace(excerpt) == "" {
+		excerpt = buildExcerpt(body, 160)
+	}
+	fields := []string{item.Title, item.Slug, item.Tags, excerpt, stripHTML(body)}
+	for _, field := range fields {
+		if strings.Contains(strings.ToLower(field), query) {
+			return true
+		}
+	}
+	return false
 }

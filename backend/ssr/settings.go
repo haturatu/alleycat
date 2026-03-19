@@ -60,6 +60,22 @@ func getSettings() SettingsRecord {
 	return item
 }
 
+func fetchSettingsStrict() (SettingsRecord, error) {
+	settings, err := fetchList[SettingsRecord](fmt.Sprintf("%s/api/collections/settings/records", pbURL), map[string]string{
+		"page":    "1",
+		"perPage": "1",
+	})
+	if err != nil {
+		return SettingsRecord{}, err
+	}
+	item := defaultSettings()
+	if len(settings.Items) > 0 {
+		item = settings.Items[0]
+		item.ApplyDefaults()
+	}
+	return item, nil
+}
+
 func defaultSettings() SettingsRecord {
 	return SettingsRecord{
 		SiteName:                defaultSiteName,

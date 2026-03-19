@@ -394,6 +394,9 @@ func renderPostList(items []PostRecord, showTags bool, excerptLength int) string
 }
 
 func renderHome(settings SettingsRecord) string {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return renderHomeFromSnapshot(ctx, settings)
+	}
 	var menu []PageRecord
 	var posts PBList[PostRecord]
 	var wg sync.WaitGroup
@@ -444,6 +447,9 @@ func renderHome(settings SettingsRecord) string {
 }
 
 func renderArchive(path, query string, settings SettingsRecord) string {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		return renderArchiveFromSnapshot(ctx, path, query, settings)
+	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	pageNumber := 1
 	basePath := "/archive"
@@ -537,6 +543,119 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 
 	return renderHead(title, settings) +
 		renderNav(menu, settings) +
+		fmt.Sprintf(`<main class="body-tag">
+      <header class="page-header">
+        <h1 class="page-title">%s</h1>
+        <p>RSS: <a href="/feed.xml">Atom</a>, <a href="/feed.json">JSON</a></p>
+        %s
+      </header>
+      %s
+      %s
+      %s
+      %s
+    </main>`, escapeHTML(title), searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
+		renderFooter(settings)
+}
+
+func renderHomeFromSnapshot(ctx *snapshotBuildContext, settings SettingsRecord) string {
+	limit := settings.HomePageSize
+	if limit <= 0 {
+		limit = 3
+	}
+	items := append([]PostRecord(nil), ctx.publishedPosts...)
+	if len(items) > limit {
+		items = items[:limit]
+	}
+
+	topImage := strings.TrimSpace(settings.HomeTopImage)
+	imageHTML := ""
+	if topImage != "" {
+		imageHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="top-image" />`, escapeHTML(topImage), escapeHTML(settings.HomeTopImageAlt))
+	}
+
+	return renderHead("Home", settings) +
+		renderNav(ctx.menu, settings) +
+		fmt.Sprintf(`<main class="body-home">
+      <header class="page-header">
+        %s
+        <h1 class="page-title">%s</h1>
+      </header>
+      %s
+      <hr>
+      <p>More posts can be found in <a href="/archive/">the archive</a>.</p>
+    </main>`, imageHTML, escapeHTML(settings.WelcomeText), renderPostList(items, settings.ShowTags, settings.ExcerptLength)) +
+		renderFooter(settings)
+}
+
+func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, settings SettingsRecord) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	pageNumber := 1
+	basePath := "/archive"
+	title := "Archive"
+	showTagsNav := false
+	showCategoriesNav := false
+	listing := ctx.archiveIndex["/archive/"]
+
+	if len(parts) >= 1 && parts[0] == "archive" {
+		if len(parts) >= 2 {
+			if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+				pageNumber = n
+			} else if parts[1] == "category" && len(parts) >= 3 {
+				category := decodePathSegment(parts[2])
+				title = "category: " + category
+				basePath = "/archive/category/" + url.PathEscape(category)
+				listing = ctx.archiveIndex["/archive/category/"+url.PathEscape(category)+"/"]
+				if len(parts) >= 4 {
+					if n, err := strconv.Atoi(parts[3]); err == nil && n > 0 {
+						pageNumber = n
+					}
+				}
+			} else {
+				tag := decodePathSegment(parts[1])
+				title = "tag: " + tag
+				basePath = "/archive/" + url.PathEscape(tag)
+				listing = ctx.archiveIndex["/archive/"+url.PathEscape(tag)+"/"]
+				if len(parts) >= 3 {
+					if n, err := strconv.Atoi(parts[2]); err == nil && n > 0 {
+						pageNumber = n
+					}
+				}
+			}
+		}
+	}
+	if title == "Archive" {
+		showTagsNav = settings.ShowArchiveTags && settings.ShowTags && pageNumber == 1
+		showCategoriesNav = settings.ShowCategories && pageNumber == 1
+	}
+
+	items := append([]PostRecord(nil), listing.posts...)
+	searchQuery := strings.TrimSpace(query)
+	if searchQuery != "" {
+		filtered := make([]PostRecord, 0, len(items))
+		for _, item := range items {
+			if snapshotPostMatchesQuery(item, searchQuery) {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	posts := paginateSnapshotPosts(items, strconv.Itoa(pageNumber), strconv.Itoa(settings.ArchivePageSize))
+	pagination := renderPagination(basePath, pageNumber, posts.TotalPages, searchQuery)
+	searchHTML := ""
+	if settings.ShowArchiveSearch {
+		searchHTML = renderSearchForm(basePath+"/", searchQuery)
+	}
+	tagsNav := ""
+	if showTagsNav {
+		tagsNav = renderTagsNav(ctx.tags)
+	}
+	categoriesNav := ""
+	if showCategoriesNav {
+		categoriesNav = renderCategoriesNav(ctx.categories)
+	}
+
+	return renderHead(title, settings) +
+		renderNav(ctx.menu, settings) +
 		fmt.Sprintf(`<main class="body-tag">
       <header class="page-header">
         <h1 class="page-title">%s</h1>
