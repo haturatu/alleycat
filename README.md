@@ -19,6 +19,28 @@
 
 # alleycat
 
+<table>
+  <tr>
+    <td>
+      <img src="https://github.com/user-attachments/assets/945dc92e-75a0-4c2f-83fc-1dec8ba7a9d1" height="500" />
+    </td>
+    <td>
+      <img src="https://github.com/user-attachments/assets/976b861a-c34a-4cd3-9f3d-023bb53a478b" height="500" />
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td>
+      <img src="https://github.com/user-attachments/assets/1c0f7e9a-ab34-4d4d-9b55-4c2e94523ee7" height="500" />
+    </td>
+    <td>
+      <img src="https://github.com/user-attachments/assets/7b4a6947-926e-4d22-872d-c8096b5d6a1f" height="500" />
+    </td>
+  </tr>
+</table>
+
 This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 
 ## Structure
