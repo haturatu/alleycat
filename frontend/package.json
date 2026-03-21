@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "start:ssr": "node runtime/public-server.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@tiptap/extension-image": "^2.6.6",

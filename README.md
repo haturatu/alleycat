@@ -37,7 +37,7 @@ flowchart LR
     Router["React Router entry"]
     Shared["Shared libs / utils<br/>frontend/src/lib<br/>frontend/src/utils"]
     Theme["Public styles and themes<br/>frontend/src/styles<br/>frontend/public<br/>frontend/default-public-asset"]
-    SSR["SSR server<br/>frontend/runtime/public-server.mjs"]
+    SSR["SSR server<br/>backend/ssr/*.go"]
   end
 
   subgraph Backend["Backend Services"]
@@ -62,7 +62,7 @@ flowchart LR
 
 - `frontend/src/pages` and `frontend/src/components` drive the public reading experience.
 - `frontend/src/admin` contains the CMS, including editor UI, settings, and admin-specific styles.
-- `frontend/runtime/public-server.mjs` serves the public app, while `/admin` is served separately on the admin port.
+- `backend/ssr/*.go` serves the public app, while `/admin` is served separately on the admin port.
 - `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
 - `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.
 
