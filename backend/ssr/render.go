@@ -168,9 +168,24 @@ func renderHead(title string, settings SettingsRecord) string {
       display: grid;
       gap: 0.3rem;
     }
+    .post-toc li[data-level="2"] {
+      opacity: 0.96;
+    }
     .post-toc li[data-level="3"] {
       margin-left: 0.75rem;
       opacity: 0.9;
+    }
+    .post-toc li[data-level="4"] {
+      margin-left: 1.5rem;
+      opacity: 0.85;
+    }
+    .post-toc li[data-level="5"] {
+      margin-left: 2.25rem;
+      opacity: 0.8;
+    }
+    .post-toc li[data-level="6"] {
+      margin-left: 3rem;
+      opacity: 0.75;
     }
     </style>`
 	fontStyles := ""
@@ -893,8 +908,8 @@ func buildTOC(body string, enabled bool) (string, string) {
 
 		levelRaw := parts[1]
 		level := 2
-		if levelRaw == "3" {
-			level = 3
+		if parsed, err := strconv.Atoi(levelRaw); err == nil && parsed >= 1 && parsed <= 6 {
+			level = parsed
 		}
 		attrs := parts[2]
 		content := parts[3]

@@ -15,7 +15,7 @@ var (
 	listenAddr       = getEnv("LISTEN_ADDR", ":8888")
 )
 
-var headingRe = regexp.MustCompile(`(?is)<h([23])([^>]*)>(.*?)</h[23]>`)
+var headingRe = regexp.MustCompile(`(?is)<h([1-6])([^>]*)>(.*?)</h[1-6]>`)
 var mediaFileRe = regexp.MustCompile("(?i)(?:https?://[^\"'\\s)]+)?/api/files/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/([^\"'\\s)]+)")
 
 func resolvePublicDir() string {
