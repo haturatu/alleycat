@@ -23,7 +23,7 @@ const activePublicDir = (() => {
 })();
 
 const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
-const PORT = Number(process.env.PORT || 5173);
+const PORT = Number(process.env.PORT || 8888);
 const DEFAULT_SITE_NAME = process.env.SITE_NAME || "Example Blog";
 const DEFAULT_DESCRIPTION = process.env.SITE_DESCRIPTION || "A calm place to write.";
 const DEFAULT_WELCOME = process.env.HOME_WELCOME || "Welcome to your blog";

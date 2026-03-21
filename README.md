@@ -85,7 +85,7 @@ flowchart LR
 
 ## Services and Ports
 - `8091`: PocketBase API + Admin UI (`/_/`)
-- `5173`: Public site (SSR server)
+- `8888`: Public site (SSR server)
 - `5175`: Admin UI web app
 
 `/admin` is not served by the public site. Access the CMS directly via the admin port/URL.

@@ -12,7 +12,7 @@ var (
 	defaultPublicDir = getEnv("DEFAULT_PUBLIC_DIR", "/default-public-asset")
 	staticExportDir  = getEnv("STATIC_EXPORT_DIR", "/tmp/alleycat-static")
 	activePublicDir  = resolvePublicDir()
-	listenAddr       = getEnv("LISTEN_ADDR", ":5173")
+	listenAddr       = getEnv("LISTEN_ADDR", ":8888")
 )
 
 var headingRe = regexp.MustCompile(`(?is)<h([23])([^>]*)>(.*?)</h[23]>`)

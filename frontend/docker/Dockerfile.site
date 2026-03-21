@@ -17,5 +17,5 @@ COPY frontend/public /public
 COPY frontend/default-public-asset /default-public-asset
 ENV PUBLIC_DIR=/public
 ENV DEFAULT_PUBLIC_DIR=/default-public-asset
-EXPOSE 5173
+EXPOSE 8888
 CMD ["/app/ssr"]

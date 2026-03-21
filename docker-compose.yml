@@ -6,7 +6,7 @@ services:
     ports:
       - "8091:8091"
     environment:
-      - SSR_REGEN_URL=http://frontend:5173/__internal/revalidate
+      - SSR_REGEN_URL=http://frontend:8888/__internal/revalidate
       - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
     volumes:
       - pb_data:/pb/pb_data
@@ -22,8 +22,9 @@ services:
       dockerfile: frontend/docker/Dockerfile.site
     restart: always
     ports:
-      - "5173:5173"
+      - "8888:8888"
     environment:
+      - LISTEN_ADDR=:8888
       - PB_URL=http://pocketbase:8091
       - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
     depends_on:
@@ -41,12 +42,12 @@ services:
       dockerfile: docker/Dockerfile.cms
     restart: always
     ports:
-      - "5175:5173"
+      - "5175:5175"
     environment:
       - VITE_PB_URL=/
       - VITE_PB_PROXY_TARGET=http://pocketbase:8091
-      - VITE_UPLOADS_PROXY_TARGET=http://frontend:5173
-      - VITE_SITE_PROXY_TARGET=http://frontend:5173
+      - VITE_UPLOADS_PROXY_TARGET=http://frontend:8888
+      - VITE_SITE_PROXY_TARGET=http://frontend:8888
       - VITE_BASE=/admin/
       - VITE_ADMIN=true
     depends_on:
