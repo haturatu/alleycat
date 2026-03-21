@@ -123,6 +123,251 @@
   background: var(--admin-surface);
 }
 
+.admin-markdown-preview,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror {
+  color: var(--admin-ink);
+}
+
+.admin-markdown-preview > :first-child,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.admin-markdown-preview > :last-child,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror > :last-child {
+  margin-bottom: 0;
+}
+
+.admin-markdown-preview :is(h1, h2, h3, h4, h5, h6),
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.5em 0 0.55em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--admin-ink);
+}
+
+.admin-markdown-preview h1,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror h1 {
+  font-size: clamp(2rem, 3vw, 2.5rem);
+}
+
+.admin-markdown-preview h2,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror h2 {
+  font-size: clamp(1.55rem, 2.3vw, 1.9rem);
+  padding-bottom: 0.22em;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-markdown-preview h3,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror h3 {
+  font-size: clamp(1.28rem, 2vw, 1.5rem);
+}
+
+.admin-markdown-preview h4,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror h4 {
+  font-size: 1.1rem;
+}
+
+.admin-markdown-preview :is(h5, h6),
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror :is(h5, h6) {
+  font-size: 0.96rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.admin-markdown-preview p,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror p {
+  margin: 0 0 1em;
+}
+
+.admin-markdown-preview :is(ul, ol),
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror :is(ul, ol) {
+  margin: 0 0 1.15em;
+  padding-left: 1.4em;
+}
+
+.admin-markdown-preview li + li,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror li + li {
+  margin-top: 0.3em;
+}
+
+.admin-markdown-preview li :is(ul, ol),
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror li :is(ul, ol) {
+  margin-top: 0.45em;
+  margin-bottom: 0.2em;
+}
+
+.admin-markdown-preview input[type="checkbox"],
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.55rem 0 0;
+  accent-color: var(--admin-accent-strong);
+  vertical-align: text-bottom;
+}
+
+.admin-markdown-preview blockquote,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror blockquote {
+  margin: 1.25em 0;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-left: 4px solid var(--admin-accent);
+  color: var(--admin-ink-soft);
+  background: rgb(91 108 255 / 4%);
+}
+
+.admin-markdown-preview blockquote > :last-child,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror blockquote > :last-child,
+.admin-markdown-preview .markdown-alert > :last-child,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert > :last-child {
+  margin-bottom: 0;
+}
+
+.admin-markdown-preview a,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror a {
+  color: var(--admin-accent-strong);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.15em;
+}
+
+.admin-markdown-preview strong,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror strong {
+  color: var(--admin-ink);
+}
+
+.admin-markdown-preview em,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror em {
+  font-style: italic;
+}
+
+.admin-markdown-preview :is(del, s, strike),
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror :is(del, s, strike) {
+  color: var(--admin-ink-soft);
+  text-decoration-thickness: 0.08em;
+}
+
+.admin-markdown-preview mark,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror mark {
+  padding: 0.08em 0.22em;
+  border-radius: 0.2em;
+  background: rgb(255 226 122 / 65%);
+  color: inherit;
+}
+
+.admin-markdown-preview hr,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-markdown-preview table,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror table {
+  width: 100%;
+  margin: 1.2rem 0;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.admin-markdown-preview th,
+.admin-markdown-preview td,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror th,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror td {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--admin-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-markdown-preview th,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror th {
+  background: rgb(15 23 42 / 4%);
+  font-weight: 700;
+}
+
+.admin-markdown-preview tr:nth-child(even) td,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror tr:nth-child(even) td {
+  background: rgb(15 23 42 / 2%);
+}
+
+.admin-markdown-preview .markdown-alert,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert {
+  --alert-color: var(--admin-accent);
+  margin: 1.2rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--alert-color) 28%, transparent);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--alert-color) 7%, var(--admin-surface));
+}
+
+.admin-markdown-preview .markdown-alert-title,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-title {
+  margin: 0 0 0.45rem;
+  font-weight: 700;
+  color: var(--admin-ink);
+}
+
+.admin-markdown-preview .markdown-alert-note,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-note {
+  --alert-color: #2563eb;
+}
+
+.admin-markdown-preview .markdown-alert-tip,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-tip {
+  --alert-color: #059669;
+}
+
+.admin-markdown-preview .markdown-alert-important,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-important {
+  --alert-color: #9333ea;
+}
+
+.admin-markdown-preview .markdown-alert-warning,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-warning {
+  --alert-color: #ca8a04;
+}
+
+.admin-markdown-preview .markdown-alert-caution,
+/* stylelint-disable-next-line selector-class-pattern */
+.editor .ProseMirror .markdown-alert-caution {
+  --alert-color: #dc2626;
+}
+
 @media (width <= 960px) {
   .editor {
     padding: 10px;
