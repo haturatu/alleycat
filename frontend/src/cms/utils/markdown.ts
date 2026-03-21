@@ -169,6 +169,7 @@ const createAlertNode = (doc: Document, kind: string, contentNodes: Node[]) => {
 
 const normalizeMarkdownAlertsInContainer = (container: ParentNode, doc: Document) => {
   Array.from(container.children).forEach((element) => {
+    if (element instanceof HTMLElement && element.tagName === "BLOCKQUOTE") return;
     normalizeMarkdownAlertsInContainer(element, doc);
   });
 
@@ -179,7 +180,12 @@ const normalizeMarkdownAlertsInContainer = (container: ParentNode, doc: Document
     const split = splitAlertParagraph(first, doc);
     if (!split) return;
 
-    const contentNodes = [...split.contentNodes, ...Array.from(element.childNodes).slice(1).map((node) => node.cloneNode(true))];
+    const contentNodes = [
+      ...split.contentNodes,
+      ...Array.from(element.children)
+        .filter((child) => child !== first)
+        .map((node) => node.cloneNode(true)),
+    ];
     const replacement = createAlertNode(doc, split.kind, contentNodes);
     element.replaceWith(replacement);
   });
@@ -271,6 +277,54 @@ const normalizeText = (value: string) => value.replace(/\u00a0/g, " ");
 
 const escapeText = (value: string) => value.replace(/([\\`*_{}#+!>])/g, "\\$1");
 
+const renderInlineChildrenMarkdown = (node: ParentNode) =>
+  Array.from(node.childNodes)
+    .map(nodeToMarkdown)
+    .join("");
+
+const renderAlertMarkdown = (kind: string, content: string) => {
+  const lines = content.trim().split("\n");
+  const quoted = [`> [!${kind.toUpperCase()}]`];
+
+  lines.forEach((line) => {
+    quoted.push(line.trim() ? `> ${line}` : ">");
+  });
+
+  return `${quoted.join("\n")}\n\n`;
+};
+
+const renderTableMarkdown = (table: HTMLElement) => {
+  const rows = Array.from(table.querySelectorAll("tr"));
+  if (rows.length === 0) return "";
+
+  const headerCells = Array.from(rows[0].children).filter(
+    (cell): cell is HTMLElement => cell instanceof HTMLElement && /^(TH|TD)$/.test(cell.tagName)
+  );
+  if (headerCells.length === 0) return "";
+
+  const renderCell = (cell: HTMLElement) => renderInlineChildrenMarkdown(cell).replace(/\n+/g, " ").trim();
+  const header = `| ${headerCells.map(renderCell).join(" | ")} |`;
+  const separator = `| ${headerCells.map(() => "---").join(" | ")} |`;
+  const body = rows
+    .slice(1)
+    .map((row) => {
+      const cells = Array.from(row.children).filter(
+        (cell): cell is HTMLElement => cell instanceof HTMLElement && /^(TH|TD)$/.test(cell.tagName)
+      );
+      if (cells.length === 0) return "";
+      return `| ${cells.map(renderCell).join(" | ")} |`;
+    })
+    .filter(Boolean);
+
+  return `${[header, separator, ...body].join("\n")}\n\n`;
+};
+
+const alertKindFromElement = (element: HTMLElement) => {
+  const className = element.className || "";
+  const match = className.match(/markdown-alert-(note|tip|important|warning|caution)\b/i);
+  return match ? match[1].toLowerCase() : null;
+};
+
 const renderListItemMarkdown = (li: HTMLElement, ordered: boolean, index: number, depth: number): string => {
   const indent = "  ".repeat(depth);
   const marker = ordered ? `${index + 1}. ` : "- ";
@@ -328,9 +382,18 @@ const nodeToMarkdown = (node: Node): string => {
     case "em":
     case "i":
       return `*${children}*`;
+    case "del":
+    case "s":
+    case "strike":
+      return `~~${children}~~`;
+    case "mark":
+      return `<mark>${children}</mark>`;
     case "code":
       if (node.closest("pre")) return children;
       return `\`${(node.textContent || "").replace(/`/g, "\\`")}\``;
+    case "input":
+      if (node.getAttribute("type")?.toLowerCase() !== "checkbox") return "";
+      return node.hasAttribute("checked") ? "[x]" : "[ ]";
     case "pre": {
       const codeNode = node.querySelector("code");
       const classNames = `${node.getAttribute("class") || ""} ${codeNode?.getAttribute("class") || ""}`;
@@ -354,12 +417,24 @@ const nodeToMarkdown = (node: Node): string => {
       return `##### ${children.trim()}\n\n`;
     case "h6":
       return `###### ${children.trim()}\n\n`;
-    case "blockquote":
+    case "blockquote": {
+      const first = node.firstElementChild;
+      if (first instanceof HTMLElement && first.tagName === "P") {
+        const split = splitAlertParagraph(first, node.ownerDocument);
+        if (split) {
+          const contentMarkdown = [split.contentNodes.map(nodeToMarkdown).join(""), ...Array.from(node.children).slice(1).map(nodeToMarkdown)]
+            .join("")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+          return renderAlertMarkdown(split.kind, contentMarkdown);
+        }
+      }
       return `${children
         .trim()
         .split("\n")
         .map((line) => (line.trim() ? `> ${line}` : ">"))
         .join("\n")}\n\n`;
+    }
     case "a": {
       const href = node.getAttribute("href") || "";
       const label = children.trim() || href;
@@ -379,6 +454,21 @@ const nodeToMarkdown = (node: Node): string => {
       return `${renderListMarkdown(node, true, 0)}\n\n`;
     case "hr":
       return `---\n\n`;
+    case "table":
+      return renderTableMarkdown(node);
+    case "div": {
+      const kind = alertKindFromElement(node);
+      if (kind) {
+        const contentMarkdown = Array.from(node.children)
+          .filter((child) => !(child instanceof HTMLElement && child.classList.contains("markdown-alert-title")))
+          .map(nodeToMarkdown)
+          .join("")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        return renderAlertMarkdown(kind, contentMarkdown);
+      }
+      return `${node.innerHTML.trim()}\n\n`;
+    }
     default:
       return children;
   }
