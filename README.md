@@ -69,9 +69,17 @@ flowchart LR
 ## Usage
 ### docker-compose (recommended)
 1. `cd alleycat`
-2. `docker-compose up --build` (builds and starts services)
-3. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
-4. Complete initial setup (see "Initial Setup" below).
+2. Generate a token for static regeneration and save it in `.env`:
+   ```
+   printf 'STATIC_REGEN_TOKEN=%s\n' "$(openssl rand -hex 32)" > .env
+   ```
+   If `.env` already exists, append instead:
+   ```
+   printf '\nSTATIC_REGEN_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env
+   ```
+3. `docker-compose up --build` (builds and starts services)
+4. Open PocketBase admin UI at `http://127.0.0.1:8091/_/`.
+5. Complete initial setup (see "Initial Setup" below).
 
 ### Local (without Docker)
 1. Start PocketBase:
