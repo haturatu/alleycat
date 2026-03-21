@@ -61,8 +61,10 @@ func isRevalidateAuthorized(r *http.Request) bool {
 }
 
 func applyRevalidation(req revalidateRequest) error {
+	slog.Info("revalidation lock wait start", "collection", req.Collection, "action", req.Action)
 	snapshotMutation.mu.Lock()
 	defer snapshotMutation.mu.Unlock()
+	slog.Info("revalidation lock acquired", "collection", req.Collection, "action", req.Action)
 
 	root := getPrerenderedSnapshotDir()
 	if root == "" {
@@ -77,10 +79,13 @@ func applyRevalidation(req revalidateRequest) error {
 	}
 
 	invalidateDerivedCaches()
+	slog.Info("revalidation context build start", "collection", req.Collection, "action", req.Action, "root", root)
 	ctx, err := newSnapshotBuildContext()
 	if err != nil {
+		slog.Error("revalidation context build failed", "collection", req.Collection, "action", req.Action, "error", err)
 		return err
 	}
+	slog.Info("revalidation context build completed", "collection", req.Collection, "action", req.Action)
 
 	return withSnapshotBuildContext(ctx, func() error {
 		switch req.Collection {
@@ -116,13 +121,16 @@ func revalidatePage(root string, req revalidateRequest) error {
 	current := decodePageRecord(req.Current)
 	original := decodePageRecord(req.Original)
 	settings := getSettings()
+	slog.Info("revalidate page start", "action", req.Action, "current_url", valueOrEmptyPageURL(current), "original_url", valueOrEmptyPageURL(original))
 
 	if original != nil && strings.TrimSpace(original.URL) != "" {
+		slog.Info("revalidate page remove original route", "route", original.URL)
 		if err := removeSnapshotRoute(root, original.URL); err != nil {
 			return err
 		}
 	}
 	if current != nil && current.Published && strings.TrimSpace(current.URL) != "" {
+		slog.Info("revalidate page render current route", "route", current.URL)
 		html, ok := renderPageFromRecord(current, settings)
 		if ok {
 			if err := writeSnapshotRoute(root, current.URL, []byte(html)); err != nil {
@@ -131,6 +139,7 @@ func revalidatePage(root string, req revalidateRequest) error {
 		}
 	}
 
+	slog.Info("revalidate page sitemap write start")
 	return writeSitemapFiles(root, settings)
 }
 
@@ -138,14 +147,17 @@ func revalidatePost(root string, req revalidateRequest) error {
 	current := decodePostRecord(req.Current)
 	original := decodePostRecord(req.Original)
 	settings := getSettings()
+	slog.Info("revalidate post start", "action", req.Action, "current_id", valueOrEmptyPostID(current), "current_slug", valueOrEmptyPostSlug(current), "original_id", valueOrEmptyPostID(original), "original_slug", valueOrEmptyPostSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Slug) != "" {
+		slog.Info("revalidate post remove original route", "route", "/posts/"+original.Slug+"/")
 		if err := removeSnapshotRoute(root, "/posts/"+url.PathEscape(original.Slug)+"/"); err != nil {
 			return err
 		}
 	}
 
 	if current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
+		slog.Info("revalidate post render current route", "route", "/posts/"+current.Slug+"/")
 		html, ok := renderPostFromInput(&postRenderInput{
 			path:   "/posts/" + current.Slug + "/",
 			locale: "",
@@ -159,25 +171,31 @@ func revalidatePost(root string, req revalidateRequest) error {
 		}
 	}
 
+	slog.Info("revalidate post family start")
 	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
 		return err
 	}
 	impact := analyzePostImpact(current, original, settings)
+	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "feed", impact.feed, "sitemap", impact.sitemap, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 	if impact.home || impact.mainArchive {
+		slog.Info("revalidate post home/archive start")
 		if err := revalidateHomeAndArchives(root, settings, current, original, impact); err != nil {
 			return err
 		}
 	}
 	if impact.feed {
+		slog.Info("revalidate post feed write start")
 		if err := writeFeedFiles(root, settings); err != nil {
 			return err
 		}
 	}
 	if impact.sitemap {
+		slog.Info("revalidate post sitemap write start")
 		if err := writeSitemapFiles(root, settings); err != nil {
 			return err
 		}
 	}
+	slog.Info("revalidate post completed")
 	return nil
 }
 
@@ -185,14 +203,17 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 	current := decodeTranslationRecord(req.Current)
 	original := decodeTranslationRecord(req.Original)
 	settings := getSettings()
+	slog.Info("revalidate translation start", "action", req.Action, "current_locale", valueOrEmptyTranslationLocale(current), "current_slug", valueOrEmptyTranslationSlug(current), "original_locale", valueOrEmptyTranslationLocale(original), "original_slug", valueOrEmptyTranslationSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Locale) != "" && strings.TrimSpace(original.Slug) != "" {
+		slog.Info("revalidate translation remove original route", "route", "/"+normalizeLocale(original.Locale)+"/posts/"+original.Slug+"/")
 		if err := removeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(original.Locale))+"/posts/"+url.PathEscape(original.Slug)+"/"); err != nil {
 			return err
 		}
 	}
 
 	if current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" {
+		slog.Info("revalidate translation render current route", "route", "/"+normalizeLocale(current.Locale)+"/posts/"+current.Slug+"/")
 		post := translationToPost(*current)
 		html, ok := renderPostFromInput(&postRenderInput{
 			path:        "/" + current.Locale + "/posts/" + current.Slug + "/",
@@ -208,9 +229,11 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 		}
 	}
 
+	slog.Info("revalidate translation context start")
 	if err := revalidateTranslationContext(root, settings, current, original); err != nil {
 		return err
 	}
+	slog.Info("revalidate translation sitemap write start")
 	return writeLocalizedSitemapFiles(root, settings, current, original)
 }
 
@@ -225,16 +248,19 @@ type postRevalidationImpact struct {
 
 func revalidateHomeAndArchives(root string, settings SettingsRecord, current, original *PostRecord, impact postRevalidationImpact) error {
 	if impact.home {
+		slog.Info("revalidate home write start")
 		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
 			return err
 		}
 	}
 	if impact.mainArchive {
+		slog.Info("revalidate main archive export start", "route", "/archive/")
 		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
 			return err
 		}
 	}
 	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
+		slog.Info("revalidate archive route rebuild start", "route", route)
 		if err := rebuildArchiveRoute(root, settings, route); err != nil {
 			return err
 		}
@@ -366,6 +392,7 @@ func revalidateSourcePostFamily(root string, settings SettingsRecord, current, o
 		if item == nil || strings.TrimSpace(item.ID) == "" {
 			continue
 		}
+		slog.Info("revalidate source post family item start", "source_post_id", item.ID)
 		if err := revalidatePostRecordAndTranslations(root, settings, item.ID); err != nil {
 			return err
 		}
@@ -376,6 +403,7 @@ func revalidateSourcePostFamily(root string, settings SettingsRecord, current, o
 func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, sourcePostID string) error {
 	post := getPostByID(sourcePostID)
 	if post != nil && post.Published && strings.TrimSpace(post.Slug) != "" {
+		slog.Info("revalidate source post render start", "source_post_id", sourcePostID, "route", "/posts/"+post.Slug+"/")
 		html, ok := renderPostFromInput(&postRenderInput{
 			path:   "/posts/" + post.Slug + "/",
 			locale: "",
@@ -394,6 +422,7 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 		if locale == "" || strings.TrimSpace(item.Slug) == "" {
 			continue
 		}
+		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", "/"+locale+"/posts/"+item.Slug+"/")
 		post := translationToPost(item)
 		html, ok := renderPostFromInput(&postRenderInput{
 			path:        "/" + locale + "/posts/" + item.Slug + "/",
@@ -433,6 +462,7 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 }
 
 func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
+	slog.Info("revalidate localized robots write start")
 	if err := exportRecordedRoute(root, "/robots.txt", prerenderRobots(settings)); err != nil {
 		return err
 	}
@@ -447,11 +477,47 @@ func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, o
 		}
 	}
 	for locale := range locales {
+		slog.Info("revalidate localized sitemap write start", "locale", locale)
 		if err := exportRecordedRoute(root, "/sitemap-"+locale+".xml", prerenderSitemap(settings, locale)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func valueOrEmptyPostID(item *PostRecord) string {
+	if item == nil {
+		return ""
+	}
+	return strings.TrimSpace(item.ID)
+}
+
+func valueOrEmptyPostSlug(item *PostRecord) string {
+	if item == nil {
+		return ""
+	}
+	return strings.TrimSpace(item.Slug)
+}
+
+func valueOrEmptyPageURL(item *PageRecord) string {
+	if item == nil {
+		return ""
+	}
+	return strings.TrimSpace(item.URL)
+}
+
+func valueOrEmptyTranslationLocale(item *PostTranslationRecord) string {
+	if item == nil {
+		return ""
+	}
+	return strings.TrimSpace(item.Locale)
+}
+
+func valueOrEmptyTranslationSlug(item *PostTranslationRecord) string {
+	if item == nil {
+		return ""
+	}
+	return strings.TrimSpace(item.Slug)
 }
 
 func prerenderFeedXML(settings SettingsRecord) []byte {
