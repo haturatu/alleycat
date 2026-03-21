@@ -10,6 +10,8 @@ type RenderMarkdownOptions = {
   highlightCode?: boolean;
 };
 
+const alertKinds = new Set(["note", "tip", "important", "warning", "caution"]);
+
 const codeFenceStartRe = /^```([\w+-]+)?\s*$/;
 const codeFenceEndRe = /^```\s*$/;
 
@@ -98,6 +100,121 @@ const normalizeFencedCodeBlocksInContainer = (container: ParentNode, doc: Docume
   }
 };
 
+const alertMarkerRe = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]$/i;
+
+const extractAlertKind = (value: string) => {
+  const match = value.trim().match(alertMarkerRe);
+  if (!match) return null;
+  const kind = match[1].toLowerCase();
+  return alertKinds.has(kind) ? kind : null;
+};
+
+const splitAlertParagraph = (element: HTMLElement, doc: Document) => {
+  const firstChild = element.firstChild;
+  if (!(firstChild instanceof Text)) return null;
+
+  const raw = firstChild.textContent || "";
+  const lines = raw.replace(/\r\n?/g, "\n").split("\n");
+  const marker = lines[0]?.trim() || "";
+  const kind = extractAlertKind(marker);
+  if (!kind) return null;
+
+  const remainder = lines.slice(1).join("\n").trim();
+  const contentNodes: Node[] = [];
+
+  if (remainder) {
+    contentNodes.push(doc.createTextNode(remainder));
+  }
+
+  let consumeLeadingBreak = Boolean(remainder) || raw.includes("\n");
+  Array.from(element.childNodes).slice(1).forEach((node) => {
+    if (consumeLeadingBreak && node instanceof HTMLBRElement) {
+      consumeLeadingBreak = false;
+      return;
+    }
+    contentNodes.push(node.cloneNode(true));
+  });
+
+  const hasContent = contentNodes.some((node) => (node.textContent || "").trim() !== "");
+  if (!hasContent) {
+    return { kind, contentNodes: [] as Node[] };
+  }
+
+  const paragraph = doc.createElement("p");
+  contentNodes.forEach((node) => {
+    paragraph.appendChild(node);
+  });
+
+  return {
+    kind,
+    contentNodes: [paragraph],
+  };
+};
+
+const createAlertNode = (doc: Document, kind: string, contentNodes: Node[]) => {
+  const wrapper = doc.createElement("div");
+  wrapper.className = `markdown-alert markdown-alert-${kind}`;
+
+  const title = doc.createElement("p");
+  title.className = "markdown-alert-title";
+  title.textContent = kind.charAt(0).toUpperCase() + kind.slice(1);
+  wrapper.appendChild(title);
+
+  contentNodes.forEach((node) => {
+    wrapper.appendChild(node);
+  });
+
+  return wrapper;
+};
+
+const normalizeMarkdownAlertsInContainer = (container: ParentNode, doc: Document) => {
+  Array.from(container.children).forEach((element) => {
+    normalizeMarkdownAlertsInContainer(element, doc);
+  });
+
+  Array.from(container.children).forEach((element) => {
+    if (!(element instanceof HTMLElement) || element.tagName !== "BLOCKQUOTE") return;
+    const first = element.firstElementChild;
+    if (!(first instanceof HTMLElement) || first.tagName !== "P") return;
+    const split = splitAlertParagraph(first, doc);
+    if (!split) return;
+
+    const contentNodes = [...split.contentNodes, ...Array.from(element.childNodes).slice(1).map((node) => node.cloneNode(true))];
+    const replacement = createAlertNode(doc, split.kind, contentNodes);
+    element.replaceWith(replacement);
+  });
+
+  const children = Array.from(container.children);
+  for (let index = 0; index < children.length; index += 1) {
+    const element = children[index];
+    if (!(element instanceof HTMLElement) || element.tagName !== "P") continue;
+    const split = splitAlertParagraph(element, doc);
+    if (!split) continue;
+
+    const contentNodes: Node[] = [...split.contentNodes];
+    let cursor = element.nextSibling;
+    while (cursor) {
+      const next = cursor.nextSibling;
+      if (!(cursor instanceof HTMLElement)) {
+        cursor = next;
+        continue;
+      }
+      if (cursor.tagName === "P" && splitAlertParagraph(cursor, doc)) break;
+      if (/^H[1-6]$/.test(cursor.tagName) || cursor.tagName === "HR") break;
+      contentNodes.push(cursor);
+      cursor = next;
+    }
+
+    const replacement = createAlertNode(doc, split.kind, contentNodes);
+    element.replaceWith(replacement);
+    contentNodes.forEach((node) => {
+      if (node.parentNode) {
+        node.parentNode.removeChild(node);
+      }
+    });
+  }
+};
+
 export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
   const input = value ?? "";
   if (!input.trim()) return "";
@@ -107,6 +224,7 @@ export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOpti
   const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
   const root = doc.getElementById("md-root");
   if (!root) return rendered;
+  normalizeMarkdownAlertsInContainer(root, doc);
   highlightCodeBlocks(root, highlightCode);
 
   return root.innerHTML;
