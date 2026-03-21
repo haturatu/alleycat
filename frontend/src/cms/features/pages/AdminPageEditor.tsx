@@ -114,7 +114,7 @@ export default function AdminPageEditor() {
       });
   }, [id, navigate]);
 
-  useUnsavedChangesGuard(isDirty);
+  useUnsavedChangesGuard(isDirty && !saving);
 
   const focusFirstError = (errors: FieldErrors) => {
     window.requestAnimationFrame(() => {

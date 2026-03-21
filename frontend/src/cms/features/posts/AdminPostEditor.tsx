@@ -343,7 +343,7 @@ export default function AdminPostEditor() {
     setActiveCategorySuggestion(-1);
   }, [activeCategorySuggestion, categorySuggestions.length]);
 
-  useUnsavedChangesGuard(isDirty);
+  useUnsavedChangesGuard(isDirty && !saving);
 
   useEffect(() => {
     const state = location.state as { saved?: boolean; created?: boolean; translationQueued?: boolean } | null;
