@@ -29,13 +29,13 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 ```mermaid
 flowchart LR
   subgraph Client["Client Surfaces"]
-    Public["Public site<br/>frontend/src/pages<br/>frontend/src/components"]
-    Admin["Admin CMS<br/>frontend/src/admin"]
+    Public["Public site<br/>frontend/src/site<br/>frontend/src/site/ui"]
+    Admin["Admin CMS<br/>frontend/src/cms"]
   end
 
   subgraph Frontend["Frontend App"]
     Router["React Router entry"]
-    Shared["Shared libs / utils<br/>frontend/src/lib<br/>frontend/src/utils"]
+    Shared["Shared libs / utils<br/>frontend/src/shared/lib<br/>frontend/src/shared/utils"]
     Theme["Public styles and themes<br/>frontend/src/styles<br/>frontend/public<br/>frontend/default-public-asset"]
     SSR["SSR server<br/>backend/ssr/*.go"]
   end
@@ -60,8 +60,9 @@ flowchart LR
   SSRData <--> Data
 ```
 
-- `frontend/src/pages` and `frontend/src/components` drive the public reading experience.
-- `frontend/src/admin` contains the CMS, including editor UI, settings, and admin-specific styles.
+- `frontend/src/site` and `frontend/src/site/ui` drive the public reading experience.
+- `frontend/src/cms` contains the CMS, including editor UI, settings, and admin-specific styles.
+- `frontend/src/shared` contains shared PocketBase access, helpers, and cross-surface utilities.
 - `backend/ssr/*.go` serves the public app, while `/admin` is served separately on the admin port.
 - `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
 - `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.
@@ -146,8 +147,8 @@ The following settings are editable in the Admin UI:
 - Translation target locales (multiple)
 - Gemini model
 - Translation requests/minute
-- Gemini API key
 - Feed items limit
+- Excerpt length
 - Enable RSS/Atom feed
 - Enable JSON feed
 - Enable code highlight
@@ -158,12 +159,17 @@ The following settings are editable in the Admin UI:
 - Show archive tags
 - Show tags
 - Show categories
+- Show related posts
 - Show archive search slot
 - Enable analytics
 - Analytics URL
 - Analytics site id
 - Enable ads
 - Ads client
+- Enable comments
+- Comment script tag (utterances/giscus)
+- Gemini API key
+  Note: only users with the `admin` role can view or update the Gemini API key because it is stored in the `app_secrets` collection. Users with the `editor` role can edit the main settings record but cannot manage that secret.
 
 ### Post Translation Migration
 - Existing posts can be translated with:
