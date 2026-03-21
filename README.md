@@ -241,3 +241,39 @@ From the repository root (`alleycat`):
 
 ## Notes
 - Public API exposure is controlled by PocketBase rules.
+
+## Directory Tree
+Build outputs and local runtime data such as `frontend/node_modules`, `frontend/dist`, and `backend/pb_data` are omitted below.
+
+```text
+.
+├── .github/                    # GitHub Actions and repository automation
+│   └── workflows/              # CI workflow definitions
+├── backend/                    # PocketBase app and Go-based public SSR
+│   └── ssr/                    # Public site rendering, feeds, sitemap, robots, revalidation
+├── frontend/                   # Admin frontend and public static assets
+│   ├── default-public-asset/   # Fallback public assets when frontend/public is empty
+│   │   └── themes/             # Built-in public themes
+│   ├── docker/                 # Dockerfiles and nginx config for frontend services
+│   ├── public/                 # Optional user-supplied public assets
+│   └── src/                    # Admin frontend source
+│       └── cms/                # Admin app modules
+│           ├── features/       # Admin feature screens and feature-specific logic
+│           │   ├── auth/       # Login and role gate
+│           │   ├── editor/     # Rich editor, media upload, markdown/html helpers
+│           │   │   ├── components/ # Editor UI pieces
+│           │   │   └── hooks/  # Editor-only hooks
+│           │   ├── layout/     # Admin shell layout
+│           │   ├── pages/      # Static page management UI
+│           │   ├── posts/      # Post management and translation UI
+│           │   └── settings/   # Site/admin settings UI
+│           ├── lib/            # Admin-side service access such as PocketBase client
+│           ├── styles/         # Admin CSS
+│           ├── ui/             # Shared admin UI primitives
+│           └── utils/          # Admin utility helpers
+├── docker-compose.yml          # Local multi-service composition
+├── LICENSE                     # License file
+├── README.md                   # Project documentation
+├── package-lock.json           # Root npm lockfile for repo-level tooling
+└── package.json                # Root npm package for repo-level tooling
+```
