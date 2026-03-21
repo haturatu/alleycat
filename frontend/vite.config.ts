@@ -25,6 +25,13 @@ export default defineConfig({
           res.end(JSON.stringify({ publicAssets: hasPublicAssets() }));
         });
       },
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "theme-status",
+          source: JSON.stringify({ publicAssets: hasPublicAssets() }),
+        });
+      },
     },
   ],
   resolve: {

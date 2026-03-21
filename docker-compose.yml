@@ -40,15 +40,11 @@ services:
     build:
       context: ./frontend
       dockerfile: docker/Dockerfile.cms
+      args:
+        VITE_BASE: /admin/
     restart: always
     ports:
       - "5175:5175"
-    environment:
-      - VITE_PB_URL=/
-      - VITE_PB_PROXY_TARGET=http://pocketbase:8091
-      - VITE_UPLOADS_PROXY_TARGET=http://frontend:8888
-      - VITE_BASE=/admin/
-      - VITE_ADMIN=true
     depends_on:
       - pocketbase
     deploy:
