@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { hasRole, isAuthed, pb } from "@shared/lib/pb";
+import { hasRole, isAuthed, pb } from "@cms/lib/pb";
 import { AdminButton, AdminTextField } from "@cms/ui/AriaControls";
 import useAdminPageTitle from "@cms/useAdminPageTitle";
 import "@cms/styles/index.css";

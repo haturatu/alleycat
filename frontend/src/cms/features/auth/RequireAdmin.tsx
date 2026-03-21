@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { hasRole, isAuthed } from "@shared/lib/pb";
+import { hasRole, isAuthed } from "@cms/lib/pb";
 
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
   if (!isAuthed() || !hasRole(["admin", "editor"])) {

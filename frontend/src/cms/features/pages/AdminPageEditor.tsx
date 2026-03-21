@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
-import { pb } from "@shared/lib/pb";
-import { normalizeMarkdownLinksInHtml, slugify } from "@shared/utils/text";
-import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@shared/utils/markdown";
+import { pb } from "@cms/lib/pb";
+import { normalizeMarkdownLinksInHtml, slugify } from "@cms/utils/text";
+import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@cms/utils/markdown";
 import SaveButton from "@cms/ui/SaveButton";
 import { AdminCheckboxField, AdminTextField } from "@cms/ui/AriaControls";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "@cms/features/editor/components/ContentEditorField";
@@ -149,7 +149,7 @@ export default function AdminPageEditor() {
     const normalizedBody =
       isMarkdownMode
         ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
-        : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody), { highlightCode: false });
+        : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody));
     const trimmedBody = sourceBody.trim();
     const resolvedUrl = url || `/${slug}/`;
     const nextErrors: FieldErrors = {

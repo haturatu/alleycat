@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { pb, PostRecord } from "@shared/lib/pb";
-import { formatDate } from "@shared/utils/text";
+import { pb, PostRecord } from "@cms/lib/pb";
+import { formatDate } from "@cms/utils/text";
 import {
   AdminButton,
   AdminConfirmDialog,

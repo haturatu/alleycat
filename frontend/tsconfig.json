@@ -14,8 +14,7 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@cms/*": ["src/cms/*"],
-      "@shared/*": ["src/shared/*"]
+      "@cms/*": ["src/cms/*"]
     }
   },
   "include": ["src"]

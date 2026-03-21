@@ -1,4 +1,4 @@
-import { slugify } from "@shared/utils/text";
+import { slugify } from "@cms/utils/text";
 import { validateSlug, validateTitle } from "@cms/features/editor/validation";
 
 type UseTitleSlugStateParams = {

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
-import { pb } from "@shared/lib/pb";
-import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "@shared/utils/text";
-import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@shared/utils/markdown";
+import { pb } from "@cms/lib/pb";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "@cms/utils/text";
+import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@cms/utils/markdown";
 import SaveButton from "@cms/ui/SaveButton";
 import {
   AdminButton,
@@ -25,7 +25,7 @@ import useEditorFormState from "@cms/features/editor/hooks/useEditorFormState";
 import usePublishState from "@cms/features/editor/hooks/usePublishState";
 import useTitleSlugState from "@cms/features/editor/hooks/useTitleSlugState";
 import { validateBody, validateSlug, validateTitle } from "@cms/features/editor/validation";
-import type { TranslationJobRecord } from "@shared/lib/pb";
+import type { TranslationJobRecord } from "@cms/lib/pb";
 
 type EditorPostRecord = {
   id?: string;
@@ -583,7 +583,7 @@ export default function AdminPostEditor() {
     const sourceBody = isMarkdownMode ? markdownBody : body;
     const normalizedBody = isMarkdownMode
       ? renderMarkdownToHtml(sourceBody, { highlightCode: false })
-      : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody), { highlightCode: false });
+      : normalizeFencedCodeBlocksInHtml(normalizeMarkdownLinksInHtml(sourceBody));
     const autoExcerpt = excerptLength > 0;
     const finalExcerpt = autoExcerpt ? buildExcerpt(normalizedBody, excerptLength) : excerpt;
     const trimmedTitle = title.trim();

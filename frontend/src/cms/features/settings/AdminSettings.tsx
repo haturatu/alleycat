@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ClientResponseError } from "pocketbase";
-import { hasRole, pb } from "@shared/lib/pb";
+import { hasRole, pb } from "@cms/lib/pb";
 import {
   AdminCheckboxField,
   AdminCheckboxGroupField,

@@ -1,5 +1,5 @@
 import { useRef, type ClipboardEvent } from "react";
-import { renderHtmlToMarkdown, renderMarkdownToHtml } from "@shared/utils/markdown";
+import { renderHtmlToMarkdown, renderMarkdownToHtml } from "@cms/utils/markdown";
 import { uploadImageAndGetURL } from "@cms/features/editor/mediaUpload";
 import RichEditor from "@cms/features/editor/RichEditor";
 import { AdminSelectField, AdminTabs } from "@cms/ui/AriaControls";

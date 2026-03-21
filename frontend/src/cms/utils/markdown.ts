@@ -269,34 +269,22 @@ const nodeToMarkdown = (node: Node): string => {
 export const renderHtmlToMarkdown = (value?: string) => {
   const input = value ?? "";
   if (!input.trim()) return "";
-  if (!looksLikeHtml(input)) return input;
 
   const doc = new DOMParser().parseFromString(input, "text/html");
-  const markdown = Array.from(doc.body.childNodes).map(nodeToMarkdown).join("");
-  return markdown
-    .replace(/[ \t]+\n/g, "\n")
+  normalizeFencedCodeBlocksInContainer(doc.body, doc);
+
+  return Array.from(doc.body.childNodes)
+    .map(nodeToMarkdown)
+    .join("")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 };
 
-export const normalizeFencedCodeBlocksInHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
+export const normalizeFencedCodeBlocksInHtml = (value?: string) => {
   const input = value ?? "";
   if (!input.trim()) return "";
 
-  const { highlightCode = true } = options;
-  const doc = new DOMParser().parseFromString(`<div id="html-root">${input}</div>`, "text/html");
-  const root = doc.getElementById("html-root");
-  if (!root) return input;
-
-  normalizeFencedCodeBlocksInContainer(root, doc);
-  highlightCodeBlocks(root, highlightCode);
-  return root.innerHTML;
-};
-
-export const renderStoredContentToHtml = (value?: string, options: RenderMarkdownOptions = {}) => {
-  const input = value ?? "";
-  if (!input.trim()) return "";
-  return looksLikeHtml(input)
-    ? normalizeFencedCodeBlocksInHtml(input, options)
-    : renderMarkdownToHtml(input, options);
+  const doc = new DOMParser().parseFromString(input, "text/html");
+  normalizeFencedCodeBlocksInContainer(doc.body, doc);
+  return doc.body.innerHTML;
 };

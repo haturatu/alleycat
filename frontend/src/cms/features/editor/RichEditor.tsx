@@ -3,7 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { useEffect, useRef } from "react";
-import { pb } from "@shared/lib/pb";
+import { pb } from "@cms/lib/pb";
 import { uploadImageAndGetURL } from "@cms/features/editor/mediaUpload";
 import { AdminButton } from "@cms/ui/AriaControls";
 

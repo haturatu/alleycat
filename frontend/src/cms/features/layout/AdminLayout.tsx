@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { pb } from "@shared/lib/pb";
+import { pb } from "@cms/lib/pb";
 import { AdminButton, AdminDialog } from "@cms/ui/AriaControls";
 import "@cms/styles/index.css";
 import "highlight.js/styles/github-dark.css";

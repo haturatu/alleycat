@@ -30,7 +30,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@cms": path.resolve(__dirname, "src/cms"),
-      "@shared": path.resolve(__dirname, "src/shared"),
     },
   },
   base: process.env.VITE_BASE || "/",

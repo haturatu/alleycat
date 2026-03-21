@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { pb, PageRecord } from "@shared/lib/pb";
+import { pb, PageRecord } from "@cms/lib/pb";
 import { AdminButton, AdminConfirmDialog, AdminSelectField, AdminTable, AdminTextField } from "@cms/ui/AriaControls";
 import FormStatusMessage from "@cms/ui/FormStatusMessage";
 import useAdminPageTitle from "@cms/useAdminPageTitle";

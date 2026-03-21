@@ -1,6 +1,6 @@
 import { ClientResponseError } from "pocketbase";
 import { sha256 } from "js-sha256";
-import { pb } from "@shared/lib/pb";
+import { pb } from "@cms/lib/pb";
 
 const normalizeUploadFilename = (filename: string) => {
   const dot = filename.lastIndexOf(".");

@@ -34,7 +34,7 @@ flowchart LR
   end
 
   subgraph Frontend["Frontend App"]
-    AdminApp["Admin React app<br/>frontend/src/cms<br/>frontend/src/shared"]
+    AdminApp["Admin React app<br/>frontend/src/cms"]
     Theme["Public static assets<br/>frontend/public<br/>frontend/default-public-asset"]
     SSR["SSR server<br/>backend/ssr/*.go"]
   end
@@ -58,7 +58,7 @@ flowchart LR
 ```
 
 - `frontend/src/cms` contains the admin CMS, including editor UI, settings, and admin-specific styles.
-- `frontend/src/shared` contains shared PocketBase access and utilities for the admin app.
+- `frontend/src/cms/lib` and `frontend/src/cms/utils` contain PocketBase access and reusable helpers for the admin app.
 - `backend/ssr/*.go` serves the public app, while `/admin` is served separately on the admin port.
 - `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
 - `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.

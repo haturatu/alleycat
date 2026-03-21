@@ -1,4 +1,4 @@
-import type { TranslationJobRecord } from "@shared/lib/pb";
+import type { TranslationJobRecord } from "@cms/lib/pb";
 import { AdminButton, AdminDialog } from "@cms/ui/AriaControls";
 
 type TranslationStatusModalProps = {
