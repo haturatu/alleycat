@@ -3,8 +3,6 @@ package main
 import (
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,14 +43,6 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if path == "/__internal/revalidate" {
 		handleRevalidate(w, r)
-		return
-	}
-	if strings.HasPrefix(path, "/api/files/") {
-		http.NotFound(w, r)
-		return
-	}
-	if strings.HasPrefix(path, "/api/") {
-		proxyPocketBase(w, r)
 		return
 	}
 	if serveStatic(w, r) {
@@ -244,23 +234,6 @@ func isLocalizedPostPath(path string) bool {
 	}
 	locale := normalizeLocale(parts[0])
 	return locale == parts[0] && localePathPattern.MatchString(locale)
-}
-
-func proxyPocketBase(w http.ResponseWriter, r *http.Request) {
-	target, err := url.Parse(pbURL)
-	if err != nil {
-		http.Error(w, "Bad Gateway", http.StatusBadGateway)
-		return
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.URL.Path = r.URL.Path
-		req.URL.RawQuery = r.URL.RawQuery
-		req.Host = target.Host
-	}
-	proxy.ServeHTTP(w, r)
 }
 
 func writeHTML(w http.ResponseWriter, content string) {
