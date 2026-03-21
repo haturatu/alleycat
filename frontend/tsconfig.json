@@ -15,7 +15,6 @@
     "baseUrl": ".",
     "paths": {
       "@cms/*": ["src/cms/*"],
-      "@site/*": ["src/site/*"],
       "@shared/*": ["src/shared/*"]
     }
   },

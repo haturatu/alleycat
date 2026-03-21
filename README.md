@@ -29,14 +29,13 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 ```mermaid
 flowchart LR
   subgraph Client["Client Surfaces"]
-    Public["Public site<br/>frontend/src/site<br/>frontend/src/site/ui"]
+    Public["Public site<br/>backend/ssr/*.go"]
     Admin["Admin CMS<br/>frontend/src/cms"]
   end
 
   subgraph Frontend["Frontend App"]
-    Router["React Router entry"]
-    Shared["Shared libs / utils<br/>frontend/src/shared/lib<br/>frontend/src/shared/utils"]
-    Theme["Public styles and themes<br/>frontend/src/styles<br/>frontend/public<br/>frontend/default-public-asset"]
+    AdminApp["Admin React app<br/>frontend/src/cms<br/>frontend/src/shared"]
+    Theme["Public static assets<br/>frontend/public<br/>frontend/default-public-asset"]
     SSR["SSR server<br/>backend/ssr/*.go"]
   end
 
@@ -47,9 +46,7 @@ flowchart LR
     Data["Persistent data<br/>backend/pb_data"]
   end
 
-  Public --> Router
-  Admin --> Router
-  Router --> Shared
+  Admin --> AdminApp
   Public --> Theme
   Public --> SSR
   SSR --> PB
@@ -60,9 +57,8 @@ flowchart LR
   SSRData <--> Data
 ```
 
-- `frontend/src/site` and `frontend/src/site/ui` drive the public reading experience.
-- `frontend/src/cms` contains the CMS, including editor UI, settings, and admin-specific styles.
-- `frontend/src/shared` contains shared PocketBase access, helpers, and cross-surface utilities.
+- `frontend/src/cms` contains the admin CMS, including editor UI, settings, and admin-specific styles.
+- `frontend/src/shared` contains shared PocketBase access and utilities for the admin app.
 - `backend/ssr/*.go` serves the public app, while `/admin` is served separately on the admin port.
 - `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
 - `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.

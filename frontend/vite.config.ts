@@ -7,7 +7,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@cms": path.resolve(__dirname, "src/cms"),
-      "@site": path.resolve(__dirname, "src/site"),
       "@shared": path.resolve(__dirname, "src/shared"),
     },
   },
