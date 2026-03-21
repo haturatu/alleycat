@@ -140,7 +140,7 @@ export default function RichEditor({
       (async () => {
         const rewritten = await rewriteMediaUrls(value || "<p></p>");
         if (seq !== rewriteSeqRef.current) return;
-        editor.commands.setContent(rewritten || "<p></p>", false);
+        editor.commands.setContent(rewritten || "<p></p>", { emitUpdate: false });
         lastValueRef.current = rewritten;
       })();
     }

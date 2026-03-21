@@ -79,7 +79,7 @@ type AdminTextFieldProps = {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   ariaLabel?: string;
-  inputRef?: React.RefObject<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
 export function AdminTextField({
@@ -362,7 +362,7 @@ type AdminComboBoxFieldProps = {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
   ariaLabel?: string;
-  inputRef?: React.RefObject<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
 export function AdminComboBoxField({

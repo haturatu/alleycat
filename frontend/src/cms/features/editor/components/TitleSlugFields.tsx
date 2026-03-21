@@ -8,8 +8,8 @@ type TitleSlugFieldsProps = {
   titleError?: string;
   slugError?: string;
   autoDisabled?: boolean;
-  titleInputRef?: RefObject<HTMLInputElement>;
-  slugInputRef?: RefObject<HTMLInputElement>;
+  titleInputRef?: RefObject<HTMLInputElement | null>;
+  slugInputRef?: RefObject<HTMLInputElement | null>;
   onTitleChange: (value: string) => void;
   onSlugChange: (value: string) => void;
   onAutoSlug: () => void;
