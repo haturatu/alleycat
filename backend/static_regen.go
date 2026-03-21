@@ -73,7 +73,7 @@ func triggerStaticRegen(collection, action string, current, original *core.Recor
 			req.Header.Set("X-Regen-Token", token)
 		}
 
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := &http.Client{Timeout: 20 * time.Second}
 		slog.Info("static regen notify start", "collection", collection, "action", action, "target", target)
 		resp, err := client.Do(req)
 		if err != nil {
