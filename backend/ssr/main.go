@@ -32,15 +32,6 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if path == "/theme-status" {
-		w.Header().Set("Content-Type", "application/json")
-		status := `{"publicAssets":false}`
-		if activePublicDir == publicDir {
-			status = `{"publicAssets":true}`
-		}
-		_, _ = w.Write([]byte(status))
-		return
-	}
 	if path == "/__internal/revalidate" {
 		handleRevalidate(w, r)
 		return
