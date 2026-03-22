@@ -293,6 +293,20 @@ const renderAlertMarkdown = (kind: string, content: string) => {
   return `${quoted.join("\n")}\n\n`;
 };
 
+const tableAlignmentMarker = (cell: HTMLElement) => {
+  const align = (cell.getAttribute("align") || "").toLowerCase();
+  switch (align) {
+    case "right":
+      return "---:";
+    case "center":
+      return ":---:";
+    case "left":
+      return ":---";
+    default:
+      return "---";
+  }
+};
+
 const renderTableMarkdown = (table: HTMLElement) => {
   const rows = Array.from(table.querySelectorAll("tr"));
   if (rows.length === 0) return "";
@@ -304,7 +318,7 @@ const renderTableMarkdown = (table: HTMLElement) => {
 
   const renderCell = (cell: HTMLElement) => renderInlineChildrenMarkdown(cell).replace(/\n+/g, " ").trim();
   const header = `| ${headerCells.map(renderCell).join(" | ")} |`;
-  const separator = `| ${headerCells.map(() => "---").join(" | ")} |`;
+  const separator = `| ${headerCells.map(tableAlignmentMarker).join(" | ")} |`;
   const body = rows
     .slice(1)
     .map((row) => {
@@ -336,11 +350,23 @@ const renderListItemMarkdown = (li: HTMLElement, ordered: boolean, index: number
     if (child instanceof HTMLElement) {
       const tag = child.tagName.toLowerCase();
       if (tag === "ul") {
-        nestedParts.push(renderListMarkdown(child, false, depth + 1));
+        const nestedIndent = `${indent}${ordered ? "   " : "  "}`;
+        nestedParts.push(
+          renderListMarkdown(child, false, 0)
+            .split("\n")
+            .map((line) => (line ? `${nestedIndent}${line}` : line))
+            .join("\n")
+        );
         return;
       }
       if (tag === "ol") {
-        nestedParts.push(renderListMarkdown(child, true, depth + 1));
+        const nestedIndent = `${indent}${ordered ? "   " : "  "}`;
+        nestedParts.push(
+          renderListMarkdown(child, true, 0)
+            .split("\n")
+            .map((line) => (line ? `${nestedIndent}${line}` : line))
+            .join("\n")
+        );
         return;
       }
     }
@@ -467,7 +493,7 @@ const nodeToMarkdown = (node: Node): string => {
           .trim();
         return renderAlertMarkdown(kind, contentMarkdown);
       }
-      return `${node.innerHTML.trim()}\n\n`;
+      return `${node.outerHTML.trim()}\n\n`;
     }
     default:
       return children;
