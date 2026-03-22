@@ -40,6 +40,9 @@ export default defineConfig({
     },
   },
   base: process.env.VITE_BASE || "/",
+  test: {
+    environment: "jsdom",
+  },
   server: {
     host: "0.0.0.0",
     allowedHosts: "all",
