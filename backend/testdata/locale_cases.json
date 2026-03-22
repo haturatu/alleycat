@@ -1,0 +1,26 @@
+[
+  {
+    "name": "commas spaces and duplicates are normalized",
+    "input": "ja, en US en, zh_CN;ja",
+    "locales": ["ja", "en", "us", "zh-cn"],
+    "normalized": "en-us"
+  },
+  {
+    "name": "blank values are ignored",
+    "input": " ,  \n\t ; ",
+    "locales": [],
+    "normalized": ""
+  },
+  {
+    "name": "underscore and casing are normalized",
+    "input": "EN-us, ja_JP",
+    "locales": ["en-us", "ja-jp"],
+    "normalized": "en-us"
+  },
+  {
+    "name": "mixed separators are supported",
+    "input": "ja; en\nfr",
+    "locales": ["ja", "en", "fr"],
+    "normalized": "ja"
+  }
+]

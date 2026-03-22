@@ -1,0 +1,123 @@
+[
+  {
+    "name": "flags disabled hide optional sections and keep toc",
+    "settings": {
+      "show_categories": false,
+      "show_tags": false,
+      "show_related_posts": false,
+      "enable_comments": false,
+      "show_toc": true,
+      "translation_source_locale": "ja",
+      "site_language": "ja"
+    },
+    "post": {
+      "id": "post-1",
+      "title": "Hello",
+      "slug": "hello",
+      "body": "<h2>Intro</h2><p>Body</p>",
+      "tags": "go,testing",
+      "category": "dev",
+      "published": true,
+      "published_at": "2026-03-22T10:11:12Z"
+    },
+    "must_contain": [
+      "post-toc",
+      "<h1 class=\"post-title\">Hello</h1>",
+      "datetime=\"2026-03-22T10:11:12Z\""
+    ],
+    "must_not_contain": [
+      "<section class=\"post-comments\">",
+      "<section class=\"post-related\">",
+      "<div class=\"post-tags\">",
+      "<p>dev</p>"
+    ]
+  },
+  {
+    "name": "tags and category are rendered when enabled",
+    "settings": {
+      "show_categories": true,
+      "show_tags": true,
+      "show_related_posts": false,
+      "enable_comments": false,
+      "show_toc": false,
+      "translation_source_locale": "ja",
+      "site_language": "ja"
+    },
+    "post": {
+      "id": "post-2",
+      "title": "Tagged",
+      "slug": "tagged",
+      "body": "<p>Body</p>",
+      "tags": "go,testing",
+      "category": "dev",
+      "published": true,
+      "published_at": "2026-03-22T10:11:12Z"
+    },
+    "must_contain": [
+      "<div class=\"post-tags\">",
+      "/archive/go/",
+      "<p>dev</p>"
+    ],
+    "must_not_contain": [
+      "<nav class=\"post-toc\"",
+      "<section class=\"post-comments\">"
+    ]
+  },
+  {
+    "name": "comments are rendered for supported provider",
+    "settings": {
+      "show_categories": false,
+      "show_tags": false,
+      "show_related_posts": false,
+      "enable_comments": true,
+      "comments_script_tag": "<script src=\"https://giscus.app/client.js\"></script>",
+      "show_toc": false,
+      "translation_source_locale": "ja",
+      "site_language": "ja"
+    },
+    "post": {
+      "id": "post-3",
+      "title": "Comments",
+      "slug": "comments",
+      "body": "<p>Body</p>",
+      "published": true,
+      "published_at": "2026-03-22T10:11:12Z"
+    },
+    "must_contain": [
+      "<section class=\"post-comments\">",
+      "giscus.app/client.js"
+    ],
+    "must_not_contain": [
+      "<nav class=\"post-toc\""
+    ]
+  },
+  {
+    "name": "content fallback and date fallback are used",
+    "settings": {
+      "show_categories": false,
+      "show_tags": false,
+      "show_related_posts": false,
+      "enable_comments": false,
+      "show_toc": false,
+      "translation_source_locale": "ja",
+      "site_language": "ja"
+    },
+    "post": {
+      "id": "post-4",
+      "title": "Fallbacks",
+      "slug": "fallbacks",
+      "body": "",
+      "content": "<p>Fallback body</p>",
+      "published": true,
+      "published_at": "",
+      "date": "2026-03-21"
+    },
+    "must_contain": [
+      "Fallback body",
+      "datetime=\"2026-03-21\""
+    ],
+    "must_not_contain": [
+      "<nav class=\"post-toc\""
+    ]
+  }
+]

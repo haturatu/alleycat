@@ -1,0 +1,173 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+)
+
+type renderPostCase struct {
+	Name           string         `json:"name"`
+	Settings       SettingsRecord `json:"settings"`
+	Post           PostRecord     `json:"post"`
+	MustContain    []string       `json:"must_contain"`
+	MustNotContain []string       `json:"must_not_contain"`
+}
+
+func loadRenderPostCases(t *testing.T) []renderPostCase {
+	t.Helper()
+
+	data, err := os.ReadFile("testdata/render_post_cases.json")
+	if err != nil {
+		t.Fatalf("read render fixtures: %v", err)
+	}
+	var fixtures []renderPostCase
+	if err := json.Unmarshal(data, &fixtures); err != nil {
+		t.Fatalf("unmarshal render fixtures: %v", err)
+	}
+	return fixtures
+}
+
+func TestHighlightStylesheets(t *testing.T) {
+	t.Parallel()
+
+	dark, light := highlightStylesheets(SettingsRecord{HighlightTheme: "dracula"})
+	if !strings.Contains(dark, "dracula") {
+		t.Fatalf("dark stylesheet = %q, want dracula theme", dark)
+	}
+	if !strings.Contains(light, "github.min.css") {
+		t.Fatalf("light stylesheet = %q, want github fallback", light)
+	}
+}
+
+func TestRenderHeadRespectsFeatureFlags(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "en"
+	settings.EnableAnalytics = true
+	settings.AnalyticsURL = "https://analytics.example/script.js"
+	settings.AnalyticsSiteID = "site-1"
+	settings.EnableAds = true
+	settings.AdsClient = "ca-pub-123"
+	settings.EnableCodeHighlight = false
+
+	html := renderHead("Home", settings)
+	if !strings.Contains(html, settings.AnalyticsURL) {
+		t.Fatalf("renderHead should include analytics script")
+	}
+	if !strings.Contains(html, settings.AdsClient) {
+		t.Fatalf("renderHead should include ads script")
+	}
+	if strings.Contains(html, "highlight.min.js") {
+		t.Fatalf("renderHead should omit highlight assets when disabled")
+	}
+}
+
+func TestBuildTOC(t *testing.T) {
+	t.Parallel()
+
+	body, toc := buildTOC("<h2>Intro</h2><p>x</p><h3>Details</h3>", true)
+	if !strings.Contains(body, `id="intro"`) {
+		t.Fatalf("body = %q, want generated intro heading id", body)
+	}
+	if !strings.Contains(body, `id="details"`) {
+		t.Fatalf("body = %q, want generated details heading id", body)
+	}
+	if !strings.Contains(toc, "#intro") || !strings.Contains(toc, "#details") {
+		t.Fatalf("toc = %q, want links to generated heading ids", toc)
+	}
+}
+
+func TestRenderPostTags(t *testing.T) {
+	t.Parallel()
+
+	html := renderPostTags([]string{"go", "testing"}, true)
+	if !strings.Contains(html, `/archive/go/`) || !strings.Contains(html, `testing`) {
+		t.Fatalf("renderPostTags output missing tags: %q", html)
+	}
+	if hidden := renderPostTags([]string{"go"}, false); hidden != "" {
+		t.Fatalf("renderPostTags should be empty when hidden, got %q", hidden)
+	}
+}
+
+func TestRenderCommentsSection(t *testing.T) {
+	t.Parallel()
+
+	if got := renderCommentsSection(SettingsRecord{}); got != "" {
+		t.Fatalf("comments should be empty when disabled, got %q", got)
+	}
+
+	settings := SettingsRecord{
+		EnableComments:    true,
+		CommentsScriptTag: `<script src="https://giscus.app/client.js"></script>`,
+	}
+	got := renderCommentsSection(settings)
+	if !strings.Contains(got, "giscus.app/client.js") {
+		t.Fatalf("comments section missing script: %q", got)
+	}
+}
+
+func TestRenderRelatedPosts(t *testing.T) {
+	t.Parallel()
+
+	got := renderRelatedPosts([]PostRecord{{Title: "One", Slug: "one"}}, "/posts/")
+	if !strings.Contains(got, "/posts/one/") || !strings.Contains(got, "Related Posts") {
+		t.Fatalf("renderRelatedPosts output = %q", got)
+	}
+}
+
+func TestRenderPageFromRecord(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	page := &PageRecord{Title: "About", Body: "<p>Hello</p>"}
+	html, ok := renderPageFromRecord(page, settings)
+	if !ok {
+		t.Fatalf("renderPageFromRecord should succeed")
+	}
+	if !strings.Contains(html, "<h1 class=\"post-title\">About</h1>") {
+		t.Fatalf("page output missing title: %q", html)
+	}
+}
+
+func TestRenderPostFromInputRespectsFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range loadRenderPostCases(t) {
+		fixture := fixture
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+
+			settings := defaultSettings()
+			settings.ShowCategories = fixture.Settings.ShowCategories
+			settings.ShowTags = fixture.Settings.ShowTags
+			settings.ShowRelatedPosts = fixture.Settings.ShowRelatedPosts
+			settings.EnableComments = fixture.Settings.EnableComments
+			settings.CommentsScriptTag = fixture.Settings.CommentsScriptTag
+			settings.ShowToc = fixture.Settings.ShowToc
+			settings.TranslationSourceLocale = fixture.Settings.TranslationSourceLocale
+			settings.SiteLanguage = fixture.Settings.SiteLanguage
+
+			input := &postRenderInput{post: &fixture.Post}
+
+			html, ok := renderPostFromInput(input, settings)
+			if !ok {
+				t.Fatalf("renderPostFromInput should succeed")
+			}
+
+			for _, token := range fixture.MustContain {
+				if !strings.Contains(html, token) {
+					t.Fatalf("post output missing %q: %q", token, html)
+				}
+			}
+			for _, token := range fixture.MustNotContain {
+				if strings.Contains(html, token) {
+					t.Fatalf("post output should not contain %q: %q", token, html)
+				}
+			}
+		})
+	}
+}

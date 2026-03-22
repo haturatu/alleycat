@@ -1,0 +1,44 @@
+[
+  {
+    "name": "plain name stays same",
+    "filename": "photo.jpg",
+    "checksum": "",
+    "normalized": "photo.jpg",
+    "upload_path": "/uploads/photo.jpg"
+  },
+  {
+    "name": "generated suffix removed",
+    "filename": "photo_ab12CD.jpg",
+    "checksum": "",
+    "normalized": "photo.jpg",
+    "upload_path": "/uploads/photo.jpg"
+  },
+  {
+    "name": "checksum path uses extension",
+    "filename": "photo.JPG",
+    "checksum": " ABC123 ",
+    "normalized": "photo.JPG",
+    "upload_path": "/uploads/abc123.jpg"
+  },
+  {
+    "name": "no extension fallback keeps plain name",
+    "filename": "photo",
+    "checksum": "",
+    "normalized": "photo",
+    "upload_path": "/uploads/photo"
+  },
+  {
+    "name": "symbol in suffix prevents normalization",
+    "filename": "photo_ab-12.jpg",
+    "checksum": "",
+    "normalized": "photo_ab-12.jpg",
+    "upload_path": "/uploads/photo_ab-12.jpg"
+  },
+  {
+    "name": "long suffix prevents normalization",
+    "filename": "photo_abcdefghijklmnopq.jpg",
+    "checksum": "",
+    "normalized": "photo_abcdefghijklmnopq.jpg",
+    "upload_path": "/uploads/photo_abcdefghijklmnopq.jpg"
+  }
+]
