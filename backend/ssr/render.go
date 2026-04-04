@@ -259,6 +259,7 @@ func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
 	}
 
 	parts := []string{
+		fmt.Sprintf(`<link rel="canonical" href="%s" />`, escapeHTML(canonicalURL)),
 		fmt.Sprintf(`<meta property="og:type" content="article" />`),
 		fmt.Sprintf(`<meta property="og:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
 		fmt.Sprintf(`<meta property="og:description" content="%s" />`, escapeHTML(description)),
@@ -288,7 +289,10 @@ func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
 		}
 		parts = append(parts,
 			fmt.Sprintf(`<meta property="og:image" content="%s" />`, escapeHTML(imageURL)),
+			fmt.Sprintf(`<meta property="og:image:width" content="%d" />`, postOGImageWidth),
+			fmt.Sprintf(`<meta property="og:image:height" content="%d" />`, postOGImageHeight),
 			fmt.Sprintf(`<meta name="twitter:image" content="%s" />`, escapeHTML(imageURL)),
+			fmt.Sprintf(`<meta name="twitter:image:alt" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
 		)
 	}
 
