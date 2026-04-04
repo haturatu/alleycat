@@ -231,8 +231,9 @@ func renderGeneratedPostOGImage(post *PostRecord, locale string, settings Settin
 	left := 110
 	top := 150
 	maxWidth := postOGImageWidth - (left * 2)
-	footerBaseline := postOGImageHeight - 86
-	bodyBottomLimit := footerBaseline - 30
+	cardBottom := postOGImageHeight - 92
+	footerBaseline := cardBottom - 14
+	bodyBottomLimit := footerBaseline - 34
 
 	localeLabel := normalizeLocale(locale)
 	if localeLabel == "" {
