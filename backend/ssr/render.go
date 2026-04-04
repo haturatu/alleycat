@@ -260,7 +260,7 @@ func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
 
 	parts := []string{
 		fmt.Sprintf(`<link rel="canonical" href="%s" />`, escapeHTML(canonicalURL)),
-		fmt.Sprintf(`<meta property="og:type" content="article" />`),
+		`<meta property="og:type" content="article" />`,
 		fmt.Sprintf(`<meta property="og:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
 		fmt.Sprintf(`<meta property="og:description" content="%s" />`, escapeHTML(description)),
 		fmt.Sprintf(`<meta property="og:url" content="%s" />`, escapeHTML(canonicalURL)),

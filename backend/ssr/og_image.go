@@ -173,7 +173,7 @@ func renderGeneratedPostOGImage(post *PostRecord, locale string, settings Settin
 		{path: "/usr/share/fonts/noto/NotoSans-Bold.ttf"},
 		{data: gobold.TTF},
 	}
-	titleFonts, err := loadOGFontSet(ogFontSpec{
+	_, err := loadOGFontSet(ogFontSpec{
 		size:    54,
 		sources: titleSources,
 	})
@@ -204,7 +204,7 @@ func renderGeneratedPostOGImage(post *PostRecord, locale string, settings Settin
 		{path: "/usr/share/fonts/noto/NotoSansArmenian-Regular.ttf"},
 		{data: goregular.TTF},
 	}
-	bodyFonts, err := loadOGFontSet(ogFontSpec{
+	_, err = loadOGFontSet(ogFontSpec{
 		size:    27,
 		sources: bodySources,
 	})
