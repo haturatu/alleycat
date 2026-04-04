@@ -64,6 +64,9 @@ func TestRenderHeadRespectsFeatureFlags(t *testing.T) {
 	if strings.Contains(html, "highlight.min.js") {
 		t.Fatalf("renderHead should omit highlight assets when disabled")
 	}
+	if !strings.Contains(html, `<meta name="robots" content="max-image-preview:large" />`) {
+		t.Fatalf("renderHead should include robots max-image-preview meta tag")
+	}
 }
 
 func TestBuildTOC(t *testing.T) {
@@ -169,5 +172,77 @@ func TestRenderPostFromInputRespectsFlags(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRenderPostFromInputAddsOGImageMetaWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.SiteURL = "https://example.com"
+	settings.EnableOGPImageGeneration = true
+
+	input := &postRenderInput{
+		post: &PostRecord{
+			ID:          "post-og",
+			Title:       "Share Title",
+			Slug:        "share-title",
+			Body:        "<p>Body without inline image.</p>",
+			Excerpt:     "Custom excerpt",
+			Published:   true,
+			PublishedAt: "2026-03-22T10:11:12Z",
+		},
+	}
+
+	html, ok := renderPostFromInput(input, settings)
+	if !ok {
+		t.Fatalf("renderPostFromInput should succeed")
+	}
+	if !strings.Contains(html, `property="og:image" content="https://example.com/og/posts/share-title.png"`) {
+		t.Fatalf("post output missing generated og:image meta: %q", html)
+	}
+	if !strings.Contains(html, `name="twitter:card" content="summary_large_image"`) {
+		t.Fatalf("post output missing twitter large image card meta: %q", html)
+	}
+}
+
+func TestRenderPostFromInputAddsLocalizedOGImageMetaWhenLocalized(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.SiteURL = "https://example.com"
+	settings.EnableOGPImageGeneration = true
+
+	input := &postRenderInput{
+		locale: "en",
+		post: &PostRecord{
+			ID:      "post-og-en",
+			Title:   "Share Title",
+			Slug:    "share-title",
+			Body:    "<p>Localized body</p>",
+			Excerpt: "Localized excerpt",
+		},
+		translation: &PostTranslationRecord{
+			ID:         "translation-og-en",
+			SourcePost: "post-og-source",
+			Locale:     "en",
+			Title:      "Share Title",
+			Slug:       "share-title",
+			Body:       "<p>Localized body</p>",
+			Excerpt:    "Localized excerpt",
+			Published:  true,
+		},
+	}
+
+	html, ok := renderPostFromInput(input, settings)
+	if !ok {
+		t.Fatalf("renderPostFromInput should succeed")
+	}
+	if !strings.Contains(html, `property="og:image" content="https://example.com/og/en/posts/share-title.png"`) {
+		t.Fatalf("localized post output missing localized og:image meta: %q", html)
 	}
 }

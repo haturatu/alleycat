@@ -96,6 +96,10 @@ func highlightStylesheets(settings SettingsRecord) (string, string) {
 }
 
 func renderHead(title string, settings SettingsRecord) string {
+	return renderHeadWithExtras(title, settings, "")
+}
+
+func renderHeadWithExtras(title string, settings SettingsRecord, extraHead string) string {
 	pageTitle := escapeHTML(title) + " - " + escapeHTML(settings.SiteName)
 	styles := themeStylesheet(settings.Theme)
 	themeStyles, splitCriticalStyles := splitThemeStylesheetForHead(styles)
@@ -206,6 +210,9 @@ func renderHead(title string, settings SettingsRecord) string {
 		highlightDarkCSS, highlightLightCSS := highlightStylesheets(settings)
 		codeHighlight = fmt.Sprintf("<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link id=\"hljs-theme-link\" rel=\"stylesheet\" href=\"%s\" data-theme-dark=\"%s\" data-theme-light=\"%s\" />\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>", highlightDarkCSS, highlightLightCSS, highlightDarkCSS, highlightDarkCSS, highlightLightCSS)
 	}
+	if strings.TrimSpace(extraHead) != "" {
+		extraHead = strings.TrimSpace(extraHead)
+	}
 
 	return fmt.Sprintf(`<!doctype html>
 <html lang="%s">
@@ -223,11 +230,69 @@ func renderHead(title string, settings SettingsRecord) string {
     <link rel="alternate" href="/feed.json" type="application/json" title="%s" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <meta name="description" content="%s" />
+    <meta name="robots" content="max-image-preview:large" />
+    %s
     %s
     %s
     %s
   </head>
-  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight)
+  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight, extraHead)
+}
+
+type postMetaInput struct {
+	Path        string
+	Locale      string
+	Title       string
+	Description string
+	PublishedAt string
+}
+
+func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
+	canonicalURL := buildAbsoluteSiteURL(settings, input.Path)
+	if canonicalURL == "" {
+		canonicalURL = input.Path
+	}
+
+	description := strings.TrimSpace(input.Description)
+	if description == "" {
+		description = strings.TrimSpace(settings.Description)
+	}
+
+	parts := []string{
+		fmt.Sprintf(`<meta property="og:type" content="article" />`),
+		fmt.Sprintf(`<meta property="og:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
+		fmt.Sprintf(`<meta property="og:description" content="%s" />`, escapeHTML(description)),
+		fmt.Sprintf(`<meta property="og:url" content="%s" />`, escapeHTML(canonicalURL)),
+		fmt.Sprintf(`<meta property="og:site_name" content="%s" />`, escapeHTML(settings.SiteName)),
+		fmt.Sprintf(`<meta name="twitter:card" content="%s" />`, func() string {
+			if settings.EnableOGPImageGeneration {
+				return "summary_large_image"
+			}
+			return "summary"
+		}()),
+		fmt.Sprintf(`<meta name="twitter:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
+		fmt.Sprintf(`<meta name="twitter:description" content="%s" />`, escapeHTML(description)),
+	}
+
+	if locale := normalizeLocale(input.Locale); locale != "" {
+		parts = append(parts, fmt.Sprintf(`<meta property="og:locale" content="%s" />`, escapeHTML(strings.ReplaceAll(locale, "-", "_"))))
+	}
+	if publishedAt := strings.TrimSpace(input.PublishedAt); publishedAt != "" {
+		parts = append(parts, fmt.Sprintf(`<meta property="article:published_time" content="%s" />`, escapeHTML(publishedAt)))
+	}
+	if settings.EnableOGPImageGeneration {
+		imageLocale := extractLocaleFromPostPath(input.Path)
+		imageURL := buildAbsoluteSiteURL(settings, postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path)))
+		if imageURL == "" {
+			imageURL = postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path))
+		}
+		parts = append(parts,
+			fmt.Sprintf(`<meta property="og:image" content="%s" />`, escapeHTML(imageURL)),
+			fmt.Sprintf(`<meta name="twitter:image" content="%s" />`, escapeHTML(imageURL)),
+		)
+	}
+
+	return strings.Join(parts, "\n    ")
 }
 
 func renderNav(menu []PageRecord, settings SettingsRecord) string {
@@ -857,8 +922,20 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		relatedHTML = renderRelatedPosts(related, postPathPrefix)
 	}
 	commentsHTML := renderCommentsSection(settings)
+	excerpt := strings.TrimSpace(post.Excerpt)
+	if excerpt == "" {
+		excerpt = buildExcerpt(body, settings.ExcerptLength)
+	}
+	postPath := postPathPrefix + strings.TrimSpace(post.Slug) + "/"
+	headExtras := renderPostMetaTags(postMetaInput{
+		Path:        postPath,
+		Locale:      currentLocale,
+		Title:       defaultString(post.Title, "Post"),
+		Description: excerpt,
+		PublishedAt: date,
+	}, settings)
 
-	return renderHead(defaultString(post.Title, "Post"), settings) +
+	return renderHeadWithExtras(defaultString(post.Title, "Post"), settings, headExtras) +
 		renderNav(menu, settings) +
 		fmt.Sprintf(`<main class="body-post">
       <article class="post">

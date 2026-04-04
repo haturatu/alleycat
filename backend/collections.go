@@ -340,6 +340,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.TextField{Name: "site_language"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_feed_xml"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_feed_json"})
+		addFieldIfMissing(c, &core.BoolField{Name: "enable_ogp_image_generation"})
 		addFieldIfMissing(c, &core.NumberField{Name: "feed_items_limit"})
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_post_translation"})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_source_locale"})

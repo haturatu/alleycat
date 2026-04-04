@@ -12,6 +12,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.20
 WORKDIR /app
+RUN apk add --no-cache \
+    fontconfig \
+    font-noto-all \
+    font-noto-cjk-extra \
+    font-noto-emoji \
+    && fc-cache -f
 COPY --from=build /out/ssr /app/ssr
 COPY frontend /tmp/frontend
 COPY frontend/default-public-asset /default-public-asset

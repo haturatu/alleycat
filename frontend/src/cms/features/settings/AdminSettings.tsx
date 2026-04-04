@@ -40,6 +40,7 @@ const defaults = {
   site_language: "ja",
   enable_feed_xml: true,
   enable_feed_json: true,
+  enable_ogp_image_generation: false,
   feed_items_limit: 30,
   enable_analytics: false,
   analytics_url: "",
@@ -317,6 +318,10 @@ export default function AdminSettings() {
           <span className="admin-summary-label">Distribution</span>
           <strong>{settings.enable_feed_xml || settings.enable_feed_json ? "Feeds live" : "Feeds off"}</strong>
         </article>
+        <article className="admin-settings-overview-item">
+          <span className="admin-summary-label">OGP image</span>
+          <strong>{settings.enable_ogp_image_generation ? "On" : "Off"}</strong>
+        </article>
       </div>
       <div className="admin-settings-shell">
         <SettingsSection
@@ -518,6 +523,11 @@ export default function AdminSettings() {
             label="Enable JSON feed"
             description="Expose the JSON Feed endpoint."
             control={<AdminCheckboxField ariaLabel="Enable JSON feed" className="admin-check admin-setting-toggle" label="" checked={settings.enable_feed_json} onChange={(checked) => update("enable_feed_json", checked)} />}
+          />
+          <SettingRow
+            label="Enable OGP image generation"
+            description="Generate a share image for post pages even when the post body has no images."
+            control={<AdminCheckboxField ariaLabel="Enable OGP image generation" className="admin-check admin-setting-toggle" label="" checked={settings.enable_ogp_image_generation} onChange={(checked) => update("enable_ogp_image_generation", checked)} />}
           />
         </SettingsSection>
 

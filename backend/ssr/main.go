@@ -117,6 +117,18 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		writeLocalizedSitemap(w, r, settings, locale)
 		return
 	}
+	if strings.HasPrefix(path, "/og/") {
+		settings := getSettings()
+		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+		if previewTheme != "" {
+			settings.Theme = previewTheme
+		}
+		if servePostOGImage(w, path, settings) {
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
 
 	if strings.HasPrefix(path, "/archive/") {
 		settings := getSettings()
