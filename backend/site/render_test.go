@@ -107,6 +107,52 @@ func TestRenderFeedLinkListRespectsEnabledFeeds(t *testing.T) {
 	}
 }
 
+func TestParseArchiveRoute(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		path  string
+		want  archiveRoute
+		label string
+	}{
+		{
+			label: "root",
+			path:  "/archive/",
+			want:  archiveRoute{pageNumber: 1, basePath: "/archive", filter: `published = true`, title: "Archive"},
+		},
+		{
+			label: "root-page",
+			path:  "/archive/3/",
+			want:  archiveRoute{pageNumber: 3, basePath: "/archive", filter: `published = true`, title: "Archive"},
+		},
+		{
+			label: "tag",
+			path:  "/archive/go/",
+			want:  archiveRoute{pageNumber: 1, basePath: "/archive/go", filter: `published = true && tags ~ "go"`, title: "tag: go"},
+		},
+		{
+			label: "category",
+			path:  "/archive/category/news/",
+			want:  archiveRoute{pageNumber: 1, basePath: "/archive/category/news", filter: `published = true && category = "news"`, title: "category: news"},
+		},
+		{
+			label: "category-falls-back-to-tag",
+			path:  "/archive/category/",
+			want:  archiveRoute{pageNumber: 1, basePath: "/archive/category", filter: `published = true && tags ~ "category"`, title: "tag: category"},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.label, func(t *testing.T) {
+			t.Parallel()
+			if got := parseArchiveRoute(tt.path); got != tt.want {
+				t.Fatalf("parseArchiveRoute(%q) = %#v, want %#v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildTOC(t *testing.T) {
 	t.Parallel()
 

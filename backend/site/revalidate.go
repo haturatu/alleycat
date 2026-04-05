@@ -378,20 +378,11 @@ func clearArchiveRoute(root string, basePath string) error {
 }
 
 func archiveFilterForBasePath(basePath string) (string, bool) {
-	clean := cleanPath(basePath)
-	parts := strings.Split(strings.Trim(clean, "/"), "/")
-	if len(parts) == 1 && parts[0] == "archive" {
-		return "published = true", true
+	route := parseArchiveRoute(basePath)
+	if route.basePath != cleanPath(basePath) {
+		return "", false
 	}
-	if len(parts) == 2 && parts[0] == "archive" {
-		tag := decodePathSegment(parts[1])
-		return "published = true && tags ~ \"" + escapeFilter(tag) + "\"", true
-	}
-	if len(parts) == 3 && parts[0] == "archive" && parts[1] == "category" {
-		category := decodePathSegment(parts[2])
-		return "published = true && category = \"" + escapeFilter(category) + "\"", true
-	}
-	return "", false
+	return route.filter, true
 }
 
 func revalidateSourcePostFamily(root string, settings SettingsRecord, current, original *PostRecord) error {

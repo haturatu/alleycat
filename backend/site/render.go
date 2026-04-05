@@ -31,6 +31,13 @@ type postRenderInput struct {
 	translation *PostTranslationRecord
 }
 
+type archiveRoute struct {
+	pageNumber int
+	basePath   string
+	filter     string
+	title      string
+}
+
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
 		return "/styles.css"
@@ -587,48 +594,11 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 	if ctx := currentSnapshotBuildContext(); ctx != nil {
 		return renderArchiveFromSnapshot(ctx, path, query, settings)
 	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	pageNumber := 1
-	basePath := "/archive"
-	var filter string
-	var title string
-	showTagsNav := false
-	showCategoriesNav := false
-
-	if len(parts) >= 1 && parts[0] == "archive" {
-		if len(parts) >= 2 {
-			if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
-				pageNumber = n
-			} else if parts[1] == "category" && len(parts) >= 3 {
-				category := decodePathSegment(parts[2])
-				title = "category: " + category
-				filter = fmt.Sprintf("published = true && category = \"%s\"", escapeFilter(category))
-				basePath = "/archive/category/" + url.PathEscape(category)
-				if len(parts) >= 4 {
-					if n, err := strconv.Atoi(parts[3]); err == nil && n > 0 {
-						pageNumber = n
-					}
-				}
-			} else {
-				tag := decodePathSegment(parts[1])
-				title = "tag: " + tag
-				filter = fmt.Sprintf("published = true && tags ~ \"%s\"", escapeFilter(tag))
-				basePath = "/archive/" + url.PathEscape(tag)
-				if len(parts) >= 3 {
-					if n, err := strconv.Atoi(parts[2]); err == nil && n > 0 {
-						pageNumber = n
-					}
-				}
-			}
-		}
-	}
-	if filter == "" {
-		filter = "published = true"
-		title = "Archive"
-		showTagsNav = settings.ShowArchiveTags && settings.ShowTags && pageNumber == 1
-		showCategoriesNav = settings.ShowCategories && pageNumber == 1
-	}
+	route := parseArchiveRoute(path)
+	showTagsNav := route.isRoot() && settings.ShowArchiveTags && settings.ShowTags && route.pageNumber == 1
+	showCategoriesNav := route.isRoot() && settings.ShowCategories && route.pageNumber == 1
 	searchQuery := strings.TrimSpace(query)
+	filter := route.filter
 	if searchQuery != "" {
 		searchFilter := escapeFilter(searchQuery)
 		filter = fmt.Sprintf(`%s && (title ~ "%s" || slug ~ "%s" || tags ~ "%s" || excerpt ~ "%s" || body ~ "%s")`,
@@ -647,14 +617,14 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 		defer wg.Done()
 		var err error
 		posts, err = getPosts(map[string]string{
-			"page":    strconv.Itoa(pageNumber),
+			"page":    strconv.Itoa(route.pageNumber),
 			"perPage": strconv.Itoa(settings.ArchivePageSize),
 			"filter":  filter,
 			"sort":    "-published_at",
 		})
 		if err != nil {
 			posts, _ = getPosts(map[string]string{
-				"page":    strconv.Itoa(pageNumber),
+				"page":    strconv.Itoa(route.pageNumber),
 				"perPage": strconv.Itoa(settings.ArchivePageSize),
 				"filter":  filter,
 				"sort":    "-date",
@@ -662,10 +632,10 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 		}
 	}()
 	wg.Wait()
-	pagination := renderPagination(basePath, pageNumber, posts.TotalPages, searchQuery)
+	pagination := renderPagination(route.basePath, route.pageNumber, posts.TotalPages, searchQuery)
 	searchHTML := ""
 	if settings.ShowArchiveSearch {
-		searchAction := basePath + "/"
+		searchAction := route.basePath + "/"
 		searchHTML = renderSearchForm(searchAction, searchQuery)
 	}
 
@@ -679,7 +649,7 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 	}
 	feedLinks := renderFeedLinkList(settings)
 
-	return renderHead(title, settings) +
+	return renderHead(route.title, settings) +
 		renderNav(menu, settings) +
 		fmt.Sprintf(`<main class="body-tag">
       <header class="page-header">
@@ -691,7 +661,7 @@ func renderArchive(path, query string, settings SettingsRecord) string {
       %s
       %s
       %s
-    </main>`, escapeHTML(title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
+    </main>`, escapeHTML(route.title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
 		renderFooter(settings)
 }
 
@@ -725,46 +695,60 @@ func renderHomeFromSnapshot(ctx *snapshotBuildContext, settings SettingsRecord) 
 		renderFooter(settings)
 }
 
-func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, settings SettingsRecord) string {
+func parseArchiveRoute(path string) archiveRoute {
+	route := archiveRoute{
+		pageNumber: 1,
+		basePath:   "/archive",
+		filter:     "published = true",
+		title:      "Archive",
+	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	pageNumber := 1
-	basePath := "/archive"
-	title := "Archive"
-	showTagsNav := false
-	showCategoriesNav := false
-	listing := ctx.archiveIndex["/archive/"]
+	if len(parts) < 1 || parts[0] != "archive" || len(parts) < 2 {
+		return route
+	}
 
-	if len(parts) >= 1 && parts[0] == "archive" {
-		if len(parts) >= 2 {
-			if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
-				pageNumber = n
-			} else if parts[1] == "category" && len(parts) >= 3 {
-				category := decodePathSegment(parts[2])
-				title = "category: " + category
-				basePath = "/archive/category/" + url.PathEscape(category)
-				listing = ctx.archiveIndex["/archive/category/"+url.PathEscape(category)+"/"]
-				if len(parts) >= 4 {
-					if n, err := strconv.Atoi(parts[3]); err == nil && n > 0 {
-						pageNumber = n
-					}
-				}
-			} else {
-				tag := decodePathSegment(parts[1])
-				title = "tag: " + tag
-				basePath = "/archive/" + url.PathEscape(tag)
-				listing = ctx.archiveIndex["/archive/"+url.PathEscape(tag)+"/"]
-				if len(parts) >= 3 {
-					if n, err := strconv.Atoi(parts[2]); err == nil && n > 0 {
-						pageNumber = n
-					}
-				}
+	if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+		route.pageNumber = n
+		return route
+	}
+	if parts[1] == "category" && len(parts) >= 3 {
+		category := decodePathSegment(parts[2])
+		route.title = "category: " + category
+		route.filter = fmt.Sprintf("published = true && category = \"%s\"", escapeFilter(category))
+		route.basePath = "/archive/category/" + url.PathEscape(category)
+		if len(parts) >= 4 {
+			if n, err := strconv.Atoi(parts[3]); err == nil && n > 0 {
+				route.pageNumber = n
 			}
 		}
+		return route
 	}
-	if title == "Archive" {
-		showTagsNav = settings.ShowArchiveTags && settings.ShowTags && pageNumber == 1
-		showCategoriesNav = settings.ShowCategories && pageNumber == 1
+
+	tag := decodePathSegment(parts[1])
+	route.title = "tag: " + tag
+	route.filter = fmt.Sprintf("published = true && tags ~ \"%s\"", escapeFilter(tag))
+	route.basePath = "/archive/" + url.PathEscape(tag)
+	if len(parts) >= 3 {
+		if n, err := strconv.Atoi(parts[2]); err == nil && n > 0 {
+			route.pageNumber = n
+		}
 	}
+	return route
+}
+
+func (route archiveRoute) listingKey() string {
+	return route.basePath + "/"
+}
+
+func (route archiveRoute) isRoot() bool {
+	return route.title == "Archive"
+}
+
+func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, settings SettingsRecord) string {
+	route := parseArchiveRoute(path)
+	showTagsNav := route.isRoot() && settings.ShowArchiveTags && settings.ShowTags && route.pageNumber == 1
+	showCategoriesNav := route.isRoot() && settings.ShowCategories && route.pageNumber == 1
+	listing := ctx.archiveIndex[route.listingKey()]
 
 	items := append([]PostRecord(nil), listing.posts...)
 	searchQuery := strings.TrimSpace(query)
@@ -777,11 +761,11 @@ func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, se
 		}
 		items = filtered
 	}
-	posts := paginateSnapshotPosts(items, strconv.Itoa(pageNumber), strconv.Itoa(settings.ArchivePageSize))
-	pagination := renderPagination(basePath, pageNumber, posts.TotalPages, searchQuery)
+	posts := paginateSnapshotPosts(items, strconv.Itoa(route.pageNumber), strconv.Itoa(settings.ArchivePageSize))
+	pagination := renderPagination(route.basePath, route.pageNumber, posts.TotalPages, searchQuery)
 	searchHTML := ""
 	if settings.ShowArchiveSearch {
-		searchHTML = renderSearchForm(basePath+"/", searchQuery)
+		searchHTML = renderSearchForm(route.basePath+"/", searchQuery)
 	}
 	tagsNav := ""
 	if showTagsNav {
@@ -793,7 +777,7 @@ func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, se
 	}
 	feedLinks := renderFeedLinkList(settings)
 
-	return renderHead(title, settings) +
+	return renderHead(route.title, settings) +
 		renderNav(ctx.menu, settings) +
 		fmt.Sprintf(`<main class="body-tag">
       <header class="page-header">
@@ -805,7 +789,7 @@ func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, se
       %s
       %s
       %s
-    </main>`, escapeHTML(title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
+    </main>`, escapeHTML(route.title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
 		renderFooter(settings)
 }
 
