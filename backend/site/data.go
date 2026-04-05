@@ -25,6 +25,8 @@ type mediaPathCacheEntry struct {
 	media     MediaRecord
 }
 
+type pagedListFetcher[T any] func(params map[string]string) (PBList[T], error)
+
 var taxonomyCache = struct {
 	mu    sync.RWMutex
 	entry taxonomyCacheEntry
@@ -53,11 +55,24 @@ func getPostTranslations(params map[string]string) (PBList[PostTranslationRecord
 	return fetchList[PostTranslationRecord](fmt.Sprintf("%s/api/collections/post_translations/records", pbURL), params)
 }
 
+func getPages(params map[string]string) (PBList[PageRecord], error) {
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		items := make([]PageRecord, 0, len(ctx.publishedPages))
+		for _, item := range ctx.publishedPages {
+			if item.Published {
+				items = append(items, item)
+			}
+		}
+		return paginateSnapshotPages(items, params["page"], params["perPage"]), nil
+	}
+	return fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), params)
+}
+
 func getPagesMenu() []PageRecord {
 	if ctx := currentSnapshotBuildContext(); ctx != nil {
 		return append([]PageRecord(nil), ctx.menu...)
 	}
-	data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
+	data, err := getPages(map[string]string{
 		"perPage": "200",
 		"filter":  "published = true && menuVisible = true",
 		"sort":    "menuOrder",
@@ -77,7 +92,7 @@ func getPageByURL(path string) *PageRecord {
 		copy := item
 		return &copy
 	}
-	data, err := fetchList[PageRecord](fmt.Sprintf("%s/api/collections/pages/records", pbURL), map[string]string{
+	data, err := getPages(map[string]string{
 		"perPage": "1",
 		"filter":  fmt.Sprintf("url = \"%s\" && published = true", escapeFilter(path)),
 	})
@@ -434,54 +449,9 @@ func collectTaxonomies() ([]string, []string) {
 		return append([]string(nil), cached.tags...), append([]string(nil), cached.categories...)
 	}
 
-	tagValues := map[string]struct{}{}
-	categoryValues := map[string]struct{}{}
-	page := 1
-	perPage := 200
-	for {
-		data, err := getPosts(map[string]string{
-			"page":    strconv.Itoa(page),
-			"perPage": strconv.Itoa(perPage),
-			"filter":  "published = true",
-			"sort":    "-published_at",
-		})
-		if err != nil {
-			data, err = getPosts(map[string]string{
-				"page":    strconv.Itoa(page),
-				"perPage": strconv.Itoa(perPage),
-				"filter":  "published = true",
-				"sort":    "-date",
-			})
-			if err != nil {
-				break
-			}
-		}
-		for _, post := range data.Items {
-			for _, tag := range parseTags(post.Tags) {
-				tagValues[tag] = struct{}{}
-			}
-			category := strings.TrimSpace(post.Category)
-			if category != "" {
-				categoryValues[category] = struct{}{}
-			}
-		}
-		if len(data.Items) < perPage {
-			break
-		}
-		page++
-	}
+	posts := listPublishedPosts()
 
-	tags := make([]string, 0, len(tagValues))
-	for value := range tagValues {
-		tags = append(tags, value)
-	}
-	sort.Strings(tags)
-
-	categories := make([]string, 0, len(categoryValues))
-	for value := range categoryValues {
-		categories = append(categories, value)
-	}
-	sort.Strings(categories)
+	tags, categories := collectTaxonomiesStrict(posts)
 
 	taxonomyCache.mu.Lock()
 	taxonomyCache.entry = taxonomyCacheEntry{
@@ -492,6 +462,83 @@ func collectTaxonomies() ([]string, []string) {
 	taxonomyCache.mu.Unlock()
 
 	return tags, categories
+}
+
+func listPublishedPosts() []PostRecord {
+	items, _ := listPublishedPostsStrict()
+	return items
+}
+
+func listPublishedPostsStrict() ([]PostRecord, error) {
+	return listPublishedRecords(getPosts, "published = true", 200, true, "-published_at", "-date")
+}
+
+func listPublishedPages() []PageRecord {
+	items, _ := listPublishedPagesStrict()
+	return items
+}
+
+func listPublishedPagesStrict() ([]PageRecord, error) {
+	return listPublishedRecords(getPages, "published = true", 200, true, "-published_at", "-date")
+}
+
+func listPublishedTranslationsByLocale(locale string) []PostTranslationRecord {
+	items, _ := listPublishedTranslationsByLocaleStrict(locale)
+	return items
+}
+
+func listPublishedTranslationsByLocaleStrict(locale string) ([]PostTranslationRecord, error) {
+	return listPublishedRecords(
+		getPostTranslations,
+		fmt.Sprintf("published = true && locale = \"%s\"", escapeFilter(locale)),
+		200,
+		true,
+		"-published_at",
+	)
+}
+
+func listPublishedRecords[T any](fetch pagedListFetcher[T], filter string, perPage int, strict bool, sorts ...string) ([]T, error) {
+	if perPage <= 0 {
+		perPage = 200
+	}
+	if len(sorts) == 0 {
+		sorts = []string{"-published_at"}
+	}
+
+	items := make([]T, 0, perPage)
+	page := 1
+	for {
+		data, err := fetchPublishedPage(fetch, filter, page, perPage, sorts...)
+		if err != nil {
+			if strict {
+				return nil, err
+			}
+			break
+		}
+		items = append(items, data.Items...)
+		if len(data.Items) < perPage {
+			break
+		}
+		page++
+	}
+	return items, nil
+}
+
+func fetchPublishedPage[T any](fetch pagedListFetcher[T], filter string, page int, perPage int, sorts ...string) (PBList[T], error) {
+	var lastErr error
+	for _, sortValue := range sorts {
+		data, err := fetch(map[string]string{
+			"page":    strconv.Itoa(page),
+			"perPage": strconv.Itoa(perPage),
+			"filter":  filter,
+			"sort":    sortValue,
+		})
+		if err == nil {
+			return data, nil
+		}
+		lastErr = err
+	}
+	return PBList[T]{}, lastErr
 }
 
 func collectTaxonomiesStrict(posts []PostRecord) ([]string, []string) {
@@ -634,6 +681,23 @@ func paginateSnapshotPosts(items []PostRecord, pageValue, perPageValue string) P
 	}
 	if start < end {
 		out.Items = append([]PostRecord(nil), items[start:end]...)
+	}
+	return out
+}
+
+func paginateSnapshotPages(items []PageRecord, pageValue, perPageValue string) PBList[PageRecord] {
+	page, perPage := snapshotPageParams(pageValue, perPageValue)
+	totalItems := len(items)
+	totalPages := snapshotTotalPages(totalItems, perPage)
+	start, end := snapshotPageBounds(page, perPage, totalItems)
+	out := PBList[PageRecord]{
+		Page:       page,
+		PerPage:    perPage,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+	}
+	if start < end {
+		out.Items = append([]PageRecord(nil), items[start:end]...)
 	}
 	return out
 }
