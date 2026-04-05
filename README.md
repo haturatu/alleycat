@@ -51,38 +51,38 @@ This is a PocketBase-backed blog app with a public site and a WYSIWYG admin CMS.
 ```mermaid
 flowchart LR
   subgraph Client["Client Surfaces"]
-    Public["Public site<br/>backend/ssr/*.go"]
+    Public["Public site<br/>backend/site/*.go"]
     Admin["Admin CMS<br/>frontend/src/cms"]
   end
 
   subgraph Frontend["Frontend App"]
     AdminApp["Admin React app<br/>frontend/src/cms"]
     Theme["Public static assets<br/>frontend/public<br/>frontend/default-public-asset"]
-    SSR["SSR server<br/>backend/ssr/*.go"]
+    Site["Site server<br/>backend/site/*.go"]
   end
 
   subgraph Backend["Backend Services"]
     PB["PocketBase app<br/>backend/app.go"]
     Collections["Collections / media / translation CLI<br/>backend/collections.go<br/>backend/media.go<br/>backend/translation.go"]
-    SSRData["SSR data and feed layer<br/>backend/ssr/*.go"]
+    SiteData["Site data and feed layer<br/>backend/site/*.go"]
     Data["Persistent data<br/>backend/pb_data"]
   end
 
   Admin --> AdminApp
   Public --> Theme
-  Public --> SSR
-  SSR --> PB
+  Public --> Site
+  Site --> PB
   PB --> Collections
-  PB --> SSRData
+  PB --> SiteData
   PB <--> Data
   Collections <--> Data
-  SSRData <--> Data
+  SiteData <--> Data
 ```
 
 - `frontend/src/cms` contains the admin CMS, including editor UI, settings, and admin-specific styles.
 - `frontend/src/cms/lib` and `frontend/src/cms/utils` contain PocketBase access and reusable helpers for the admin app.
-- `backend/ssr/*.go` serves the public app, while `/admin` is served separately on the admin port.
-- `backend/app.go` starts PocketBase, and `backend/ssr/*.go` provides feed, sitemap, robots, and SSR-related data shaping.
+- `backend/site/*.go` serves the public app, while `/admin` is served separately on the admin port.
+- `backend/app.go` starts PocketBase, and `backend/site/*.go` provides feed, sitemap, robots, and public-site data shaping.
 - `backend/pb_data` stores PocketBase data in local runs, and the same data is mounted via Docker volume in containerized runs.
 
 ## Usage
@@ -112,7 +112,7 @@ flowchart LR
 
 ## Services and Ports
 - `8091`: PocketBase API + Admin UI (`/_/`)
-- `8888`: Public site (SSR server)
+- `8888`: Public site (site server)
 - `5175`: Admin UI web app
 
 `/admin` is not served by the public site. Access the CMS directly via the admin port/URL.
@@ -144,7 +144,7 @@ flowchart LR
 6. Ensure public content is published so it appears on the public site.
 
 ## Public Assets Fallback
-- The SSR server serves static files from `frontend/public` by default.
+- The site server serves static files from `frontend/public` by default.
 - If `frontend/public` is empty, it automatically falls back to `frontend/default-public-asset`.
 - Default assets live in `frontend/default-public-asset` (`styles.css`, `default-hero.svg`, `default-pattern.svg`).
 - Add your own assets to `frontend/public` to override the defaults.
@@ -250,7 +250,7 @@ Build outputs and local runtime data such as `frontend/node_modules`, `frontend/
 ├── .github/                    # GitHub Actions and repository automation
 │   └── workflows/              # CI workflow definitions
 ├── backend/                    # PocketBase app and Go-based public SSR
-│   └── ssr/                    # Public site rendering, feeds, sitemap, robots, revalidation
+│   └── site/                   # Public site rendering, feeds, sitemap, robots, revalidation
 ├── frontend/                   # Admin frontend and public static assets
 │   ├── default-public-asset/   # Fallback public assets when frontend/public is empty
 │   │   └── themes/             # Built-in public themes

@@ -8,7 +8,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY backend ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -o /out/ssr ./ssr
+    go build -o /out/site ./site
 
 FROM alpine:3.20
 WORKDIR /app
@@ -18,7 +18,7 @@ RUN apk add --no-cache \
     font-noto-cjk-extra \
     font-noto-emoji \
     && fc-cache -f
-COPY --from=build /out/ssr /app/ssr
+COPY --from=build /out/site /app/site
 COPY frontend /tmp/frontend
 COPY frontend/default-public-asset /default-public-asset
 RUN if [ -d /tmp/frontend/public ]; then mv /tmp/frontend/public /public; fi \
@@ -26,4 +26,4 @@ RUN if [ -d /tmp/frontend/public ]; then mv /tmp/frontend/public /public; fi \
 ENV PUBLIC_DIR=/public
 ENV DEFAULT_PUBLIC_DIR=/default-public-asset
 EXPOSE 8888
-CMD ["/app/ssr"]
+CMD ["/app/site"]

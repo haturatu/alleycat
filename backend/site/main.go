@@ -19,9 +19,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(routeHandler))
 
-	slog.Info("ssr server starting", "listen_addr", listenAddr, "pb_url", pbURL, "public_dir", activePublicDir, "static_export_dir", staticExportDir)
+	slog.Info("site server starting", "listen_addr", listenAddr, "pb_url", pbURL, "public_dir", activePublicDir, "static_export_dir", staticExportDir)
 	if err := http.ListenAndServe(listenAddr, mux); err != nil {
-		slog.Error("ssr server stopped", "error", err)
+		slog.Error("site server stopped", "error", err)
 		os.Exit(1)
 	}
 }
