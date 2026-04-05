@@ -125,16 +125,8 @@ func buildStaticSnapshot() (string, error) {
 		}
 
 		if normalizeURL(settings.SiteURL) != "" {
-			if err := exportRecordedRoute(root, "/robots.txt", prerenderRobots(settings)); err != nil {
+			if err := writeSitemapFiles(root, settings); err != nil {
 				return err
-			}
-			if err := exportRecordedRoute(root, "/sitemap.xml", prerenderSitemap(settings, "")); err != nil {
-				return err
-			}
-			for _, locale := range parseTranslationLocales(settings.TranslationLocales) {
-				if err := exportRecordedRoute(root, "/sitemap-"+locale+".xml", prerenderSitemap(settings, locale)); err != nil {
-					return err
-				}
 			}
 		}
 		return nil

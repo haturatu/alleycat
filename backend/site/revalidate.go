@@ -18,6 +18,12 @@ type revalidateRequest struct {
 	Original   json.RawMessage `json:"original"`
 }
 
+type snapshotRouteSpec struct {
+	route   string
+	enabled bool
+	render  func() []byte
+}
+
 var snapshotMutation = struct {
 	mu sync.Mutex
 }{}
@@ -329,32 +335,52 @@ func collectCategoryArchiveRoutes(items ...*PostRecord) []string {
 }
 
 func writeFeedFiles(root string, settings SettingsRecord) error {
-	if settings.EnableFeedXML {
-		if err := exportRecordedRoute(root, "/feed.xml", prerenderFeedXML(settings)); err != nil {
-			return err
-		}
-	} else if err := removeSnapshotRoute(root, "/feed.xml"); err != nil {
-		return err
-	}
-	if settings.EnableFeedJSON {
-		return exportRecordedRoute(root, "/feed.json", prerenderFeedJSON(settings))
-	}
-	return removeSnapshotRoute(root, "/feed.json")
+	return syncSnapshotRoutes(root,
+		snapshotRouteSpec{
+			route:   "/feed.xml",
+			enabled: settings.EnableFeedXML,
+			render: func() []byte {
+				return prerenderFeedXML(settings)
+			},
+		},
+		snapshotRouteSpec{
+			route:   "/feed.json",
+			enabled: settings.EnableFeedJSON,
+			render: func() []byte {
+				return prerenderFeedJSON(settings)
+			},
+		},
+	)
 }
 
 func writeSitemapFiles(root string, settings SettingsRecord) error {
-	if err := exportRecordedRoute(root, "/robots.txt", prerenderRobots(settings)); err != nil {
-		return err
-	}
-	if err := exportRecordedRoute(root, "/sitemap.xml", prerenderSitemap(settings, "")); err != nil {
-		return err
+	specs := []snapshotRouteSpec{
+		{
+			route:   "/robots.txt",
+			enabled: true,
+			render: func() []byte {
+				return prerenderRobots(settings)
+			},
+		},
+		{
+			route:   "/sitemap.xml",
+			enabled: true,
+			render: func() []byte {
+				return prerenderSitemap(settings, "")
+			},
+		},
 	}
 	for _, locale := range parseTranslationLocales(settings.TranslationLocales) {
-		if err := exportRecordedRoute(root, "/sitemap-"+locale+".xml", prerenderSitemap(settings, locale)); err != nil {
-			return err
-		}
+		locale := locale
+		specs = append(specs, snapshotRouteSpec{
+			route:   "/sitemap-" + locale + ".xml",
+			enabled: true,
+			render: func() []byte {
+				return prerenderSitemap(settings, locale)
+			},
+		})
 	}
-	return nil
+	return syncSnapshotRoutes(root, specs...)
 }
 
 func rebuildArchiveRoute(root string, settings SettingsRecord, basePath string) error {
@@ -461,8 +487,14 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 
 func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
 	slog.Info("revalidate localized robots write start")
-	if err := exportRecordedRoute(root, "/robots.txt", prerenderRobots(settings)); err != nil {
-		return err
+	specs := []snapshotRouteSpec{
+		{
+			route:   "/robots.txt",
+			enabled: true,
+			render: func() []byte {
+				return prerenderRobots(settings)
+			},
+		},
 	}
 	locales := map[string]struct{}{}
 	for _, item := range []*PostTranslationRecord{current, original} {
@@ -475,12 +507,17 @@ func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, o
 		}
 	}
 	for locale := range locales {
+		locale := locale
 		slog.Info("revalidate localized sitemap write start", "locale", locale)
-		if err := exportRecordedRoute(root, "/sitemap-"+locale+".xml", prerenderSitemap(settings, locale)); err != nil {
-			return err
-		}
+		specs = append(specs, snapshotRouteSpec{
+			route:   "/sitemap-" + locale + ".xml",
+			enabled: isEnabledTranslationLocale(settings, locale),
+			render: func() []byte {
+				return prerenderSitemap(settings, locale)
+			},
+		})
 	}
-	return nil
+	return syncSnapshotRoutes(root, specs...)
 }
 
 func valueOrEmptyPostID(item *PostRecord) string {
@@ -570,6 +607,21 @@ func removeSnapshotRoute(root, route string) error {
 	}
 	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
 		return err
+	}
+	return nil
+}
+
+func syncSnapshotRoutes(root string, specs ...snapshotRouteSpec) error {
+	for _, spec := range specs {
+		if !spec.enabled {
+			if err := removeSnapshotRoute(root, spec.route); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := exportRecordedRoute(root, spec.route, spec.render()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

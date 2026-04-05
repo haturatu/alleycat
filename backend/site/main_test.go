@@ -185,3 +185,30 @@ func TestWriteFeedFilesRemovesDisabledSnapshotRoutes(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteLocalizedSitemapFilesRemovesDisabledLocaleSnapshot(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/sitemap-fr.xml")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	settings := SettingsRecord{
+		SiteURL:            "https://example.com",
+		TranslationLocales: "en,ja",
+	}
+	translation := &PostTranslationRecord{Locale: "fr"}
+	if err := writeLocalizedSitemapFiles(root, settings, translation, nil); err != nil {
+		t.Fatalf("writeLocalizedSitemapFiles: %v", err)
+	}
+
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("expected localized sitemap snapshot to be removed, err=%v", err)
+	}
+}
