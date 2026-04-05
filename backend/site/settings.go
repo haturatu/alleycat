@@ -22,11 +22,6 @@ var (
 
 const settingsCacheTTL = 30 * time.Second
 
-type settingsCacheEntry struct {
-	expiresAt time.Time
-	value     SettingsRecord
-}
-
 var settingsCache = struct {
 	mu    sync.RWMutex
 	entry settingsCacheEntry

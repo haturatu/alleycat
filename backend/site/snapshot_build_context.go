@@ -8,29 +8,6 @@ import (
 	"time"
 )
 
-type archiveListing struct {
-	posts     []PostRecord
-	pageCount int
-}
-
-type snapshotBuildContext struct {
-	settings             SettingsRecord
-	menu                 []PageRecord
-	publishedPosts       []PostRecord
-	publishedPages       []PageRecord
-	tags                 []string
-	categories           []string
-	postBySlug           map[string]PostRecord
-	postByID             map[string]PostRecord
-	pageByURL            map[string]PageRecord
-	translationByKey     map[string]PostTranslationRecord
-	translationsBySource map[string][]PostTranslationRecord
-	translationsByLocale map[string][]PostTranslationRecord
-	postsByTag           map[string][]PostRecord
-	postsByCategory      map[string][]PostRecord
-	archiveIndex         map[string]archiveListing
-}
-
 var activeSnapshotBuild = struct {
 	mu  sync.RWMutex
 	ctx *snapshotBuildContext

@@ -1,11 +1,18 @@
 package main
 
+import "time"
+
 type PBList[T any] struct {
 	Items      []T `json:"items"`
 	Page       int `json:"page"`
 	PerPage    int `json:"perPage"`
 	TotalItems int `json:"totalItems"`
 	TotalPages int `json:"totalPages"`
+}
+
+type settingsCacheEntry struct {
+	expiresAt time.Time
+	value     SettingsRecord
 }
 
 type PostRecord struct {
@@ -98,4 +105,47 @@ type MediaRecord struct {
 	File    string `json:"file"`
 	Caption string `json:"caption"`
 	Path    string `json:"path"`
+}
+
+type archiveListing struct {
+	posts     []PostRecord
+	pageCount int
+}
+
+type snapshotBuildContext struct {
+	settings             SettingsRecord
+	menu                 []PageRecord
+	publishedPosts       []PostRecord
+	publishedPages       []PageRecord
+	tags                 []string
+	categories           []string
+	postBySlug           map[string]PostRecord
+	postByID             map[string]PostRecord
+	pageByURL            map[string]PageRecord
+	translationByKey     map[string]PostTranslationRecord
+	translationsBySource map[string][]PostTranslationRecord
+	translationsByLocale map[string][]PostTranslationRecord
+	postsByTag           map[string][]PostRecord
+	postsByCategory      map[string][]PostRecord
+	archiveIndex         map[string]archiveListing
+}
+
+type localizedPostResult struct {
+	post        *PostRecord
+	translation *PostTranslationRecord
+}
+
+type postRenderInput struct {
+	path        string
+	locale      string
+	slug        string
+	post        *PostRecord
+	translation *PostTranslationRecord
+}
+
+type archiveRoute struct {
+	pageNumber int
+	basePath   string
+	filter     string
+	title      string
 }

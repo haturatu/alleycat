@@ -23,21 +23,6 @@ var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\
 var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(?:"([^"]+)"|'([^']+)')`)
 var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
-type postRenderInput struct {
-	path        string
-	locale      string
-	slug        string
-	post        *PostRecord
-	translation *PostTranslationRecord
-}
-
-type archiveRoute struct {
-	pageNumber int
-	basePath   string
-	filter     string
-	title      string
-}
-
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
 		return "/styles.css"

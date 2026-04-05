@@ -27,11 +27,6 @@ type mediaPathCacheEntry struct {
 
 type pagedListFetcher[T any] func(params map[string]string) (PBList[T], error)
 
-type localizedPostResult struct {
-	post        *PostRecord
-	translation *PostTranslationRecord
-}
-
 var taxonomyCache = struct {
 	mu    sync.RWMutex
 	entry taxonomyCacheEntry
