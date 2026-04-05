@@ -37,21 +37,21 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if path == "/feed.json" || path == "/feed.xml" {
-		settings := getSettings()
+		settings := requestSettings(r)
 		if !isFeedRouteEnabled(path, settings) {
 			http.NotFound(w, r)
 			return
 		}
 	}
 	if locale, ok := extractSitemapLocale(path); ok {
-		settings := getSettings()
+		settings := requestSettings(r)
 		if !isEnabledTranslationLocale(settings, locale) {
 			http.NotFound(w, r)
 			return
 		}
 	}
 	if locale, ok := extractLocalizedPostRouteLocale(path); ok {
-		settings := getSettings()
+		settings := requestSettings(r)
 		if !isEnabledTranslationLocale(settings, locale) {
 			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
 			return
@@ -62,34 +62,22 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if path == "/" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		html := renderHome(settings)
 		writeHTML(w, html)
 		return
 	}
 
 	if path == "/archive" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+		settings := requestSettings(r)
 		searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
 		html := renderArchive("/archive/", searchQuery, settings)
 		writeHTML(w, html)
 		return
 	}
 
 	if path == "/feed.json" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		if !settings.EnableFeedJSON {
 			http.NotFound(w, r)
 			return
@@ -99,11 +87,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if path == "/feed.xml" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		if !settings.EnableFeedXML {
 			http.NotFound(w, r)
 			return
@@ -112,38 +96,22 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if path == "/robots.txt" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		writeRobotsTXT(w, r, settings)
 		return
 	}
 	if path == "/sitemap.xml" {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		writeSitemap(w, r, settings)
 		return
 	}
 	if locale, ok := extractSitemapLocale(path); ok {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		writeLocalizedSitemap(w, r, settings, locale)
 		return
 	}
 	if strings.HasPrefix(path, "/og/") {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings := requestSettings(r)
 		if servePostOGImage(w, path, settings) {
 			return
 		}
@@ -152,12 +120,8 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/archive/") {
-		settings := getSettings()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+		settings := requestSettings(r)
 		searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
 		html := renderArchive(path, searchQuery, settings)
 		writeHTML(w, html)
 		return
@@ -178,10 +142,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			input, found = prefetchPostRenderInput(path)
 		}()
 		wg.Wait()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings = withPreviewTheme(settings, r)
 		if !found {
 			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
 			return
@@ -209,10 +170,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			input, found = prefetchPostRenderInput(path)
 		}()
 		wg.Wait()
-		previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-		if previewTheme != "" {
-			settings.Theme = previewTheme
-		}
+		settings = withPreviewTheme(settings, r)
 		if !found {
 			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
 			return
@@ -239,10 +197,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		page = getPageByURL(path)
 	}()
 	wg.Wait()
-	previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
-	if previewTheme != "" {
-		settings.Theme = previewTheme
-	}
+	settings = withPreviewTheme(settings, r)
 	html, found := renderPageFromRecord(page, settings)
 	if !found {
 		writeHTMLStatus(w, html, http.StatusNotFound)
@@ -281,6 +236,21 @@ func isFeedRouteEnabled(path string, settings SettingsRecord) bool {
 	default:
 		return false
 	}
+}
+
+func requestSettings(r *http.Request) SettingsRecord {
+	return withPreviewTheme(getSettings(), r)
+}
+
+func withPreviewTheme(settings SettingsRecord, r *http.Request) SettingsRecord {
+	if r == nil {
+		return settings
+	}
+	previewTheme := strings.TrimSpace(r.URL.Query().Get("theme"))
+	if previewTheme != "" {
+		settings.Theme = previewTheme
+	}
+	return settings
 }
 
 func writeHTML(w http.ResponseWriter, content string) {
