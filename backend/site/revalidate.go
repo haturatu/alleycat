@@ -212,7 +212,7 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 		}
 	}
 
-	if current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" {
+	if current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" && isEnabledTranslationLocale(settings, current.Locale) {
 		slog.Info("revalidate translation render current route", "route", "/"+normalizeLocale(current.Locale)+"/posts/"+current.Slug+"/")
 		post := translationToPost(*current)
 		html, ok := renderPostFromInput(&postRenderInput{
@@ -329,10 +329,17 @@ func collectCategoryArchiveRoutes(items ...*PostRecord) []string {
 }
 
 func writeFeedFiles(root string, settings SettingsRecord) error {
-	if err := exportRecordedRoute(root, "/feed.xml", prerenderFeedXML(settings)); err != nil {
+	if settings.EnableFeedXML {
+		if err := exportRecordedRoute(root, "/feed.xml", prerenderFeedXML(settings)); err != nil {
+			return err
+		}
+	} else if err := removeSnapshotRoute(root, "/feed.xml"); err != nil {
 		return err
 	}
-	return exportRecordedRoute(root, "/feed.json", prerenderFeedJSON(settings))
+	if settings.EnableFeedJSON {
+		return exportRecordedRoute(root, "/feed.json", prerenderFeedJSON(settings))
+	}
+	return removeSnapshotRoute(root, "/feed.json")
 }
 
 func writeSitemapFiles(root string, settings SettingsRecord) error {
@@ -419,7 +426,7 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 
 	for _, item := range getPostTranslationsBySource(sourcePostID) {
 		locale := normalizeLocale(item.Locale)
-		if locale == "" || strings.TrimSpace(item.Slug) == "" {
+		if locale == "" || strings.TrimSpace(item.Slug) == "" || !isEnabledTranslationLocale(settings, locale) {
 			continue
 		}
 		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", "/"+locale+"/posts/"+item.Slug+"/")

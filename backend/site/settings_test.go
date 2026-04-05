@@ -52,3 +52,12 @@ func TestSettingsApplyDefaults(t *testing.T) {
 		t.Fatalf("TranslationModel = %q, want %q", item.TranslationModel, "gemini-1.5-flash")
 	}
 }
+
+func TestDefaultSettingsFeedItemsLimit(t *testing.T) {
+	t.Parallel()
+
+	item := defaultSettings()
+	if item.FeedItemsLimit != 20 {
+		t.Fatalf("FeedItemsLimit = %d, want 20", item.FeedItemsLimit)
+	}
+}

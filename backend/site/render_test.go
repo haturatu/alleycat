@@ -69,6 +69,44 @@ func TestRenderHeadRespectsFeatureFlags(t *testing.T) {
 	}
 }
 
+func TestRenderHeadOmitsDisabledFeedAlternates(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.EnableFeedXML = false
+	settings.EnableFeedJSON = false
+
+	html := renderHead("Home", settings)
+	if strings.Contains(html, `/feed.xml`) {
+		t.Fatalf("renderHead should omit xml feed alternate when disabled")
+	}
+	if strings.Contains(html, `/feed.json`) {
+		t.Fatalf("renderHead should omit json feed alternate when disabled")
+	}
+}
+
+func TestRenderFeedLinkListRespectsEnabledFeeds(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.EnableFeedXML = true
+	settings.EnableFeedJSON = false
+
+	got := renderFeedLinkList(settings)
+	if !strings.Contains(got, `/feed.xml`) {
+		t.Fatalf("renderFeedLinkList should include enabled xml feed")
+	}
+	if strings.Contains(got, `/feed.json`) {
+		t.Fatalf("renderFeedLinkList should omit disabled json feed")
+	}
+
+	settings.EnableFeedXML = false
+	got = renderFeedLinkList(settings)
+	if got != "" {
+		t.Fatalf("renderFeedLinkList should be empty when all feeds disabled, got %q", got)
+	}
+}
+
 func TestBuildTOC(t *testing.T) {
 	t.Parallel()
 

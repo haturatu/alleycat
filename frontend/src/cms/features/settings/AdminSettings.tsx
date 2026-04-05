@@ -41,7 +41,7 @@ const defaults = {
   enable_feed_xml: true,
   enable_feed_json: true,
   enable_ogp_image_generation: false,
-  feed_items_limit: 30,
+  feed_items_limit: 20,
   enable_analytics: false,
   analytics_url: "",
   analytics_site_id: "",

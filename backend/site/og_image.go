@@ -135,6 +135,9 @@ func servePostOGImage(w http.ResponseWriter, path string, settings SettingsRecor
 	if !ok {
 		return false
 	}
+	if locale != "" && !isEnabledTranslationLocale(settings, locale) {
+		return false
+	}
 
 	var post *PostRecord
 	if locale == "" {

@@ -3,7 +3,10 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestIsLocalizedPostPath(t *testing.T) {
@@ -53,5 +56,132 @@ func TestRouteHandlerRevalidateRejectsWrongMethod(t *testing.T) {
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestRouteHandlerFeedIgnoresStaleSnapshotWhenDisabled(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/feed.xml")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	prevSnapshot := getPrerenderedSnapshotDir()
+	setPrerenderedSnapshotDir(root)
+	t.Cleanup(func() {
+		prerenderedSnapshot.mu.Lock()
+		prerenderedSnapshot.dir = prevSnapshot
+		prerenderedSnapshot.mu.Unlock()
+	})
+
+	prevCache := settingsCache.entry
+	settingsCache.mu.Lock()
+	settingsCache.entry = settingsCacheEntry{
+		expiresAt: time.Now().Add(time.Minute),
+		value: SettingsRecord{
+			SiteName:       "Alleycat",
+			EnableFeedXML:  false,
+			EnableFeedJSON: false,
+		},
+	}
+	settingsCache.mu.Unlock()
+	t.Cleanup(func() {
+		settingsCache.mu.Lock()
+		settingsCache.entry = prevCache
+		settingsCache.mu.Unlock()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/feed.xml", nil)
+	rec := httptest.NewRecorder()
+
+	routeHandler(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestRouteHandlerLocalizedPostIgnoresStaleSnapshotWhenLocaleDisabled(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/fr/posts/bonjour/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	prevSnapshot := getPrerenderedSnapshotDir()
+	setPrerenderedSnapshotDir(root)
+	t.Cleanup(func() {
+		prerenderedSnapshot.mu.Lock()
+		prerenderedSnapshot.dir = prevSnapshot
+		prerenderedSnapshot.mu.Unlock()
+	})
+
+	prevCache := settingsCache.entry
+	settingsCache.mu.Lock()
+	settingsCache.entry = settingsCacheEntry{
+		expiresAt: time.Now().Add(time.Minute),
+		value: SettingsRecord{
+			SiteName:                "Alleycat",
+			TranslationLocales:      "en,ja",
+			SiteLanguage:            "ja",
+			TranslationSourceLocale: "ja",
+		},
+	}
+	settingsCache.mu.Unlock()
+	t.Cleanup(func() {
+		settingsCache.mu.Lock()
+		settingsCache.entry = prevCache
+		settingsCache.mu.Unlock()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/fr/posts/bonjour/", nil)
+	rec := httptest.NewRecorder()
+
+	routeHandler(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestWriteFeedFilesRemovesDisabledSnapshotRoutes(t *testing.T) {
+	root := t.TempDir()
+	for _, route := range []string{"/feed.xml", "/feed.json"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("MkdirAll(%q): %v", route, err)
+		}
+		if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%q): %v", route, err)
+		}
+	}
+
+	if err := writeFeedFiles(root, SettingsRecord{}); err != nil {
+		t.Fatalf("writeFeedFiles: %v", err)
+	}
+
+	for _, route := range []string{"/feed.xml", "/feed.json"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("expected %q snapshot to be removed, err=%v", route, err)
+		}
 	}
 }

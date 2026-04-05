@@ -36,6 +36,27 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		handleRevalidate(w, r)
 		return
 	}
+	if path == "/feed.json" || path == "/feed.xml" {
+		settings := getSettings()
+		if !isFeedRouteEnabled(path, settings) {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	if locale, ok := extractSitemapLocale(path); ok {
+		settings := getSettings()
+		if !isEnabledTranslationLocale(settings, locale) {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	if locale, ok := extractLocalizedPostRouteLocale(path); ok {
+		settings := getSettings()
+		if !isEnabledTranslationLocale(settings, locale) {
+			writeHTMLStatus(w, renderNotFound(settings), http.StatusNotFound)
+			return
+		}
+	}
 	if serveStatic(w, r) {
 		return
 	}
@@ -237,6 +258,29 @@ func isLocalizedPostPath(path string) bool {
 	}
 	locale := normalizeLocale(parts[0])
 	return locale == parts[0] && localePathPattern.MatchString(locale)
+}
+
+func extractLocalizedPostRouteLocale(path string) (string, bool) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 3 || parts[1] != "posts" || strings.TrimSpace(parts[2]) == "" {
+		return "", false
+	}
+	locale := normalizeLocale(parts[0])
+	if locale != parts[0] || !localePathPattern.MatchString(locale) {
+		return "", false
+	}
+	return locale, true
+}
+
+func isFeedRouteEnabled(path string, settings SettingsRecord) bool {
+	switch path {
+	case "/feed.xml":
+		return settings.EnableFeedXML
+	case "/feed.json":
+		return settings.EnableFeedJSON
+	default:
+		return false
+	}
 }
 
 func writeHTML(w http.ResponseWriter, content string) {

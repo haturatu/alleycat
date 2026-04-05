@@ -213,6 +213,7 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
 	if strings.TrimSpace(extraHead) != "" {
 		extraHead = strings.TrimSpace(extraHead)
 	}
+	feedAlternates := renderFeedAlternates(settings)
 
 	return fmt.Sprintf(`<!doctype html>
 <html lang="%s">
@@ -226,8 +227,7 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
     %s
     %s
     %s
-    <link rel="alternate" href="/feed.xml" type="application/atom+xml" title="%s" />
-    <link rel="alternate" href="/feed.json" type="application/json" title="%s" />
+    %s
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <meta name="description" content="%s" />
     <meta name="robots" content="max-image-preview:large" />
@@ -236,7 +236,7 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
     %s
     %s
   </head>
-  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, escapeHTML(settings.SiteName), escapeHTML(settings.SiteName), metaDesc, analytics, ads, codeHighlight, extraHead)
+  <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, feedAlternates, metaDesc, analytics, ads, codeHighlight, extraHead)
 }
 
 type postMetaInput struct {
@@ -350,6 +350,32 @@ func renderNav(menu []PageRecord, settings SettingsRecord) string {
         </li>
       </ul>
     </nav>`, escapeHTML(settings.SiteName), links.String())
+}
+
+func renderFeedAlternates(settings SettingsRecord) string {
+	links := make([]string, 0, 2)
+	title := escapeHTML(settings.SiteName)
+	if settings.EnableFeedXML {
+		links = append(links, fmt.Sprintf(`<link rel="alternate" href="/feed.xml" type="application/atom+xml" title="%s" />`, title))
+	}
+	if settings.EnableFeedJSON {
+		links = append(links, fmt.Sprintf(`<link rel="alternate" href="/feed.json" type="application/json" title="%s" />`, title))
+	}
+	return strings.Join(links, "\n    ")
+}
+
+func renderFeedLinkList(settings SettingsRecord) string {
+	links := make([]string, 0, 2)
+	if settings.EnableFeedXML {
+		links = append(links, `<a href="/feed.xml">Atom</a>`)
+	}
+	if settings.EnableFeedJSON {
+		links = append(links, `<a href="/feed.json">JSON</a>`)
+	}
+	if len(links) == 0 {
+		return ""
+	}
+	return `<p>RSS: ` + strings.Join(links, ", ") + `</p>`
 }
 
 func renderFooter(settings SettingsRecord) string {
@@ -651,20 +677,21 @@ func renderArchive(path, query string, settings SettingsRecord) string {
 	if showCategoriesNav {
 		categoriesNav = renderCategoriesNav(collectCategories())
 	}
+	feedLinks := renderFeedLinkList(settings)
 
 	return renderHead(title, settings) +
 		renderNav(menu, settings) +
 		fmt.Sprintf(`<main class="body-tag">
       <header class="page-header">
         <h1 class="page-title">%s</h1>
-        <p>RSS: <a href="/feed.xml">Atom</a>, <a href="/feed.json">JSON</a></p>
+        %s
         %s
       </header>
       %s
       %s
       %s
       %s
-    </main>`, escapeHTML(title), searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
+    </main>`, escapeHTML(title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
 		renderFooter(settings)
 }
 
@@ -764,20 +791,21 @@ func renderArchiveFromSnapshot(ctx *snapshotBuildContext, path, query string, se
 	if showCategoriesNav {
 		categoriesNav = renderCategoriesNav(ctx.categories)
 	}
+	feedLinks := renderFeedLinkList(settings)
 
 	return renderHead(title, settings) +
 		renderNav(ctx.menu, settings) +
 		fmt.Sprintf(`<main class="body-tag">
       <header class="page-header">
         <h1 class="page-title">%s</h1>
-        <p>RSS: <a href="/feed.xml">Atom</a>, <a href="/feed.json">JSON</a></p>
+        %s
         %s
       </header>
       %s
       %s
       %s
       %s
-    </main>`, escapeHTML(title), searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
+    </main>`, escapeHTML(title), feedLinks, searchHTML, renderPostList(posts.Items, settings.ShowTags, settings.ExcerptLength), pagination, tagsNav, categoriesNav) +
 		renderFooter(settings)
 }
 
@@ -844,7 +872,7 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		}()
 		go func() {
 			defer wg.Done()
-			translations = getPostTranslationsBySource(sourceID)
+			translations = filterTranslationsByEnabledLocales(getPostTranslationsBySource(sourceID), settings)
 		}()
 		wg.Wait()
 		if sourcePost == nil {
@@ -863,7 +891,7 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		wg.Add(1)
 		go func(sourceID string) {
 			defer wg.Done()
-			translations = getPostTranslationsBySource(sourceID)
+			translations = filterTranslationsByEnabledLocales(getPostTranslationsBySource(sourceID), settings)
 		}(post.ID)
 	}
 	wg.Add(2)

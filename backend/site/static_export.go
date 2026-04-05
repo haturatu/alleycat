@@ -120,10 +120,7 @@ func buildStaticSnapshot() (string, error) {
 			return err
 		}
 
-		if err := exportRecordedRoute(root, "/feed.xml", prerenderFeedXML(settings)); err != nil {
-			return err
-		}
-		if err := exportRecordedRoute(root, "/feed.json", prerenderFeedJSON(settings)); err != nil {
+		if err := writeFeedFiles(root, settings); err != nil {
 			return err
 		}
 

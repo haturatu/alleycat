@@ -186,6 +186,20 @@ func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
 	return data.Items
 }
 
+func filterTranslationsByEnabledLocales(items []PostTranslationRecord, settings SettingsRecord) []PostTranslationRecord {
+	if len(items) == 0 {
+		return nil
+	}
+	filtered := make([]PostTranslationRecord, 0, len(items))
+	for _, item := range items {
+		if !isEnabledTranslationLocale(settings, item.Locale) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
 func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
 	if post == nil {
 		return nil, nil
