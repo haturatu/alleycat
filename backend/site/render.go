@@ -1230,8 +1230,8 @@ func resolvePostPath(path string) (locale string, slug string, ok bool) {
 	if parts[0] == "posts" && len(parts) >= 2 {
 		return "", parts[1], true
 	}
-	if len(parts) >= 3 && parts[1] == "posts" {
-		return normalizeLocale(parts[0]), parts[2], true
+	if locale, slug, ok := extractLocalizedPostRoute(path); ok {
+		return locale, slug, true
 	}
 	return "", "", false
 }

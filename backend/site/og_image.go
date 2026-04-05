@@ -93,14 +93,14 @@ func extractPostOGImageRequest(path string) (string, string, bool) {
 		return "", strings.TrimSpace(slug), strings.TrimSpace(slug) != ""
 	}
 	if len(parts) == 4 && parts[0] == "og" && parts[2] == "posts" && strings.HasSuffix(parts[3], ".png") {
-		locale, localeErr := url.PathUnescape(parts[1])
+		rawLocale, localeErr := url.PathUnescape(parts[1])
 		slug, slugErr := url.PathUnescape(strings.TrimSuffix(parts[3], ".png"))
 		if localeErr != nil || slugErr != nil {
 			return "", "", false
 		}
-		locale = normalizeLocale(locale)
 		slug = strings.TrimSpace(slug)
-		if locale == "" || slug == "" {
+		locale, ok := parseLocaleSegment(rawLocale)
+		if !ok || slug == "" {
 			return "", "", false
 		}
 		return locale, slug, true
@@ -120,9 +120,9 @@ func extractSlugFromPostPath(path string) string {
 }
 
 func extractLocaleFromPostPath(path string) string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 3 && parts[1] == "posts" {
-		return normalizeLocale(parts[0])
+	locale, _, ok := extractLocalizedPostRoute(path)
+	if ok {
+		return locale
 	}
 	return ""
 }

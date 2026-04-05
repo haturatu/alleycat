@@ -5,12 +5,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 )
-
-var localePathPattern = regexp.MustCompile(`^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$`)
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})))
@@ -207,24 +204,13 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func isLocalizedPostPath(path string) bool {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) != 3 || parts[1] != "posts" || strings.TrimSpace(parts[2]) == "" {
-		return false
-	}
-	locale := normalizeLocale(parts[0])
-	return locale == parts[0] && localePathPattern.MatchString(locale)
+	_, _, ok := extractLocalizedPostRoute(path)
+	return ok
 }
 
 func extractLocalizedPostRouteLocale(path string) (string, bool) {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) != 3 || parts[1] != "posts" || strings.TrimSpace(parts[2]) == "" {
-		return "", false
-	}
-	locale := normalizeLocale(parts[0])
-	if locale != parts[0] || !localePathPattern.MatchString(locale) {
-		return "", false
-	}
-	return locale, true
+	locale, _, ok := extractLocalizedPostRoute(path)
+	return locale, ok
 }
 
 func isFeedRouteEnabled(path string, settings SettingsRecord) bool {

@@ -4,14 +4,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
-	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 )
-
-var localizedSitemapPattern = regexp.MustCompile(`^/sitemap-([a-z]{2,3}(?:-[a-z0-9]{2,8})*)\.xml$`)
 
 const sitemapCacheTTL = 60 * time.Second
 
@@ -149,49 +145,6 @@ func writeLocalizedSitemap(w http.ResponseWriter, r *http.Request, settings Sett
 		return
 	}
 	writeSitemapBody(w, body)
-}
-
-func extractSitemapLocale(path string) (string, bool) {
-	matches := localizedSitemapPattern.FindStringSubmatch(path)
-	if len(matches) != 2 {
-		return "", false
-	}
-	return normalizeLocale(matches[1]), true
-}
-
-func isEnabledTranslationLocale(settings SettingsRecord, targetLocale string) bool {
-	targetLocale = normalizeLocale(targetLocale)
-	if targetLocale == "" {
-		return false
-	}
-	locales := parseTranslationLocales(settings.TranslationLocales)
-	for _, locale := range locales {
-		if locale == targetLocale {
-			return true
-		}
-	}
-	return false
-}
-
-func parseTranslationLocales(value string) []string {
-	raw := strings.FieldsFunc(value, func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\n' || r == '\t' || r == ';'
-	})
-	result := make([]string, 0, len(raw))
-	seen := map[string]struct{}{}
-	for _, item := range raw {
-		locale := normalizeLocale(item)
-		if locale == "" {
-			continue
-		}
-		if _, exists := seen[locale]; exists {
-			continue
-		}
-		seen[locale] = struct{}{}
-		result = append(result, locale)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func sitemapBaseURL(r *http.Request, settings SettingsRecord) string {
