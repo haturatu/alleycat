@@ -153,6 +153,63 @@ func TestParseArchiveRoute(t *testing.T) {
 	}
 }
 
+func TestResolvePublishedPost(t *testing.T) {
+	t.Parallel()
+
+	ctx := &snapshotBuildContext{
+		postBySlug: map[string]PostRecord{
+			"hello": {ID: "p1", Slug: "hello", Title: "Hello"},
+		},
+		translationByKey: map[string]PostTranslationRecord{
+			"en|hello": {ID: "t1", SourcePost: "p1", Locale: "en", Slug: "hello", Title: "Hello EN"},
+		},
+	}
+
+	if err := withSnapshotBuildContext(ctx, func() error {
+		resolved := resolvePublishedPost("hello", "")
+		if resolved == nil || resolved.post == nil || resolved.translation != nil || resolved.post.Title != "Hello" {
+			t.Fatalf("unexpected base resolved post: %#v", resolved)
+		}
+
+		resolved = resolvePublishedPost("hello", "en")
+		if resolved == nil || resolved.post == nil || resolved.translation == nil || resolved.post.Title != "Hello EN" {
+			t.Fatalf("unexpected localized resolved post: %#v", resolved)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}
+
+func TestLoadPostFamilyFallsBackToProvidedPost(t *testing.T) {
+	t.Parallel()
+
+	fallback := &PostRecord{ID: "p1", Slug: "hello", Title: "Fallback"}
+	ctx := &snapshotBuildContext{
+		postByID: map[string]PostRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{
+			"p1": {
+				{ID: "t1", SourcePost: "p1", Locale: "en", Slug: "hello", Title: "Hello EN"},
+				{ID: "t2", SourcePost: "p1", Locale: "fr", Slug: "bonjour", Title: "Bonjour"},
+			},
+		},
+	}
+
+	settings := SettingsRecord{TranslationLocales: "en"}
+	if err := withSnapshotBuildContext(ctx, func() error {
+		sourcePost, translations := loadPostFamily("p1", fallback, settings)
+		if sourcePost == nil || sourcePost.Title != "Fallback" {
+			t.Fatalf("unexpected source post: %#v", sourcePost)
+		}
+		if len(translations) != 1 || translations[0].Locale != "en" {
+			t.Fatalf("unexpected translations: %#v", translations)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}
+
 func TestBuildTOC(t *testing.T) {
 	t.Parallel()
 

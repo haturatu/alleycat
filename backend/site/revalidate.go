@@ -441,9 +441,9 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 		}
 	}
 
-	for _, item := range getPostTranslationsBySource(sourcePostID) {
+	for _, item := range getEnabledTranslationsBySource(sourcePostID, settings) {
 		locale := normalizeLocale(item.Locale)
-		if locale == "" || strings.TrimSpace(item.Slug) == "" || !isEnabledTranslationLocale(settings, locale) {
+		if locale == "" || strings.TrimSpace(item.Slug) == "" {
 			continue
 		}
 		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", "/"+locale+"/posts/"+item.Slug+"/")

@@ -140,14 +140,8 @@ func servePostOGImage(w http.ResponseWriter, path string, settings SettingsRecor
 	}
 
 	var post *PostRecord
-	if locale == "" {
-		post = getPostBySlugInLocale(slug, "")
-	} else {
-		translation := getPostTranslationBySlugLocale(slug, locale)
-		if translation != nil {
-			translated := translationToPost(*translation)
-			post = &translated
-		}
+	if resolved := resolvePublishedPost(slug, locale); resolved != nil {
+		post = resolved.post
 	}
 	if post == nil {
 		return false

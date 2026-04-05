@@ -27,6 +27,11 @@ type mediaPathCacheEntry struct {
 
 type pagedListFetcher[T any] func(params map[string]string) (PBList[T], error)
 
+type localizedPostResult struct {
+	post        *PostRecord
+	translation *PostTranslationRecord
+}
+
 var taxonomyCache = struct {
 	mu    sync.RWMutex
 	entry taxonomyCacheEntry
@@ -141,6 +146,29 @@ func getPostBySlugInLocale(slug string, locale string) *PostRecord {
 	return &post
 }
 
+func resolvePublishedPost(slug string, locale string) *localizedPostResult {
+	if strings.TrimSpace(slug) == "" {
+		return nil
+	}
+	if normalizeLocale(locale) == "" {
+		post := getPostBySlugInLocale(slug, "")
+		if post == nil {
+			return nil
+		}
+		return &localizedPostResult{post: post}
+	}
+
+	translation := getPostTranslationBySlugLocale(slug, locale)
+	if translation == nil {
+		return nil
+	}
+	post := translationToPost(*translation)
+	return &localizedPostResult{
+		post:        &post,
+		translation: translation,
+	}
+}
+
 func getPostByID(id string) *PostRecord {
 	if strings.TrimSpace(id) == "" {
 		return nil
@@ -213,6 +241,35 @@ func filterTranslationsByEnabledLocales(items []PostTranslationRecord, settings 
 		filtered = append(filtered, item)
 	}
 	return filtered
+}
+
+func getEnabledTranslationsBySource(sourcePostID string, settings SettingsRecord) []PostTranslationRecord {
+	return filterTranslationsByEnabledLocales(getPostTranslationsBySource(sourcePostID), settings)
+}
+
+func loadPostFamily(sourcePostID string, fallback *PostRecord, settings SettingsRecord) (*PostRecord, []PostTranslationRecord) {
+	if strings.TrimSpace(sourcePostID) == "" {
+		return fallback, nil
+	}
+
+	var sourcePost *PostRecord
+	var translations []PostTranslationRecord
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		sourcePost = getPostByID(sourcePostID)
+	}()
+	go func() {
+		defer wg.Done()
+		translations = getEnabledTranslationsBySource(sourcePostID, settings)
+	}()
+	wg.Wait()
+
+	if sourcePost == nil {
+		sourcePost = fallback
+	}
+	return sourcePost, translations
 }
 
 func getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {

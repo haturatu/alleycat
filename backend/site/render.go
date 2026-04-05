@@ -798,29 +798,16 @@ func prefetchPostRenderInput(path string) (*postRenderInput, bool) {
 	if !ok {
 		return nil, false
 	}
-	if locale == "" {
-		post := getPostBySlugInLocale(slug, "")
-		if post == nil {
-			return nil, false
-		}
-		return &postRenderInput{
-			path:   path,
-			locale: "",
-			slug:   slug,
-			post:   post,
-		}, true
-	}
-	translation := getPostTranslationBySlugLocale(slug, locale)
-	if translation == nil {
+	resolved := resolvePublishedPost(slug, locale)
+	if resolved == nil || resolved.post == nil {
 		return nil, false
 	}
-	post := translationToPost(*translation)
 	return &postRenderInput{
 		path:        path,
 		locale:      locale,
 		slug:        slug,
-		post:        &post,
-		translation: translation,
+		post:        resolved.post,
+		translation: resolved.translation,
 	}, true
 }
 
@@ -847,21 +834,7 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		if translation == nil {
 			return renderNotFound(settings), false
 		}
-		sourceID := translation.SourcePost
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			sourcePost = getPostByID(sourceID)
-		}()
-		go func() {
-			defer wg.Done()
-			translations = filterTranslationsByEnabledLocales(getPostTranslationsBySource(sourceID), settings)
-		}()
-		wg.Wait()
-		if sourcePost == nil {
-			sourcePost = post
-		}
+		sourcePost, translations = loadPostFamily(translation.SourcePost, post, settings)
 	} else {
 		sourcePost = post
 	}
@@ -875,7 +848,7 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		wg.Add(1)
 		go func(sourceID string) {
 			defer wg.Done()
-			translations = filterTranslationsByEnabledLocales(getPostTranslationsBySource(sourceID), settings)
+			translations = getEnabledTranslationsBySource(sourceID, settings)
 		}(post.ID)
 	}
 	wg.Add(2)
