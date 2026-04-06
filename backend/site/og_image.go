@@ -61,7 +61,7 @@ var ogFontCache = struct {
 }
 
 func buildAbsoluteSiteURL(settings SettingsRecord, path string) string {
-	base := normalizeURL(settings.SiteURL)
+	base := normalizeSiteBaseURL(settings.SiteURL)
 	clean := cleanPath(path)
 	if clean == "" {
 		clean = "/"

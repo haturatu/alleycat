@@ -333,7 +333,7 @@ export default function AdminSettings() {
           <AdminTextField label="Site name" value={settings.site_name} onChange={(value) => update("site_name", value)} />
           <AdminTextField label="Description" value={settings.description} onChange={(value) => update("description", value)} />
           <AdminTextField label="Welcome text" value={settings.welcome_text} onChange={(value) => update("welcome_text", value)} />
-          <AdminTextField label="Site URL (feeds)" value={settings.site_url} onChange={(value) => update("site_url", value)} placeholder="https://example.com" />
+          <AdminTextField label="Site URL (origin)" value={settings.site_url} onChange={(value) => update("site_url", value)} placeholder="https://example.com" />
           <AdminTextField label="Site language" value={settings.site_language} onChange={(value) => update("site_language", value)} placeholder="ja" />
           <AdminTextField label="Home top image" value={settings.home_top_image} onChange={(value) => update("home_top_image", value)} />
           <AdminTextField label="Home top image alt" value={settings.home_top_image_alt} onChange={(value) => update("home_top_image_alt", value)} />

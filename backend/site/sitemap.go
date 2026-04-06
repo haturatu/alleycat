@@ -148,7 +148,7 @@ func writeLocalizedSitemap(w http.ResponseWriter, r *http.Request, settings Sett
 }
 
 func sitemapBaseURL(r *http.Request, settings SettingsRecord) string {
-	if normalized := normalizeURL(settings.SiteURL); normalized != "" {
+	if normalized := normalizeSiteBaseURL(settings.SiteURL); normalized != "" {
 		return normalized
 	}
 

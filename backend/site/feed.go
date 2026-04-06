@@ -25,7 +25,7 @@ var feedItemsCache = struct {
 
 func writeJSONFeed(w http.ResponseWriter, r *http.Request, settings SettingsRecord) {
 	items := fetchFeedItems(settings)
-	baseURL := normalizeURL(settings.SiteURL)
+	baseURL := normalizeSiteBaseURL(settings.SiteURL)
 	feed := map[string]any{
 		"version": "https://jsonfeed.org/version/1",
 		"title":   settings.SiteName,
@@ -51,7 +51,7 @@ func writeJSONFeed(w http.ResponseWriter, r *http.Request, settings SettingsReco
 
 func writeRSSFeed(w http.ResponseWriter, r *http.Request, settings SettingsRecord) {
 	items := fetchFeedItems(settings)
-	baseURL := normalizeURL(settings.SiteURL)
+	baseURL := normalizeSiteBaseURL(settings.SiteURL)
 	updated := time.Now().UTC().Format(time.RFC3339)
 	builder := strings.Builder{}
 	builder.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -95,7 +95,7 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 		"limit=%d|excerpt=%d|site=%s",
 		settings.FeedItemsLimit,
 		settings.ExcerptLength,
-		normalizeURL(settings.SiteURL),
+		normalizeSiteBaseURL(settings.SiteURL),
 	)
 	now := time.Now()
 	feedItemsCache.mu.RLock()
@@ -123,7 +123,7 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 			"sort":    "-date",
 		})
 	}
-	baseURL := normalizeURL(settings.SiteURL)
+	baseURL := normalizeSiteBaseURL(settings.SiteURL)
 	items := make([]feedItem, 0, len(posts.Items))
 	for _, post := range posts.Items {
 		slug := strings.TrimSpace(post.Slug)

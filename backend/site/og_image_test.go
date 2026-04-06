@@ -53,4 +53,9 @@ func TestBuildAbsoluteSiteURL(t *testing.T) {
 	if rel := buildAbsoluteSiteURL(SettingsRecord{}, "/og/posts/hello.png"); !strings.HasPrefix(rel, "/og/posts/hello.png") {
 		t.Fatalf("buildAbsoluteSiteURL should keep relative path when site_url is empty, got %q", rel)
 	}
+
+	got = buildAbsoluteSiteURL(SettingsRecord{SiteURL: "https://www.soulminingrig.com/www.soulminingrig.com"}, "/posts/self-hosted-edgedns-research/")
+	if got != "https://www.soulminingrig.com/posts/self-hosted-edgedns-research" {
+		t.Fatalf("buildAbsoluteSiteURL should discard site_url path, got %q", got)
+	}
 }

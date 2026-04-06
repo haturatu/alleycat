@@ -124,7 +124,7 @@ func buildStaticSnapshot() (string, error) {
 			return err
 		}
 
-		if normalizeURL(settings.SiteURL) != "" {
+		if normalizeSiteBaseURL(settings.SiteURL) != "" {
 			if err := writeSitemapFiles(root, settings); err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func prerenderSitemap(settings SettingsRecord, locale string) []byte {
 }
 
 func snapshotBaseURL(settings SettingsRecord) string {
-	base := normalizeURL(settings.SiteURL)
+	base := normalizeSiteBaseURL(settings.SiteURL)
 	if base != "" {
 		return base
 	}

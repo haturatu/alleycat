@@ -3,6 +3,7 @@ package main
 import (
 	"html"
 	"math"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -125,6 +126,25 @@ func normalizeURL(value string) string {
 		return ""
 	}
 	return strings.TrimRight(trimmed, "/")
+}
+
+func normalizeSiteBaseURL(value string) string {
+	normalized := normalizeURL(value)
+	if normalized == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(normalized)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+
+	parsed.Path = ""
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	parsed.ForceQuery = false
+	return strings.TrimRight(parsed.String(), "/")
 }
 
 func normalizeLocale(value string) string {
