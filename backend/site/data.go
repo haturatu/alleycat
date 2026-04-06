@@ -205,6 +205,53 @@ func getPostTranslationBySlugLocale(slug string, locale string) *PostTranslation
 	return &data.Items[0]
 }
 
+func getPublishedSourcePostByTranslationSlug(slug string) *PostRecord {
+	if strings.TrimSpace(slug) == "" {
+		return nil
+	}
+	if ctx := currentSnapshotBuildContext(); ctx != nil {
+		for _, item := range ctx.translationByKey {
+			if strings.TrimSpace(item.Slug) != slug {
+				continue
+			}
+			sourceID := strings.TrimSpace(item.SourcePost)
+			if sourceID == "" {
+				continue
+			}
+			post, ok := ctx.postByID[sourceID]
+			if !ok {
+				continue
+			}
+			copy := post
+			return &copy
+		}
+		return nil
+	}
+
+	translations, err := getPostTranslations(map[string]string{
+		"perPage": "1",
+		"filter":  fmt.Sprintf("slug = \"%s\" && published = true", escapeFilter(slug)),
+		"sort":    "locale",
+	})
+	if err != nil || len(translations.Items) == 0 {
+		return nil
+	}
+
+	sourceID := strings.TrimSpace(translations.Items[0].SourcePost)
+	if sourceID == "" {
+		return nil
+	}
+
+	posts, err := getPosts(map[string]string{
+		"perPage": "1",
+		"filter":  fmt.Sprintf("id = \"%s\" && published = true", escapeFilter(sourceID)),
+	})
+	if err != nil || len(posts.Items) == 0 {
+		return nil
+	}
+	return &posts.Items[0]
+}
+
 func getPostTranslationsBySource(sourcePostID string) []PostTranslationRecord {
 	if strings.TrimSpace(sourcePostID) == "" {
 		return nil

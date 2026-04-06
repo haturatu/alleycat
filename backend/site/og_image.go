@@ -128,20 +128,23 @@ func extractLocaleFromPostPath(path string) string {
 }
 
 func servePostOGImage(w http.ResponseWriter, path string, settings SettingsRecord) bool {
-	if !settings.EnableOGPImageGeneration {
-		return false
-	}
 	locale, slug, ok := extractPostOGImageRequest(path)
 	if !ok {
 		return false
 	}
-	if locale != "" && !isEnabledTranslationLocale(settings, locale) {
+	lookupLocale := locale
+	if locale != "" && isSourceLocale(settings, locale) {
+		lookupLocale = ""
+	} else if locale != "" && !isEnabledTranslationLocale(settings, locale) {
 		return false
 	}
 
 	var post *PostRecord
-	if resolved := resolvePublishedPost(slug, locale); resolved != nil {
+	if resolved := resolvePublishedPost(slug, lookupLocale); resolved != nil {
 		post = resolved.post
+	}
+	if post == nil && lookupLocale == "" {
+		post = getPublishedSourcePostByTranslationSlug(slug)
 	}
 	if post == nil {
 		return false

@@ -341,7 +341,7 @@ func TestRenderPostFromInputAddsOGImageMetaWhenEnabled(t *testing.T) {
 	if !ok {
 		t.Fatalf("renderPostFromInput should succeed")
 	}
-	if !strings.Contains(html, `property="og:image" content="https://example.com/og/posts/share-title.png"`) {
+	if !strings.Contains(html, `property="og:image" content="https://example.com/og/ja/posts/share-title.png"`) {
 		t.Fatalf("post output missing generated og:image meta: %q", html)
 	}
 	if !strings.Contains(html, `name="twitter:card" content="summary_large_image"`) {

@@ -43,6 +43,19 @@ func isEnabledTranslationLocale(settings SettingsRecord, targetLocale string) bo
 	return false
 }
 
+func isSourceLocale(settings SettingsRecord, targetLocale string) bool {
+	locale, ok := parseLocaleSegment(targetLocale)
+	if !ok {
+		return false
+	}
+
+	source := normalizeLocale(settings.TranslationSourceLocale)
+	if source == "" {
+		source = normalizeLocale(settings.SiteLanguage)
+	}
+	return source != "" && locale == source
+}
+
 func parseLocaleSegment(value string) (string, bool) {
 	locale := normalizeLocale(value)
 	if locale == "" || locale != strings.TrimSpace(value) || !localePathPattern.MatchString(locale) {

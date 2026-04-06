@@ -41,3 +41,20 @@ func TestExtractLocalizedPostRoute(t *testing.T) {
 		t.Fatalf("extractLocalizedPostRoute non-localized = (%q, %q, %v)", locale, slug, ok)
 	}
 }
+
+func TestIsSourceLocale(t *testing.T) {
+	t.Parallel()
+
+	settings := SettingsRecord{
+		SiteLanguage:            "ja",
+		TranslationSourceLocale: "ja",
+		TranslationLocales:      "en,zh-cn",
+	}
+
+	if !isSourceLocale(settings, "ja") {
+		t.Fatalf("isSourceLocale should treat translation source locale as source")
+	}
+	if isSourceLocale(settings, "zh-cn") {
+		t.Fatalf("isSourceLocale should not treat translation locale as source")
+	}
+}

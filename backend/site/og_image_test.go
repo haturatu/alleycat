@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -57,5 +59,145 @@ func TestBuildAbsoluteSiteURL(t *testing.T) {
 	got = buildAbsoluteSiteURL(SettingsRecord{SiteURL: "https://www.soulminingrig.com/www.soulminingrig.com"}, "/posts/self-hosted-edgedns-research/")
 	if got != "https://www.soulminingrig.com/posts/self-hosted-edgedns-research" {
 		t.Fatalf("buildAbsoluteSiteURL should discard site_url path, got %q", got)
+	}
+}
+
+func TestServePostOGImageDoesNotRequireFeatureFlag(t *testing.T) {
+	ctx := &snapshotBuildContext{
+		postBySlug: map[string]PostRecord{
+			"self-hosted-edgedns-research": {
+				ID:          "post-1",
+				Title:       "Self Hosted EdgeDNS Research JA",
+				Slug:        "self-hosted-edgedns-research",
+				Body:        "<p>Body</p>",
+				PublishedAt: "2026-03-22T10:11:12Z",
+				Published:   true,
+			},
+		},
+		postByID: map[string]PostRecord{
+			"post-1": {
+				ID:          "post-1",
+				Title:       "Self Hosted EdgeDNS Research JA",
+				Slug:        "self-hosted-edgedns-research",
+				Body:        "<p>Body</p>",
+				PublishedAt: "2026-03-22T10:11:12Z",
+				Published:   true,
+			},
+		},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey: map[string]PostTranslationRecord{
+			"zh-cn|self-hosted-edgedns-research": {
+				ID:          "translation-1",
+				SourcePost:  "post-1",
+				Locale:      "zh-cn",
+				Slug:        "self-hosted-edgedns-research",
+				Title:       "Self Hosted EdgeDNS Research ZH",
+				Body:        "<p>Translated body</p>",
+				Published:   true,
+				PublishedAt: "2026-03-23T10:11:12Z",
+			},
+		},
+		translationsBySource: map[string][]PostTranslationRecord{
+			"post-1": {
+				{
+					ID:          "translation-1",
+					SourcePost:  "post-1",
+					Locale:      "zh-cn",
+					Slug:        "self-hosted-edgedns-research",
+					Title:       "Self Hosted EdgeDNS Research ZH",
+					Body:        "<p>Translated body</p>",
+					Published:   true,
+					PublishedAt: "2026-03-23T10:11:12Z",
+				},
+			},
+		},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	rec := httptest.NewRecorder()
+	err := withSnapshotBuildContext(ctx, func() error {
+		ok := servePostOGImage(rec, "/og/posts/self-hosted-edgedns-research.png", SettingsRecord{
+			SiteName:     "Alleycat",
+			SiteLanguage: "ja",
+		})
+		if !ok {
+			t.Fatalf("servePostOGImage should serve existing post even when feature flag is disabled")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("servePostOGImage status = %d", rec.Code)
+	}
+	if contentType := rec.Header().Get("Content-Type"); contentType != "image/png" {
+		t.Fatalf("servePostOGImage content-type = %q", contentType)
+	}
+	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
+		t.Fatalf("servePostOGImage should return png bytes")
+	}
+}
+
+func TestServePostOGImageUsesSourceLocaleForLocalizedSourceRoute(t *testing.T) {
+	ctx := &snapshotBuildContext{
+		postBySlug: map[string]PostRecord{
+			"starlinkconoha-vpstcp": {
+				ID:          "post-1",
+				Title:       "Starlink ConoHa VPS TCP",
+				Slug:        "starlinkconoha-vpstcp",
+				Body:        "<p>Body</p>",
+				PublishedAt: "2026-03-22T10:11:12Z",
+				Published:   true,
+			},
+		},
+		postByID: map[string]PostRecord{
+			"post-1": {
+				ID:          "post-1",
+				Title:       "Starlink ConoHa VPS TCP",
+				Slug:        "starlinkconoha-vpstcp",
+				Body:        "<p>Body</p>",
+				PublishedAt: "2026-03-22T10:11:12Z",
+				Published:   true,
+			},
+		},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	rec := httptest.NewRecorder()
+	err := withSnapshotBuildContext(ctx, func() error {
+		ok := servePostOGImage(rec, "/og/ja/posts/starlinkconoha-vpstcp.png", SettingsRecord{
+			SiteName:                 "Alleycat",
+			SiteLanguage:             "ja",
+			TranslationSourceLocale:  "ja",
+			TranslationLocales:       "en,zh-cn",
+		})
+		if !ok {
+			t.Fatalf("servePostOGImage should resolve source locale route using source post")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("servePostOGImage status = %d", rec.Code)
+	}
+	if contentType := rec.Header().Get("Content-Type"); contentType != "image/png" {
+		t.Fatalf("servePostOGImage content-type = %q", contentType)
+	}
+	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
+		t.Fatalf("servePostOGImage should return png bytes")
 	}
 }

@@ -275,6 +275,13 @@ func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
 	}
 	if settings.EnableOGPImageGeneration {
 		imageLocale := extractLocaleFromPostPath(input.Path)
+		if imageLocale == "" {
+			if sourceLocale := normalizeLocale(settings.TranslationSourceLocale); sourceLocale != "" {
+				imageLocale = sourceLocale
+			} else {
+				imageLocale = normalizeLocale(settings.SiteLanguage)
+			}
+		}
 		imageURL := buildAbsoluteSiteURL(settings, postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path)))
 		if imageURL == "" {
 			imageURL = postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path))
