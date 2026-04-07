@@ -212,3 +212,29 @@ func TestWriteLocalizedSitemapFilesRemovesDisabledLocaleSnapshot(t *testing.T) {
 		t.Fatalf("expected localized sitemap snapshot to be removed, err=%v", err)
 	}
 }
+
+func TestWithRequestSiteURLUsesRequestHostWhenSiteURLMissing(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.invalid/posts/hello/", nil)
+	req.Host = "soulminingrig.com"
+	req.Header.Set("X-Forwarded-Proto", "https")
+
+	settings := withRequestSiteURL(SettingsRecord{}, req)
+	if settings.SiteURL != "https://soulminingrig.com" {
+		t.Fatalf("withRequestSiteURL SiteURL = %q", settings.SiteURL)
+	}
+}
+
+func TestWithRequestSiteURLPreservesConfiguredSiteURL(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.invalid/posts/hello/", nil)
+	req.Host = "soulminingrig.com"
+	req.Header.Set("X-Forwarded-Proto", "https")
+
+	settings := withRequestSiteURL(SettingsRecord{SiteURL: "https://example.com"}, req)
+	if settings.SiteURL != "https://example.com" {
+		t.Fatalf("withRequestSiteURL should preserve configured SiteURL, got %q", settings.SiteURL)
+	}
+}

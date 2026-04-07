@@ -132,7 +132,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			settings = getSettings()
+			settings = withRequestSiteURL(getSettings(), r)
 		}()
 		go func() {
 			defer wg.Done()
@@ -160,7 +160,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			settings = getSettings()
+			settings = withRequestSiteURL(getSettings(), r)
 		}()
 		go func() {
 			defer wg.Done()
@@ -187,7 +187,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		settings = getSettings()
+		settings = withRequestSiteURL(getSettings(), r)
 	}()
 	go func() {
 		defer wg.Done()
@@ -225,7 +225,7 @@ func isFeedRouteEnabled(path string, settings SettingsRecord) bool {
 }
 
 func requestSettings(r *http.Request) SettingsRecord {
-	return withPreviewTheme(getSettings(), r)
+	return withPreviewTheme(withRequestSiteURL(getSettings(), r), r)
 }
 
 func withPreviewTheme(settings SettingsRecord, r *http.Request) SettingsRecord {
@@ -236,6 +236,28 @@ func withPreviewTheme(settings SettingsRecord, r *http.Request) SettingsRecord {
 	if previewTheme != "" {
 		settings.Theme = previewTheme
 	}
+	return settings
+}
+
+func withRequestSiteURL(settings SettingsRecord, r *http.Request) SettingsRecord {
+	if normalizeSiteBaseURL(settings.SiteURL) != "" || r == nil {
+		return settings
+	}
+
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
+		scheme = forwardedProto
+	}
+
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		return settings
+	}
+
+	settings.SiteURL = scheme + "://" + host
 	return settings
 }
 
