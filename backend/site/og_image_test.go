@@ -84,7 +84,7 @@ func TestServePostOGImageDoesNotRequireFeatureFlag(t *testing.T) {
 				Published:   true,
 			},
 		},
-		pageByURL:            map[string]PageRecord{},
+		pageByURL: map[string]PageRecord{},
 		translationByKey: map[string]PostTranslationRecord{
 			"zh-cn|self-hosted-edgedns-research": {
 				ID:          "translation-1",
@@ -177,10 +177,10 @@ func TestServePostOGImageUsesSourceLocaleForLocalizedSourceRoute(t *testing.T) {
 	rec := httptest.NewRecorder()
 	err := withSnapshotBuildContext(ctx, func() error {
 		ok := servePostOGImage(rec, "/og/ja/posts/starlinkconoha-vpstcp.png", SettingsRecord{
-			SiteName:                 "Alleycat",
-			SiteLanguage:             "ja",
-			TranslationSourceLocale:  "ja",
-			TranslationLocales:       "en,zh-cn",
+			SiteName:                "Alleycat",
+			SiteLanguage:            "ja",
+			TranslationSourceLocale: "ja",
+			TranslationLocales:      "en,zh-cn",
 		})
 		if !ok {
 			t.Fatalf("servePostOGImage should resolve source locale route using source post")
