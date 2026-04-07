@@ -127,6 +127,10 @@ func revalidatePage(root string, req revalidateRequest) error {
 	current := decodePageRecord(req.Current)
 	original := decodePageRecord(req.Original)
 	settings := getSettings()
+	corpus, err := loadFontSubsetCorpus(root)
+	if err != nil {
+		return err
+	}
 	slog.Info("revalidate page start", "action", req.Action, "current_url", valueOrEmptyPageURL(current), "original_url", valueOrEmptyPageURL(original))
 
 	if original != nil && strings.TrimSpace(original.URL) != "" {
@@ -139,20 +143,32 @@ func revalidatePage(root string, req revalidateRequest) error {
 		slog.Info("revalidate page render current route", "route", current.URL)
 		html, ok := renderPageFromRecord(current, settings)
 		if ok {
-			if err := writeSnapshotRoute(root, current.URL, []byte(html)); err != nil {
+			body := []byte(html)
+			corpus.AddHTML(body)
+			if err := writeSnapshotRoute(root, current.URL, body); err != nil {
 				return err
 			}
 		}
 	}
 
 	slog.Info("revalidate page sitemap write start")
-	return writeSitemapFiles(root, settings)
+	if err := writeSitemapFiles(root, settings); err != nil {
+		return err
+	}
+	if err := corpus.Write(root); err != nil {
+		return err
+	}
+	return maybeSubsetRuntimeFonts(root)
 }
 
 func revalidatePost(root string, req revalidateRequest) error {
 	current := decodePostRecord(req.Current)
 	original := decodePostRecord(req.Original)
 	settings := getSettings()
+	corpus, err := loadFontSubsetCorpus(root)
+	if err != nil {
+		return err
+	}
 	slog.Info("revalidate post start", "action", req.Action, "current_id", valueOrEmptyPostID(current), "current_slug", valueOrEmptyPostSlug(current), "original_id", valueOrEmptyPostID(original), "original_slug", valueOrEmptyPostSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Slug) != "" {
@@ -171,21 +187,23 @@ func revalidatePost(root string, req revalidateRequest) error {
 			post:   current,
 		}, settings)
 		if ok {
-			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(current.Slug)+"/", []byte(html)); err != nil {
+			body := []byte(html)
+			corpus.AddHTML(body)
+			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(current.Slug)+"/", body); err != nil {
 				return err
 			}
 		}
 	}
 
 	slog.Info("revalidate post family start")
-	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
+	if err := revalidateSourcePostFamily(root, settings, current, original, corpus); err != nil {
 		return err
 	}
 	impact := analyzePostImpact(current, original, settings)
 	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "feed", impact.feed, "sitemap", impact.sitemap, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 	if impact.home || impact.mainArchive {
 		slog.Info("revalidate post home/archive start")
-		if err := revalidateHomeAndArchives(root, settings, current, original, impact); err != nil {
+		if err := revalidateHomeAndArchives(root, settings, current, original, impact, corpus); err != nil {
 			return err
 		}
 	}
@@ -201,14 +219,21 @@ func revalidatePost(root string, req revalidateRequest) error {
 			return err
 		}
 	}
+	if err := corpus.Write(root); err != nil {
+		return err
+	}
 	slog.Info("revalidate post completed")
-	return nil
+	return maybeSubsetRuntimeFonts(root)
 }
 
 func revalidateTranslation(root string, req revalidateRequest) error {
 	current := decodeTranslationRecord(req.Current)
 	original := decodeTranslationRecord(req.Original)
 	settings := getSettings()
+	corpus, err := loadFontSubsetCorpus(root)
+	if err != nil {
+		return err
+	}
 	slog.Info("revalidate translation start", "action", req.Action, "current_locale", valueOrEmptyTranslationLocale(current), "current_slug", valueOrEmptyTranslationSlug(current), "original_locale", valueOrEmptyTranslationLocale(original), "original_slug", valueOrEmptyTranslationSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Locale) != "" && strings.TrimSpace(original.Slug) != "" {
@@ -229,18 +254,26 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 			translation: current,
 		}, settings)
 		if ok {
-			if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", []byte(html)); err != nil {
+			body := []byte(html)
+			corpus.AddHTML(body)
+			if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", body); err != nil {
 				return err
 			}
 		}
 	}
 
 	slog.Info("revalidate translation context start")
-	if err := revalidateTranslationContext(root, settings, current, original); err != nil {
+	if err := revalidateTranslationContext(root, settings, current, original, corpus); err != nil {
 		return err
 	}
 	slog.Info("revalidate translation sitemap write start")
-	return writeLocalizedSitemapFiles(root, settings, current, original)
+	if err := writeLocalizedSitemapFiles(root, settings, current, original); err != nil {
+		return err
+	}
+	if err := corpus.Write(root); err != nil {
+		return err
+	}
+	return maybeSubsetRuntimeFonts(root)
 }
 
 type postRevalidationImpact struct {
@@ -252,22 +285,24 @@ type postRevalidationImpact struct {
 	categoryDirs []string
 }
 
-func revalidateHomeAndArchives(root string, settings SettingsRecord, current, original *PostRecord, impact postRevalidationImpact) error {
+func revalidateHomeAndArchives(root string, settings SettingsRecord, current, original *PostRecord, impact postRevalidationImpact, corpus *fontSubsetCorpus) error {
 	if impact.home {
 		slog.Info("revalidate home write start")
-		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
+		body := []byte(renderHome(settings))
+		corpus.AddHTML(body)
+		if err := writeSnapshotRoute(root, "/", body); err != nil {
 			return err
 		}
 	}
 	if impact.mainArchive {
 		slog.Info("revalidate main archive export start", "route", "/archive/")
-		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
+		if err := exportArchiveSeries(root, "/archive/", "published = true", settings, corpus); err != nil {
 			return err
 		}
 	}
 	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
 		slog.Info("revalidate archive route rebuild start", "route", route)
-		if err := rebuildArchiveRoute(root, settings, route); err != nil {
+		if err := rebuildArchiveRoute(root, settings, route, corpus); err != nil {
 			return err
 		}
 	}
@@ -383,7 +418,7 @@ func writeSitemapFiles(root string, settings SettingsRecord) error {
 	return syncSnapshotRoutes(root, specs...)
 }
 
-func rebuildArchiveRoute(root string, settings SettingsRecord, basePath string) error {
+func rebuildArchiveRoute(root string, settings SettingsRecord, basePath string, corpus *fontSubsetCorpus) error {
 	if err := clearArchiveRoute(root, basePath); err != nil {
 		return err
 	}
@@ -391,7 +426,7 @@ func rebuildArchiveRoute(root string, settings SettingsRecord, basePath string) 
 	if !ok {
 		return nil
 	}
-	return exportArchiveSeries(root, basePath, filter, settings)
+	return exportArchiveSeries(root, basePath, filter, settings, corpus)
 }
 
 func clearArchiveRoute(root string, basePath string) error {
@@ -411,20 +446,20 @@ func archiveFilterForBasePath(basePath string) (string, bool) {
 	return route.filter, true
 }
 
-func revalidateSourcePostFamily(root string, settings SettingsRecord, current, original *PostRecord) error {
+func revalidateSourcePostFamily(root string, settings SettingsRecord, current, original *PostRecord, corpus *fontSubsetCorpus) error {
 	for _, item := range []*PostRecord{current, original} {
 		if item == nil || strings.TrimSpace(item.ID) == "" {
 			continue
 		}
 		slog.Info("revalidate source post family item start", "source_post_id", item.ID)
-		if err := revalidatePostRecordAndTranslations(root, settings, item.ID); err != nil {
+		if err := revalidatePostRecordAndTranslations(root, settings, item.ID, corpus); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, sourcePostID string) error {
+func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, sourcePostID string, corpus *fontSubsetCorpus) error {
 	post := getPostByID(sourcePostID)
 	if post != nil && post.Published && strings.TrimSpace(post.Slug) != "" {
 		slog.Info("revalidate source post render start", "source_post_id", sourcePostID, "route", "/posts/"+post.Slug+"/")
@@ -435,7 +470,9 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 			post:   post,
 		}, settings)
 		if ok {
-			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(post.Slug)+"/", []byte(html)); err != nil {
+			body := []byte(html)
+			corpus.AddHTML(body)
+			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(post.Slug)+"/", body); err != nil {
 				return err
 			}
 		}
@@ -456,7 +493,9 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 			translation: &item,
 		}, settings)
 		if ok {
-			if err := writeSnapshotRoute(root, "/"+url.PathEscape(locale)+"/posts/"+url.PathEscape(item.Slug)+"/", []byte(html)); err != nil {
+			body := []byte(html)
+			corpus.AddHTML(body)
+			if err := writeSnapshotRoute(root, "/"+url.PathEscape(locale)+"/posts/"+url.PathEscape(item.Slug)+"/", body); err != nil {
 				return err
 			}
 		}
@@ -464,7 +503,7 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 	return nil
 }
 
-func revalidateTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
+func revalidateTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord, corpus *fontSubsetCorpus) error {
 	seen := map[string]struct{}{}
 	for _, item := range []*PostTranslationRecord{current, original} {
 		if item == nil {
@@ -478,7 +517,7 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 			continue
 		}
 		seen[sourceID] = struct{}{}
-		if err := revalidatePostRecordAndTranslations(root, settings, sourceID); err != nil {
+		if err := revalidatePostRecordAndTranslations(root, settings, sourceID, corpus); err != nil {
 			return err
 		}
 	}

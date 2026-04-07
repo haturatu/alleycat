@@ -17,12 +17,15 @@ RUN apk add --no-cache \
     font-noto-all \
     font-noto-cjk-extra \
     font-noto-emoji \
+    py3-brotli \
+    py3-fonttools \
+    python3 \
     && fc-cache -f
 COPY --from=build /out/site /app/site
-COPY frontend /tmp/frontend
+COPY frontend/public /public
+COPY frontend/scripts/subset_fonts.py /app/font-subset/subset_fonts.py
+COPY frontend/font-subset.config.json /app/font-subset/font-subset.config.json
 COPY frontend/default-public-asset /default-public-asset
-RUN if [ -d /tmp/frontend/public ]; then mv /tmp/frontend/public /public; fi \
-    && rm -rf /tmp/frontend
 ENV PUBLIC_DIR=/public
 ENV DEFAULT_PUBLIC_DIR=/default-public-asset
 EXPOSE 8888

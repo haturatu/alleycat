@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "subset-fonts": "python3 scripts/subset_fonts.py --root . --config font-subset.config.json"
   },
   "dependencies": {
     "@tiptap/core": "^3.20.4",

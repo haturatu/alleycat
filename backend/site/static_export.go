@@ -85,6 +85,7 @@ func buildStaticSnapshot() (string, error) {
 		return "", err
 	}
 	settings := ctx.settings
+	corpus := newFontSubsetCorpus()
 	slog.Info("static snapshot build start",
 		"root", root,
 		"posts", len(ctx.publishedPosts),
@@ -95,28 +96,34 @@ func buildStaticSnapshot() (string, error) {
 	)
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
+		home := []byte(renderHome(settings))
+		corpus.AddHTML(home)
+		if err := writeSnapshotRoute(root, "/", home); err != nil {
 			return err
 		}
-		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
+		if err := exportArchiveSeries(root, "/archive/", "published = true", settings, corpus); err != nil {
 			return err
 		}
 		for _, tag := range ctx.tags {
 			filter := fmt.Sprintf("published = true && tags ~ \"%s\"", escapeFilter(tag))
 			basePath := "/archive/" + url.PathEscape(tag) + "/"
-			if err := exportArchiveSeries(root, basePath, filter, settings); err != nil {
+			if err := exportArchiveSeries(root, basePath, filter, settings, corpus); err != nil {
 				return err
 			}
 		}
 		for _, category := range ctx.categories {
 			filter := fmt.Sprintf("published = true && category = \"%s\"", escapeFilter(category))
 			basePath := "/archive/category/" + url.PathEscape(category) + "/"
-			if err := exportArchiveSeries(root, basePath, filter, settings); err != nil {
+			if err := exportArchiveSeries(root, basePath, filter, settings, corpus); err != nil {
 				return err
 			}
 		}
 
-		if err := renderSnapshotRoutesInParallel(root, snapshotBuildWorkers(), buildSnapshotRenderTasks(ctx, settings)); err != nil {
+		if err := renderSnapshotRoutesInParallel(root, snapshotBuildWorkers(), buildSnapshotRenderTasks(ctx, settings), corpus); err != nil {
+			return err
+		}
+
+		if err := corpus.Write(root); err != nil {
 			return err
 		}
 
@@ -132,6 +139,10 @@ func buildStaticSnapshot() (string, error) {
 		return nil
 	})
 	if err != nil {
+		return "", err
+	}
+
+	if err := maybeSubsetRuntimeFonts(root); err != nil {
 		return "", err
 	}
 
@@ -169,10 +180,10 @@ func snapshotBaseURL(settings SettingsRecord) string {
 	return "http://localhost"
 }
 
-func exportArchiveSeries(root, basePath, filter string, settings SettingsRecord) error {
+func exportArchiveSeries(root, basePath, filter string, settings SettingsRecord, corpus *fontSubsetCorpus) error {
 	if ctx := currentSnapshotBuildContext(); ctx != nil {
 		if listing, ok := ctx.archiveListing(basePath); ok {
-			return exportArchiveListing(root, basePath, listing, settings)
+			return exportArchiveListing(root, basePath, listing, settings, corpus)
 		}
 	}
 	totalPages, err := archiveTotalPages(filter, settings.ArchivePageSize)
@@ -189,7 +200,9 @@ func exportArchiveSeries(root, basePath, filter string, settings SettingsRecord)
 			renderPath = renderPath + "/" + strconv.Itoa(pageNumber)
 			writePath = basePath + strconv.Itoa(pageNumber) + "/"
 		}
-		if err := writeSnapshotRoute(root, writePath, []byte(renderArchive(renderPath+"/", "", settings))); err != nil {
+		body := []byte(renderArchive(renderPath+"/", "", settings))
+		corpus.AddHTML(body)
+		if err := writeSnapshotRoute(root, writePath, body); err != nil {
 			return err
 		}
 	}
@@ -205,7 +218,7 @@ func (ctx *snapshotBuildContext) archiveListing(basePath string) (archiveListing
 	return listing, ok
 }
 
-func exportArchiveListing(root, basePath string, listing archiveListing, settings SettingsRecord) error {
+func exportArchiveListing(root, basePath string, listing archiveListing, settings SettingsRecord, corpus *fontSubsetCorpus) error {
 	pageCount := listing.pageCount
 	if pageCount < 1 {
 		pageCount = 1
@@ -217,7 +230,9 @@ func exportArchiveListing(root, basePath string, listing archiveListing, setting
 			renderPath = renderPath + "/" + strconv.Itoa(pageNumber)
 			writePath = basePath + strconv.Itoa(pageNumber) + "/"
 		}
-		if err := writeSnapshotRoute(root, writePath, []byte(renderArchive(renderPath+"/", "", settings))); err != nil {
+		body := []byte(renderArchive(renderPath+"/", "", settings))
+		corpus.AddHTML(body)
+		if err := writeSnapshotRoute(root, writePath, body); err != nil {
 			return err
 		}
 	}
@@ -302,13 +317,14 @@ func snapshotBuildWorkers() int {
 	return workers
 }
 
-func renderSnapshotRoutesInParallel(root string, workers int, tasks []snapshotRenderTask) error {
+func renderSnapshotRoutesInParallel(root string, workers int, tasks []snapshotRenderTask, corpus *fontSubsetCorpus) error {
 	if workers <= 1 || len(tasks) <= 1 {
 		for _, task := range tasks {
 			body, ok := task.render()
 			if !ok {
 				continue
 			}
+			corpus.AddHTML(body)
 			if err := writeSnapshotRoute(root, task.route, body); err != nil {
 				return err
 			}
@@ -328,6 +344,7 @@ func renderSnapshotRoutesInParallel(root string, workers int, tasks []snapshotRe
 			if !ok {
 				continue
 			}
+			corpus.AddHTML(body)
 			if err := writeSnapshotRoute(root, task.route, body); err != nil {
 				once.Do(func() { errCh <- err })
 				return

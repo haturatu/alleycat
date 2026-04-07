@@ -1,0 +1,22 @@
+{
+  "fonts": [
+    {
+      "input": "${PUBLIC_DIR}/IBMPlexSansJP-Regular.woff2",
+      "output": "${PUBLIC_DIR}/fonts/IBMPlexSansJP-Regular.subset.woff2",
+      "text_sources": [
+        "${PUBLIC_DIR}/styles.css",
+        "${PUBLIC_DIR}/peace",
+        "${PUBLIC_DIR}/peace.html",
+        "${PUBLIC_DIR}/font-subset-extra.txt",
+        "${SNAPSHOT_DIR}/.font-subset-content.txt"
+      ],
+      "always_include": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n",
+      "flavor": "woff2",
+      "layout_features": [
+        "*"
+      ],
+      "drop_hinting": true,
+      "delete_inputs_after_build": false
+    }
+  ]
+}
