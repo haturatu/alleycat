@@ -104,3 +104,29 @@ func TestSplitTranslationBodySplitsOversizedSegment(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractFirstJSONObject(t *testing.T) {
+	t.Parallel()
+
+	input := "```json\n{\"translated_body\":\"hello\"}\n```\nextra text"
+	got, err := extractFirstJSONObject(input)
+	if err != nil {
+		t.Fatalf("extractFirstJSONObject returned error: %v", err)
+	}
+	if got != "{\"translated_body\":\"hello\"}" {
+		t.Fatalf("extractFirstJSONObject = %q", got)
+	}
+}
+
+func TestExtractFirstJSONObjectKeepsEscapedQuotes(t *testing.T) {
+	t.Parallel()
+
+	input := "{\"translated_body\":\"say \\\"hello\\\"\"} trailing"
+	got, err := extractFirstJSONObject(input)
+	if err != nil {
+		t.Fatalf("extractFirstJSONObject returned error: %v", err)
+	}
+	if got != "{\"translated_body\":\"say \\\"hello\\\"\"}" {
+		t.Fatalf("extractFirstJSONObject = %q", got)
+	}
+}

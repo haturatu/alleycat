@@ -747,7 +747,7 @@ func parseGeminiResponseText(responseBody []byte) (string, error) {
 	text = strings.TrimPrefix(text, "```")
 	text = strings.TrimSuffix(text, "```")
 	text = strings.TrimSpace(text)
-	return text, nil
+	return extractFirstJSONObject(text)
 }
 
 func parseGeminiTranslationText(text string) (translatedPayload, error) {
@@ -761,6 +761,50 @@ func parseGeminiTranslationText(text string) (translatedPayload, error) {
 		return translatedPayload{}, errors.New("gemini translation returned empty title/body")
 	}
 	return payload, nil
+}
+
+func extractFirstJSONObject(text string) (string, error) {
+	text = strings.TrimSpace(text)
+	start := strings.IndexByte(text, '{')
+	if start == -1 {
+		return "", errors.New("gemini response did not contain JSON object")
+	}
+
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(text); i++ {
+		ch := text[i]
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+		if ch == '"' {
+			inString = true
+			continue
+		}
+		if ch == '{' {
+			depth++
+			continue
+		}
+		if ch == '}' {
+			depth--
+			if depth == 0 {
+				return strings.TrimSpace(text[start : i+1]), nil
+			}
+		}
+	}
+	return "", errors.New("gemini response contained unterminated JSON object")
 }
 
 func splitTranslationBody(body string, maxRunes int) []string {
