@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +53,54 @@ func TestNormalizeLocale(t *testing.T) {
 	}
 	if got := normalizeLocale(" ja_JP "); got != "ja-jp" {
 		t.Fatalf("normalizeLocale returned %q, want %q", got, "ja-jp")
+	}
+}
+
+func TestSplitTranslationBodyKeepsSmallBodyWhole(t *testing.T) {
+	t.Parallel()
+
+	body := "<p>Hello</p>\n<p>World</p>"
+	got := splitTranslationBody(body, 100)
+	want := []string{body}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("splitTranslationBody() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSplitTranslationBodySplitsOnBlockBoundaries(t *testing.T) {
+	t.Parallel()
+
+	body := strings.Join([]string{
+		"<p>first paragraph with enough text</p>",
+		"<p>second paragraph with enough text</p>",
+		"<p>third paragraph with enough text</p>",
+	}, "")
+
+	got := splitTranslationBody(body, 50)
+	if len(got) != 3 {
+		t.Fatalf("chunk count = %d, want 3; chunks=%#v", len(got), got)
+	}
+	for _, chunk := range got {
+		if len([]rune(chunk)) > 50 {
+			t.Fatalf("chunk too large: %d runes in %q", len([]rune(chunk)), chunk)
+		}
+		if !strings.HasSuffix(chunk, "</p>") {
+			t.Fatalf("expected paragraph boundary chunk, got %q", chunk)
+		}
+	}
+}
+
+func TestSplitTranslationBodySplitsOversizedSegment(t *testing.T) {
+	t.Parallel()
+
+	body := "<p>" + strings.Repeat("a", 120) + "</p>"
+	got := splitTranslationBody(body, 40)
+	if len(got) < 3 {
+		t.Fatalf("expected oversized segment to split, got %#v", got)
+	}
+	for _, chunk := range got {
+		if len([]rune(chunk)) > 40 {
+			t.Fatalf("chunk too large: %d runes in %q", len([]rune(chunk)), chunk)
+		}
 	}
 }

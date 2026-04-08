@@ -24,6 +24,7 @@ const (
 	defaultTranslationModel = "gemini-1.5-flash"
 	defaultTranslationRPM   = 60
 	maxTranslateRetries     = 3
+	maxTranslationBodyRunes = 4000
 )
 
 type translationSettings struct {
@@ -48,6 +49,14 @@ type geminiResponse struct {
 type translatedPayload struct {
 	TranslatedTitle string `json:"translated_title"`
 	TranslatedBody  string `json:"translated_body"`
+}
+
+type translatedTitlePayload struct {
+	TranslatedTitle string `json:"translated_title"`
+}
+
+type translatedBodyPayload struct {
+	TranslatedBody string `json:"translated_body"`
 }
 
 type translationJobStatus string
@@ -499,6 +508,41 @@ func translateWithGemini(
 	apiKey string,
 	requestsPerMinute int,
 ) (string, string, error) {
+	if len([]rune(body)) <= maxTranslationBodyRunes {
+		return translateTitleAndBodyWithGemini(title, body, sourceLocale, targetLocale, model, apiKey, requestsPerMinute)
+	}
+
+	translatedTitle, err := translateTitleWithGemini(title, sourceLocale, targetLocale, model, apiKey, requestsPerMinute)
+	if err != nil {
+		return "", "", err
+	}
+
+	chunks := splitTranslationBody(body, maxTranslationBodyRunes)
+	if len(chunks) == 0 {
+		return "", "", errors.New("translation body split produced no chunks")
+	}
+
+	translatedChunks := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		translatedChunk, err := translateBodyChunkWithGemini(chunk, sourceLocale, targetLocale, model, apiKey, requestsPerMinute, i+1, len(chunks))
+		if err != nil {
+			return "", "", err
+		}
+		translatedChunks = append(translatedChunks, translatedChunk)
+	}
+
+	return translatedTitle, strings.Join(translatedChunks, ""), nil
+}
+
+func translateTitleAndBodyWithGemini(
+	title string,
+	body string,
+	sourceLocale string,
+	targetLocale string,
+	model string,
+	apiKey string,
+	requestsPerMinute int,
+) (string, string, error) {
 	input := map[string]string{
 		"source_locale": sourceLocale,
 		"target_locale": targetLocale,
@@ -513,6 +557,94 @@ func translateWithGemini(
 		"Return only JSON with keys translated_title and translated_body.\n" +
 		string(inputJSON)
 
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	if err != nil {
+		return "", "", err
+	}
+	result, err := parseGeminiTranslationText(text)
+	if err != nil {
+		return "", "", err
+	}
+	return result.TranslatedTitle, result.TranslatedBody, nil
+}
+
+func translateTitleWithGemini(
+	title string,
+	sourceLocale string,
+	targetLocale string,
+	model string,
+	apiKey string,
+	requestsPerMinute int,
+) (string, error) {
+	input := map[string]string{
+		"source_locale": sourceLocale,
+		"target_locale": targetLocale,
+		"title":         title,
+	}
+	inputJSON, _ := json.Marshal(input)
+	prompt := "You are a translation engine for blog content. " +
+		"Translate title faithfully from source_locale to target_locale. " +
+		"Return only JSON with key translated_title.\n" +
+		string(inputJSON)
+
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	if err != nil {
+		return "", err
+	}
+
+	var payload translatedTitlePayload
+	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+		return "", err
+	}
+	payload.TranslatedTitle = strings.TrimSpace(payload.TranslatedTitle)
+	if payload.TranslatedTitle == "" {
+		return "", errors.New("gemini translation returned empty title")
+	}
+	return payload.TranslatedTitle, nil
+}
+
+func translateBodyChunkWithGemini(
+	body string,
+	sourceLocale string,
+	targetLocale string,
+	model string,
+	apiKey string,
+	requestsPerMinute int,
+	chunkIndex int,
+	chunkCount int,
+) (string, error) {
+	input := map[string]any{
+		"source_locale": sourceLocale,
+		"target_locale": targetLocale,
+		"chunk_index":   chunkIndex,
+		"chunk_count":   chunkCount,
+		"body":          body,
+	}
+	inputJSON, _ := json.Marshal(input)
+	prompt := "You are a translation engine for blog content. " +
+		"Translate the HTML body fragment faithfully from source_locale to target_locale. " +
+		"Preserve HTML tags, links, entities, and code blocks in body. " +
+		"The fragment is one chunk of a longer document, so keep boundaries natural and do not add introductions or conclusions. " +
+		"Return only JSON with key translated_body.\n" +
+		string(inputJSON)
+
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	if err != nil {
+		return "", err
+	}
+
+	var payload translatedBodyPayload
+	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+		return "", err
+	}
+	payload.TranslatedBody = strings.TrimSpace(payload.TranslatedBody)
+	if payload.TranslatedBody == "" {
+		return "", errors.New("gemini translation returned empty body")
+	}
+	return payload.TranslatedBody, nil
+}
+
+func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int) (string, error) {
 	payload := map[string]any{
 		"contents": []map[string]any{
 			{
@@ -541,7 +673,7 @@ func translateWithGemini(
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 		req.Header.Set("Content-Type", "application/json")
 
@@ -559,9 +691,9 @@ func translateWithGemini(
 					Body:   string(respBody),
 				}
 			} else {
-				result, parseErr := parseGeminiTranslation(respBody)
+				text, parseErr := parseGeminiResponseText(respBody)
 				if parseErr == nil {
-					return result.TranslatedTitle, result.TranslatedBody, nil
+					return text, nil
 				}
 				lastErr = parseErr
 			}
@@ -571,7 +703,7 @@ func translateWithGemini(
 		}
 	}
 
-	return "", "", lastErr
+	return "", lastErr
 }
 
 func (l *geminiRateLimiter) Wait(requestsPerMinute int) {
@@ -595,19 +727,30 @@ func (l *geminiRateLimiter) Wait(requestsPerMinute int) {
 }
 
 func parseGeminiTranslation(responseBody []byte) (translatedPayload, error) {
-	var res geminiResponse
-	if err := json.Unmarshal(responseBody, &res); err != nil {
+	text, err := parseGeminiResponseText(responseBody)
+	if err != nil {
 		return translatedPayload{}, err
 	}
+	return parseGeminiTranslationText(text)
+}
+
+func parseGeminiResponseText(responseBody []byte) (string, error) {
+	var res geminiResponse
+	if err := json.Unmarshal(responseBody, &res); err != nil {
+		return "", err
+	}
 	if len(res.Candidates) == 0 || len(res.Candidates[0].Content.Parts) == 0 {
-		return translatedPayload{}, errors.New("empty gemini candidates")
+		return "", errors.New("empty gemini candidates")
 	}
 	text := strings.TrimSpace(res.Candidates[0].Content.Parts[0].Text)
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimPrefix(text, "```")
 	text = strings.TrimSuffix(text, "```")
 	text = strings.TrimSpace(text)
+	return text, nil
+}
 
+func parseGeminiTranslationText(text string) (translatedPayload, error) {
 	var payload translatedPayload
 	if err := json.Unmarshal([]byte(text), &payload); err != nil {
 		return translatedPayload{}, err
@@ -618,6 +761,111 @@ func parseGeminiTranslation(responseBody []byte) (translatedPayload, error) {
 		return translatedPayload{}, errors.New("gemini translation returned empty title/body")
 	}
 	return payload, nil
+}
+
+func splitTranslationBody(body string, maxRunes int) []string {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return nil
+	}
+	if maxRunes <= 0 {
+		return []string{body}
+	}
+
+	segments := splitTranslationSegments(body)
+	chunks := make([]string, 0, len(segments))
+	var current strings.Builder
+
+	flush := func() {
+		text := strings.TrimSpace(current.String())
+		if text != "" {
+			chunks = append(chunks, text)
+		}
+		current.Reset()
+	}
+
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		if len([]rune(segment)) > maxRunes {
+			flush()
+			chunks = append(chunks, splitOversizedTranslationSegment(segment, maxRunes)...)
+			continue
+		}
+		candidate := segment
+		if current.Len() > 0 {
+			candidate = current.String() + segment
+		}
+		if len([]rune(candidate)) > maxRunes {
+			flush()
+		}
+		current.WriteString(segment)
+	}
+	flush()
+	return chunks
+}
+
+func splitTranslationSegments(body string) []string {
+	normalized := strings.ReplaceAll(body, "\r\n", "\n")
+	replacer := strings.NewReplacer(
+		"</p>", "</p>\n",
+		"</div>", "</div>\n",
+		"</section>", "</section>\n",
+		"</article>", "</article>\n",
+		"</blockquote>", "</blockquote>\n",
+		"</ul>", "</ul>\n",
+		"</ol>", "</ol>\n",
+		"</li>", "</li>\n",
+		"</pre>", "</pre>\n",
+		"</table>", "</table>\n",
+		"<br>", "<br>\n",
+		"<br/>", "<br/>\n",
+		"<br />", "<br />\n",
+	)
+	normalized = replacer.Replace(normalized)
+	raw := strings.SplitAfter(normalized, "\n")
+	segments := make([]string, 0, len(raw))
+	for _, part := range raw {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		segments = append(segments, part)
+	}
+	if len(segments) == 0 {
+		return []string{body}
+	}
+	return segments
+}
+
+func splitOversizedTranslationSegment(segment string, maxRunes int) []string {
+	runes := []rune(strings.TrimSpace(segment))
+	if len(runes) <= maxRunes {
+		if len(runes) == 0 {
+			return nil
+		}
+		return []string{string(runes)}
+	}
+
+	chunks := []string{}
+	start := 0
+	for start < len(runes) {
+		end := start + maxRunes
+		if end >= len(runes) {
+			chunks = append(chunks, strings.TrimSpace(string(runes[start:])))
+			break
+		}
+		splitAt := end
+		for i := end; i > start+maxRunes/2; i-- {
+			if runes[i-1] == ' ' || runes[i-1] == '\n' {
+				splitAt = i
+				break
+			}
+		}
+		chunks = append(chunks, strings.TrimSpace(string(runes[start:splitAt])))
+		start = splitAt
+	}
+	return chunks
 }
 
 func isGeminiRateLimitError(err error) bool {
