@@ -267,7 +267,9 @@ func writeHTML(w http.ResponseWriter, content string) {
 
 func writeHTMLStatus(w http.ResponseWriter, content string, status int) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
 	_, _ = w.Write([]byte(content))
 }
 

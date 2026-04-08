@@ -37,3 +37,7 @@ pb_data/*
 
 # public/uploads (if you want to ignore uploaded files)
 frontend/public
+
+# Python
+__pycache__/
+*.pyc
