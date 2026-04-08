@@ -59,43 +59,8 @@ def default_env(root: Path) -> dict[str, str]:
     return env
 
 
-def expand_vars(value: str, env: dict[str, str]) -> str:
-    return os.path.expandvars(value) if env is os.environ else os.path.expandvars(
-        "".join(_expand_var_tokens(value, env))
-    )
-
-
-def _expand_var_tokens(value: str, env: dict[str, str]):
-    i = 0
-    while i < len(value):
-        if value[i] != "$":
-            yield value[i]
-            i += 1
-            continue
-        if i + 1 < len(value) and value[i + 1] == "{":
-            end = value.find("}", i + 2)
-            if end == -1:
-                yield value[i]
-                i += 1
-                continue
-            name = value[i + 2 : end]
-            yield env.get(name, value[i : end + 1])
-            i = end + 1
-            continue
-        j = i + 1
-        while j < len(value) and (value[j].isalnum() or value[j] == "_"):
-            j += 1
-        if j == i + 1:
-            yield value[i]
-            i += 1
-            continue
-        name = value[i + 1 : j]
-        yield env.get(name, value[i:j])
-        i = j
-
-
 def resolve_value(root: Path, value: str, env: dict[str, str]) -> Path:
-    expanded = expand_vars(value, env)
+    expanded = os.path.expandvars(value)
     path = Path(expanded)
     if path.is_absolute():
         return path
@@ -106,7 +71,7 @@ def resolve_paths(root: Path, patterns: list[str], env: dict[str, str]) -> list[
     matches: list[Path] = []
     seen: set[Path] = set()
     for pattern in patterns:
-        expanded = expand_vars(pattern, env)
+        expanded = os.path.expandvars(pattern)
         glob_pattern = expanded if os.path.isabs(expanded) else str(root / expanded)
         for raw in glob.glob(glob_pattern, recursive=True):
             path = Path(raw)
