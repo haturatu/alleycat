@@ -154,6 +154,8 @@ func TestParseArchiveRoute(t *testing.T) {
 }
 
 func TestResolvePublishedPost(t *testing.T) {
+	t.Parallel()
+
 	ctx := &snapshotBuildContext{
 		postBySlug: map[string]PostRecord{
 			"hello": {ID: "p1", Slug: "hello", Title: "Hello"},
@@ -180,6 +182,8 @@ func TestResolvePublishedPost(t *testing.T) {
 }
 
 func TestLoadPostFamilyFallsBackToProvidedPost(t *testing.T) {
+	t.Parallel()
+
 	fallback := &PostRecord{ID: "p1", Slug: "hello", Title: "Fallback"}
 	ctx := &snapshotBuildContext{
 		postByID: map[string]PostRecord{},
