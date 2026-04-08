@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -153,6 +154,45 @@ func TestRouteHandlerLocalizedPostIgnoresStaleSnapshotWhenLocaleDisabled(t *test
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestServePrerenderedSnapshotIgnoresConditionalCacheHeaders(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/archive/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("fresh snapshot"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	prevSnapshot := getPrerenderedSnapshotDir()
+	setPrerenderedSnapshotDir(root)
+	t.Cleanup(func() {
+		prerenderedSnapshot.mu.Lock()
+		prerenderedSnapshot.dir = prevSnapshot
+		prerenderedSnapshot.mu.Unlock()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/archive/", nil)
+	req.Header.Set("If-Modified-Since", time.Now().UTC().Format(http.TimeFormat))
+	rec := httptest.NewRecorder()
+
+	if !servePrerenderedSnapshot(rec, req, "/archive/") {
+		t.Fatal("servePrerenderedSnapshot returned false")
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if body := strings.TrimSpace(rec.Body.String()); body != "fresh snapshot" {
+		t.Fatalf("body = %q, want %q", body, "fresh snapshot")
+	}
+	if cache := rec.Header().Get("Cache-Control"); cache != "no-store" {
+		t.Fatalf("Cache-Control = %q, want %q", cache, "no-store")
 	}
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -321,6 +322,36 @@ func servePrerenderedSnapshot(w http.ResponseWriter, r *http.Request, clean stri
 	if err != nil || info.IsDir() {
 		return false
 	}
-	http.ServeFile(w, r, target)
+	body, err := os.ReadFile(target)
+	if err != nil {
+		return false
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", snapshotContentType(clean))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
 	return true
+}
+
+func snapshotContentType(path string) string {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == "" {
+		return "text/html; charset=utf-8"
+	}
+	if contentType := mime.TypeByExtension(ext); contentType != "" {
+		if strings.HasPrefix(contentType, "text/") && !strings.Contains(contentType, "charset=") {
+			return contentType + "; charset=utf-8"
+		}
+		return contentType
+	}
+	switch ext {
+	case ".xml":
+		return "application/xml; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".txt":
+		return "text/plain; charset=utf-8"
+	default:
+		return "application/octet-stream"
+	}
 }
