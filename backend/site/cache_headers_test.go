@@ -18,28 +18,33 @@ func TestFeedAndSitemapResponsesDisableCaching(t *testing.T) {
 
 	tests := []struct {
 		name string
+		path string
 		run  func(*httptest.ResponseRecorder, *http.Request)
 	}{
 		{
 			name: "feed json",
+			path: "/feed.json",
 			run: func(rec *httptest.ResponseRecorder, req *http.Request) {
 				writeJSONFeed(rec, req, settings)
 			},
 		},
 		{
 			name: "feed xml",
+			path: "/feed.xml",
 			run: func(rec *httptest.ResponseRecorder, req *http.Request) {
 				writeRSSFeed(rec, req, settings)
 			},
 		},
 		{
 			name: "sitemap",
+			path: "/sitemap.xml",
 			run: func(rec *httptest.ResponseRecorder, req *http.Request) {
 				writeSitemap(rec, req, settings)
 			},
 		},
 		{
 			name: "robots",
+			path: "/robots.txt",
 			run: func(rec *httptest.ResponseRecorder, req *http.Request) {
 				writeRobotsTXT(rec, req, settings)
 			},
@@ -50,7 +55,7 @@ func TestFeedAndSitemapResponsesDisableCaching(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			req := httptest.NewRequest(http.MethodGet, "https://example.com/"+tt.name, nil)
+			req := httptest.NewRequest(http.MethodGet, "https://example.com"+tt.path, nil)
 			rec := httptest.NewRecorder()
 			tt.run(rec, req)
 			if got := rec.Header().Get("Cache-Control"); got != "no-store" {
