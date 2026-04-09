@@ -108,6 +108,61 @@ func TestRouteHandlerFeedIgnoresStaleSnapshotWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestRouteHandlerFeedBypassesStaleSnapshotWhenEnabled(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/feed.xml")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	prevSnapshot := getPrerenderedSnapshotDir()
+	setPrerenderedSnapshotDir(root)
+	t.Cleanup(func() {
+		prerenderedSnapshot.mu.Lock()
+		prerenderedSnapshot.dir = prevSnapshot
+		prerenderedSnapshot.mu.Unlock()
+	})
+
+	prevCache := settingsCache.entry
+	settingsCache.mu.Lock()
+	settingsCache.entry = settingsCacheEntry{
+		expiresAt: time.Now().Add(time.Minute),
+		value: SettingsRecord{
+			SiteName:       "Alleycat",
+			SiteURL:        "https://example.com",
+			EnableFeedXML:  true,
+			EnableFeedJSON: true,
+		},
+	}
+	settingsCache.mu.Unlock()
+	t.Cleanup(func() {
+		settingsCache.mu.Lock()
+		settingsCache.entry = prevCache
+		settingsCache.mu.Unlock()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/feed.xml", nil)
+	rec := httptest.NewRecorder()
+
+	routeHandler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if body := rec.Body.String(); body == "stale" {
+		t.Fatal("feed.xml should bypass stale snapshot and be rendered dynamically")
+	}
+	if contentType := rec.Header().Get("Content-Type"); contentType != "application/atom+xml; charset=utf-8" {
+		t.Fatalf("content-type = %q", contentType)
+	}
+}
+
 func TestRouteHandlerLocalizedPostIgnoresStaleSnapshotWhenLocaleDisabled(t *testing.T) {
 	root := t.TempDir()
 	target, err := snapshotFilePath(root, "/fr/posts/bonjour/")
@@ -193,6 +248,21 @@ func TestServePrerenderedSnapshotIgnoresConditionalCacheHeaders(t *testing.T) {
 	}
 	if cache := rec.Header().Get("Cache-Control"); cache != "no-store" {
 		t.Fatalf("Cache-Control = %q, want %q", cache, "no-store")
+	}
+}
+
+func TestShouldServePrerenderedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{"/feed.xml", "/feed.json", "/robots.txt", "/sitemap.xml", "/sitemap-ja.xml"} {
+		if shouldServePrerenderedSnapshot(path) {
+			t.Fatalf("shouldServePrerenderedSnapshot(%q) = true, want false", path)
+		}
+	}
+	for _, path := range []string{"/", "/archive/", "/posts/hello/"} {
+		if !shouldServePrerenderedSnapshot(path) {
+			t.Fatalf("shouldServePrerenderedSnapshot(%q) = false, want true", path)
+		}
 	}
 }
 

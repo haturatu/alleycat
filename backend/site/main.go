@@ -293,7 +293,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
-	if r.URL.RawQuery == "" {
+	if r.URL.RawQuery == "" && shouldServePrerenderedSnapshot(clean) {
 		if servePrerenderedSnapshot(w, r, clean) {
 			return true
 		}
@@ -306,6 +306,17 @@ func serveStatic(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	http.ServeFile(w, r, filePath)
+	return true
+}
+
+func shouldServePrerenderedSnapshot(clean string) bool {
+	switch clean {
+	case "/feed.xml", "/feed.json", "/robots.txt", "/sitemap.xml":
+		return false
+	}
+	if strings.HasPrefix(clean, "/sitemap-") && strings.HasSuffix(clean, ".xml") {
+		return false
+	}
 	return true
 }
 
