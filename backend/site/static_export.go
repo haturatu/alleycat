@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -120,15 +119,6 @@ func buildStaticSnapshot() (string, error) {
 			return err
 		}
 
-		if err := writeFeedFiles(root, settings); err != nil {
-			return err
-		}
-
-		if normalizeSiteBaseURL(settings.SiteURL) != "" {
-			if err := writeSitemapFiles(root, settings); err != nil {
-				return err
-			}
-		}
 		return nil
 	})
 	if err != nil {
@@ -137,36 +127,6 @@ func buildStaticSnapshot() (string, error) {
 
 	slog.Info("static snapshot build completed", "root", root)
 	return root, nil
-}
-
-func prerenderRobots(settings SettingsRecord) []byte {
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", snapshotBaseURL(settings)+"/robots.txt", nil)
-	writeRobotsTXT(rec, req, settings)
-	return rec.Body.Bytes()
-}
-
-func prerenderSitemap(settings SettingsRecord, locale string) []byte {
-	rec := httptest.NewRecorder()
-	path := "/sitemap.xml"
-	if locale != "" {
-		path = "/sitemap-" + locale + ".xml"
-	}
-	req := httptest.NewRequest("GET", snapshotBaseURL(settings)+path, nil)
-	if locale == "" {
-		writeSitemap(rec, req, settings)
-		return rec.Body.Bytes()
-	}
-	writeLocalizedSitemap(rec, req, settings, locale)
-	return rec.Body.Bytes()
-}
-
-func snapshotBaseURL(settings SettingsRecord) string {
-	base := normalizeSiteBaseURL(settings.SiteURL)
-	if base != "" {
-		return base
-	}
-	return "http://localhost"
 }
 
 func exportArchiveSeries(root, basePath, filter string, settings SettingsRecord) error {

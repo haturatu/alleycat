@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
@@ -145,8 +144,7 @@ func revalidatePage(root string, req revalidateRequest) error {
 		}
 	}
 
-	slog.Info("revalidate page sitemap write start")
-	return writeSitemapFiles(root, settings)
+	return nil
 }
 
 func revalidatePost(root string, req revalidateRequest) error {
@@ -181,23 +179,11 @@ func revalidatePost(root string, req revalidateRequest) error {
 	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
 		return err
 	}
-	impact := analyzePostImpact(current, original, settings)
-	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "feed", impact.feed, "sitemap", impact.sitemap, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
+	impact := analyzePostImpact(current, original)
+	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 	if impact.home || impact.mainArchive {
 		slog.Info("revalidate post home/archive start")
 		if err := revalidateHomeAndArchives(root, settings, current, original, impact); err != nil {
-			return err
-		}
-	}
-	if impact.feed {
-		slog.Info("revalidate post feed write start")
-		if err := writeFeedFiles(root, settings); err != nil {
-			return err
-		}
-	}
-	if impact.sitemap {
-		slog.Info("revalidate post sitemap write start")
-		if err := writeSitemapFiles(root, settings); err != nil {
 			return err
 		}
 	}
@@ -239,15 +225,12 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 	if err := revalidateTranslationContext(root, settings, current, original); err != nil {
 		return err
 	}
-	slog.Info("revalidate translation sitemap write start")
-	return writeLocalizedSitemapFiles(root, settings, current, original)
+	return nil
 }
 
 type postRevalidationImpact struct {
 	home         bool
 	mainArchive  bool
-	feed         bool
-	sitemap      bool
 	tagArchives  []string
 	categoryDirs []string
 }
@@ -274,7 +257,7 @@ func revalidateHomeAndArchives(root string, settings SettingsRecord, current, or
 	return nil
 }
 
-func analyzePostImpact(current, original *PostRecord, settings SettingsRecord) postRevalidationImpact {
+func analyzePostImpact(current, original *PostRecord) postRevalidationImpact {
 	impact := postRevalidationImpact{}
 	wasPublished := snapshotPublishedPost(original)
 	isPublished := snapshotPublishedPost(current)
@@ -283,8 +266,6 @@ func analyzePostImpact(current, original *PostRecord, settings SettingsRecord) p
 	}
 	impact.home = true
 	impact.mainArchive = true
-	impact.feed = true
-	impact.sitemap = true
 	impact.tagArchives = collectTagArchiveRoutes(current, original)
 	impact.categoryDirs = collectCategoryArchiveRoutes(current, original)
 	return impact
@@ -332,55 +313,6 @@ func collectCategoryArchiveRoutes(items ...*PostRecord) []string {
 		out = append(out, route)
 	}
 	return out
-}
-
-func writeFeedFiles(root string, settings SettingsRecord) error {
-	return syncSnapshotRoutes(root,
-		snapshotRouteSpec{
-			route:   "/feed.xml",
-			enabled: settings.EnableFeedXML,
-			render: func() []byte {
-				return prerenderFeedXML(settings)
-			},
-		},
-		snapshotRouteSpec{
-			route:   "/feed.json",
-			enabled: settings.EnableFeedJSON,
-			render: func() []byte {
-				return prerenderFeedJSON(settings)
-			},
-		},
-	)
-}
-
-func writeSitemapFiles(root string, settings SettingsRecord) error {
-	specs := []snapshotRouteSpec{
-		{
-			route:   "/robots.txt",
-			enabled: true,
-			render: func() []byte {
-				return prerenderRobots(settings)
-			},
-		},
-		{
-			route:   "/sitemap.xml",
-			enabled: true,
-			render: func() []byte {
-				return prerenderSitemap(settings, "")
-			},
-		},
-	}
-	for _, locale := range parseTranslationLocales(settings.TranslationLocales) {
-		locale := locale
-		specs = append(specs, snapshotRouteSpec{
-			route:   "/sitemap-" + locale + ".xml",
-			enabled: true,
-			render: func() []byte {
-				return prerenderSitemap(settings, locale)
-			},
-		})
-	}
-	return syncSnapshotRoutes(root, specs...)
 }
 
 func rebuildArchiveRoute(root string, settings SettingsRecord, basePath string) error {
@@ -485,41 +417,6 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 	return nil
 }
 
-func writeLocalizedSitemapFiles(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
-	slog.Info("revalidate localized robots write start")
-	specs := []snapshotRouteSpec{
-		{
-			route:   "/robots.txt",
-			enabled: true,
-			render: func() []byte {
-				return prerenderRobots(settings)
-			},
-		},
-	}
-	locales := map[string]struct{}{}
-	for _, item := range []*PostTranslationRecord{current, original} {
-		if item == nil {
-			continue
-		}
-		locale := normalizeLocale(item.Locale)
-		if locale != "" {
-			locales[locale] = struct{}{}
-		}
-	}
-	for locale := range locales {
-		locale := locale
-		slog.Info("revalidate localized sitemap write start", "locale", locale)
-		specs = append(specs, snapshotRouteSpec{
-			route:   "/sitemap-" + locale + ".xml",
-			enabled: isEnabledTranslationLocale(settings, locale),
-			render: func() []byte {
-				return prerenderSitemap(settings, locale)
-			},
-		})
-	}
-	return syncSnapshotRoutes(root, specs...)
-}
-
 func valueOrEmptyPostID(item *PostRecord) string {
 	if item == nil {
 		return ""
@@ -553,18 +450,6 @@ func valueOrEmptyTranslationSlug(item *PostTranslationRecord) string {
 		return ""
 	}
 	return strings.TrimSpace(item.Slug)
-}
-
-func prerenderFeedXML(settings SettingsRecord) []byte {
-	rec := httptest.NewRecorder()
-	writeRSSFeed(rec, nil, settings)
-	return rec.Body.Bytes()
-}
-
-func prerenderFeedJSON(settings SettingsRecord) []byte {
-	rec := httptest.NewRecorder()
-	writeJSONFeed(rec, nil, settings)
-	return rec.Body.Bytes()
 }
 
 func decodePostRecord(data json.RawMessage) *PostRecord {

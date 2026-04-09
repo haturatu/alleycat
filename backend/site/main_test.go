@@ -266,63 +266,6 @@ func TestShouldServePrerenderedSnapshot(t *testing.T) {
 	}
 }
 
-func TestWriteFeedFilesRemovesDisabledSnapshotRoutes(t *testing.T) {
-	root := t.TempDir()
-	for _, route := range []string{"/feed.xml", "/feed.json"} {
-		target, err := snapshotFilePath(root, route)
-		if err != nil {
-			t.Fatalf("snapshotFilePath(%q): %v", route, err)
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			t.Fatalf("MkdirAll(%q): %v", route, err)
-		}
-		if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
-			t.Fatalf("WriteFile(%q): %v", route, err)
-		}
-	}
-
-	if err := writeFeedFiles(root, SettingsRecord{}); err != nil {
-		t.Fatalf("writeFeedFiles: %v", err)
-	}
-
-	for _, route := range []string{"/feed.xml", "/feed.json"} {
-		target, err := snapshotFilePath(root, route)
-		if err != nil {
-			t.Fatalf("snapshotFilePath(%q): %v", route, err)
-		}
-		if _, err := os.Stat(target); !os.IsNotExist(err) {
-			t.Fatalf("expected %q snapshot to be removed, err=%v", route, err)
-		}
-	}
-}
-
-func TestWriteLocalizedSitemapFilesRemovesDisabledLocaleSnapshot(t *testing.T) {
-	root := t.TempDir()
-	target, err := snapshotFilePath(root, "/sitemap-fr.xml")
-	if err != nil {
-		t.Fatalf("snapshotFilePath: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	settings := SettingsRecord{
-		SiteURL:            "https://example.com",
-		TranslationLocales: "en,ja",
-	}
-	translation := &PostTranslationRecord{Locale: "fr"}
-	if err := writeLocalizedSitemapFiles(root, settings, translation, nil); err != nil {
-		t.Fatalf("writeLocalizedSitemapFiles: %v", err)
-	}
-
-	if _, err := os.Stat(target); !os.IsNotExist(err) {
-		t.Fatalf("expected localized sitemap snapshot to be removed, err=%v", err)
-	}
-}
-
 func TestWithRequestSiteURLUsesRequestHostWhenSiteURLMissing(t *testing.T) {
 	t.Parallel()
 
