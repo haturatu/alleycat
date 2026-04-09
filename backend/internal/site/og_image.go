@@ -445,7 +445,7 @@ func drawTextLine(dst draw.Image, set *ogFontSet, x, y int, src color.Color, val
 			offset.X += drawer.MeasureString(run.text)
 			continue
 		}
-		for _, r := range []rune(run.text) {
+		for _, r := range run.text {
 			piece := string(r)
 			drawer.Dot = offset
 			if drawStringNoPanic(drawer, piece) {

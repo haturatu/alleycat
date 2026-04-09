@@ -726,14 +726,6 @@ func (l *geminiRateLimiter) Wait(requestsPerMinute int) {
 	l.nextAllowed = time.Now().Add(interval)
 }
 
-func parseGeminiTranslation(responseBody []byte) (translatedPayload, error) {
-	text, err := parseGeminiResponseText(responseBody)
-	if err != nil {
-		return translatedPayload{}, err
-	}
-	return parseGeminiTranslationText(text)
-}
-
 func parseGeminiResponseText(responseBody []byte) (string, error) {
 	var res geminiResponse
 	if err := json.Unmarshal(responseBody, &res); err != nil {

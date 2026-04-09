@@ -17,12 +17,6 @@ type revalidateRequest struct {
 	Original   json.RawMessage `json:"original"`
 }
 
-type snapshotRouteSpec struct {
-	route   string
-	enabled bool
-	render  func() []byte
-}
-
 var snapshotMutation = struct {
 	mu sync.Mutex
 }{}
@@ -492,21 +486,6 @@ func removeSnapshotRoute(root, route string) error {
 	}
 	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
 		return err
-	}
-	return nil
-}
-
-func syncSnapshotRoutes(root string, specs ...snapshotRouteSpec) error {
-	for _, spec := range specs {
-		if !spec.enabled {
-			if err := removeSnapshotRoute(root, spec.route); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := exportRecordedRoute(root, spec.route, spec.render()); err != nil {
-			return err
-		}
 	}
 	return nil
 }

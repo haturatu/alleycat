@@ -343,13 +343,6 @@ func archiveTotalPages(filter string, perPage int) (int, error) {
 	return posts.TotalPages, nil
 }
 
-func exportRecordedRoute(root, route string, body []byte) error {
-	if len(body) == 0 {
-		return nil
-	}
-	return writeSnapshotFile(root, route, body)
-}
-
 func writeSnapshotRoute(root, route string, body []byte) error {
 	return writeSnapshotFile(root, route, body)
 }
