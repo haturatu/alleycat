@@ -337,8 +337,12 @@ func servePrerenderedSnapshot(w http.ResponseWriter, r *http.Request, clean stri
 	if err != nil {
 		return false
 	}
+	contentType := snapshotContentType(clean)
+	if strings.HasPrefix(contentType, "text/html") {
+		body = absolutizePrerenderedSnapshotHTML(body, withRequestSiteURL(getSettings(), r))
+	}
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", snapshotContentType(clean))
+	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)
 	return true

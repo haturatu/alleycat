@@ -251,6 +251,70 @@ func TestServePrerenderedSnapshotIgnoresConditionalCacheHeaders(t *testing.T) {
 	}
 }
 
+func TestServePrerenderedSnapshotAbsolutizesOGMetaURLs(t *testing.T) {
+	root := t.TempDir()
+	target, err := snapshotFilePath(root, "/posts/hello/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	html := `<!doctype html><html><head>` +
+		`<link rel="canonical" href="/posts/hello/" />` +
+		`<meta property="og:url" content="/posts/hello/" />` +
+		`<meta property="og:image" content="/og/ja/posts/hello.png" />` +
+		`<meta name="twitter:image" content="/og/ja/posts/hello.png" />` +
+		`</head><body>Hello</body></html>`
+	if err := os.WriteFile(target, []byte(html), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	prevSnapshot := getPrerenderedSnapshotDir()
+	setPrerenderedSnapshotDir(root)
+	t.Cleanup(func() {
+		prerenderedSnapshot.mu.Lock()
+		prerenderedSnapshot.dir = prevSnapshot
+		prerenderedSnapshot.mu.Unlock()
+	})
+
+	prevCache := settingsCache.entry
+	settingsCache.mu.Lock()
+	settingsCache.entry = settingsCacheEntry{
+		expiresAt: time.Now().Add(time.Minute),
+		value: SettingsRecord{
+			SiteName: "Alleycat",
+		},
+	}
+	settingsCache.mu.Unlock()
+	t.Cleanup(func() {
+		settingsCache.mu.Lock()
+		settingsCache.entry = prevCache
+		settingsCache.mu.Unlock()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.invalid/posts/hello/", nil)
+	req.Host = "soulminingrig.com"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+
+	if !servePrerenderedSnapshot(rec, req, "/posts/hello/") {
+		t.Fatal("servePrerenderedSnapshot returned false")
+	}
+
+	body := rec.Body.String()
+	for _, snippet := range []string{
+		`href="https://soulminingrig.com/posts/hello"`,
+		`property="og:url" content="https://soulminingrig.com/posts/hello"`,
+		`property="og:image" content="https://soulminingrig.com/og/ja/posts/hello.png"`,
+		`name="twitter:image" content="https://soulminingrig.com/og/ja/posts/hello.png"`,
+	} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("snapshot body missing %q: %s", snippet, body)
+		}
+	}
+}
+
 func TestShouldServePrerenderedSnapshot(t *testing.T) {
 	t.Parallel()
 
