@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -155,6 +156,7 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 			Summary: excerpt,
 		})
 	}
+	sortFeedItems(items)
 
 	feedItemsCache.mu.Lock()
 	feedItemsCache.items[key] = feedCacheEntry{
@@ -163,4 +165,33 @@ func fetchFeedItems(settings SettingsRecord) []feedItem {
 	}
 	feedItemsCache.mu.Unlock()
 	return items
+}
+
+func feedItemTime(item feedItem) time.Time {
+	value := strings.TrimSpace(item.Date)
+	if value == "" {
+		return time.Time{}
+	}
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.000Z",
+		"2006-01-02 15:04:05Z",
+	} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.UTC()
+		}
+	}
+	return time.Time{}
+}
+
+func sortFeedItems(items []feedItem) {
+	sort.SliceStable(items, func(i, j int) bool {
+		a := feedItemTime(items[i])
+		b := feedItemTime(items[j])
+		if !a.Equal(b) {
+			return a.After(b)
+		}
+		return items[i].URL < items[j].URL
+	})
 }
