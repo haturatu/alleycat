@@ -2,10 +2,16 @@ package main
 
 import (
 	"bytes"
+	"image"
+	"image/color"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 )
 
 func TestExtractPostOGImageRequest(t *testing.T) {
@@ -200,4 +206,28 @@ func TestServePostOGImageUsesSourceLocaleForLocalizedSourceRoute(t *testing.T) {
 	if !bytes.HasPrefix(rec.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
 		t.Fatalf("servePostOGImage should return png bytes")
 	}
+}
+
+func TestDrawStringNoPanicRecovers(t *testing.T) {
+	t.Parallel()
+
+	drawer := &font.Drawer{
+		Dst:  image.NewRGBA(image.Rect(0, 0, 10, 10)),
+		Src:  image.NewUniform(color.Black),
+		Face: panicFace{Face: basicfont.Face7x13},
+		Dot:  fixed.P(0, 8),
+	}
+	if drawStringNoPanic(drawer, "boom") {
+		t.Fatal("drawStringNoPanic should return false when DrawString panics")
+	}
+}
+
+type panicFace struct {
+	font.Face
+}
+
+func (p panicFace) Glyph(dot fixed.Point26_6, r rune) (
+	dr image.Rectangle, mask image.Image, maskp image.Point, advance fixed.Int26_6, ok bool,
+) {
+	panic("glyph panic")
 }

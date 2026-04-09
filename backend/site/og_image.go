@@ -441,9 +441,33 @@ func drawTextLine(dst draw.Image, set *ogFontSet, x, y int, src color.Color, val
 			Face: run.face,
 			Dot:  offset,
 		}
-		drawer.DrawString(run.text)
-		offset.X += drawer.MeasureString(run.text)
+		if drawStringNoPanic(drawer, run.text) {
+			offset.X += drawer.MeasureString(run.text)
+			continue
+		}
+		for _, r := range []rune(run.text) {
+			piece := string(r)
+			drawer.Dot = offset
+			if drawStringNoPanic(drawer, piece) {
+				offset.X += drawer.MeasureString(piece)
+				continue
+			}
+			offset.X += drawer.MeasureString("\uFFFD")
+		}
 	}
+}
+
+func drawStringNoPanic(drawer *font.Drawer, text string) (ok bool) {
+	if drawer == nil || drawer.Face == nil || text == "" {
+		return false
+	}
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	drawer.DrawString(text)
+	return true
 }
 
 func wrapText(value string, set *ogFontSet, maxWidth int, maxLines int) []string {
