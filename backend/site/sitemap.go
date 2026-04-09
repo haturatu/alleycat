@@ -217,6 +217,7 @@ func buildSitemapXML(urls []sitemapURL) ([]byte, error) {
 
 func writeSitemapBody(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	setNoStoreCacheHeaders(w)
 	_, _ = w.Write(body)
 }
 

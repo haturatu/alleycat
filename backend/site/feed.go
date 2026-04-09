@@ -45,6 +45,7 @@ func writeJSONFeed(w http.ResponseWriter, r *http.Request, settings SettingsReco
 		"items": items,
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	setNoStoreCacheHeaders(w)
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(feed)
@@ -80,6 +81,7 @@ func writeRSSFeed(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 	builder.WriteString("</feed>")
 
 	w.Header().Set("Content-Type", "application/atom+xml; charset=utf-8")
+	setNoStoreCacheHeaders(w)
 	_, _ = w.Write([]byte(builder.String()))
 }
 
