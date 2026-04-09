@@ -27,6 +27,8 @@ frontend/tsconfig.tsbuildinfo
 bin/
 tmp/
 .gocache
+backend/pocketbase
+backend/site
 
 # PocketBase data
 pb_data/

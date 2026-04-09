@@ -8,7 +8,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -o /pb/pocketbase
+    go build -o /pb/pocketbase ./cmd/pocketbase
 
 FROM alpine:3.20
 WORKDIR /pb
