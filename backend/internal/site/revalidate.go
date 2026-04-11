@@ -407,6 +407,15 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 		if err := revalidatePostRecordAndTranslations(root, settings, sourceID); err != nil {
 			return err
 		}
+		sourcePost := getPostByID(sourceID)
+		impact := analyzePostImpact(sourcePost, sourcePost)
+		if !impact.home && !impact.mainArchive && len(impact.tagArchives) == 0 && len(impact.categoryDirs) == 0 {
+			continue
+		}
+		slog.Info("revalidate translation archive impact analyzed", "source_post_id", sourceID, "home", impact.home, "main_archive", impact.mainArchive, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
+		if err := revalidateHomeAndArchives(root, settings, sourcePost, sourcePost, impact); err != nil {
+			return err
+		}
 	}
 	return nil
 }
