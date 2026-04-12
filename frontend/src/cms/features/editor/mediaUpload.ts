@@ -41,6 +41,23 @@ type MediaRecord = {
   checksum?: string;
 };
 
+const toRelativeMediaURL = (value: string) => {
+  const input = value.trim();
+  if (!input) return input;
+  if (input.startsWith("/")) return input;
+
+  try {
+    const url = new URL(input);
+    if (url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/uploads/")) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+  } catch {
+    // Ignore invalid URLs and keep the original value.
+  }
+
+  return input;
+};
+
 const resolveMediaURL = (record: MediaRecord) => {
   const filename = String(record.file || "");
   const checksum = typeof record.checksum === "string" ? record.checksum.trim() : "";
@@ -52,7 +69,7 @@ const resolveMediaURL = (record: MediaRecord) => {
     if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) return mediaPath;
     return mediaPath.startsWith("/") ? mediaPath : `/${mediaPath}`;
   }
-  return pb.files.getURL(record, filename);
+  return toRelativeMediaURL(pb.files.getURL(record, filename));
 };
 
 const findMediaByChecksum = async (checksum: string): Promise<MediaRecord | null> => {
@@ -109,4 +126,8 @@ export const uploadImageAndGetURL = async (file: File): Promise<string> => {
   }
 
   return resolveMediaURL(record);
+};
+
+export const __test__ = {
+  toRelativeMediaURL,
 };
