@@ -51,4 +51,16 @@ describe("markdown round-trip", () => {
     expect(html2).toBe(html1);
     expect(markdown2).toBe(markdown1);
   });
+
+  test("linked image stays stable across markdown/html round-trips", () => {
+    const markdown = "[![linked image](/media/example.png)](https://example.com/article)";
+
+    const html1 = normalizeHtml(renderMarkdownToHtml(markdown, { highlightCode: false }));
+    const markdown1 = normalizeMarkdown(renderHtmlToMarkdown(html1));
+    const html2 = normalizeHtml(renderMarkdownToHtml(markdown1, { highlightCode: false }));
+
+    expect(html1).toContain('<a href="https://example.com/article"><img src="/media/example.png" alt="linked image"></a>');
+    expect(markdown1).toBe(markdown);
+    expect(html2).toBe(html1);
+  });
 });

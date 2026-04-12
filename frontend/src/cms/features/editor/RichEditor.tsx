@@ -2,10 +2,55 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
+import { mergeAttributes } from "@tiptap/core";
 import { useEffect, useRef } from "react";
 import { pb } from "@cms/lib/pb";
 import { uploadImageAndGetURL } from "@cms/features/editor/mediaUpload";
 import { AdminButton } from "@cms/ui/AriaControls";
+
+const LinkedImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      href: {
+        default: null,
+        parseHTML: (element) => element.closest("a")?.getAttribute("href") || null,
+      },
+      target: {
+        default: null,
+        parseHTML: (element) => element.closest("a")?.getAttribute("target") || null,
+      },
+      rel: {
+        default: null,
+        parseHTML: (element) => element.closest("a")?.getAttribute("rel") || null,
+      },
+    };
+  },
+  parseHTML() {
+    return [
+      { tag: "a[href] img[src]" },
+      { tag: "img[src]" },
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { href, target, rel, ...imageAttributes } = HTMLAttributes;
+    const image = ["img", mergeAttributes(this.options.HTMLAttributes, imageAttributes)] as const;
+
+    if (!href) {
+      return image;
+    }
+
+    return [
+      "a",
+      mergeAttributes(
+        { href },
+        target ? { target } : {},
+        rel ? { rel } : {}
+      ),
+      image,
+    ] as const;
+  },
+});
 
 export default function RichEditor({
   value,
@@ -67,7 +112,7 @@ export default function RichEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image.configure({
+      LinkedImage.configure({
         inline: false,
         allowBase64: false,
       }),
@@ -118,6 +163,22 @@ export default function RichEditor({
   if (!editor) return null;
 
   const setLink = () => {
+    if (editor.isActive("image")) {
+      const previousUrl = editor.getAttributes("image").href as string | undefined;
+      const url = window.prompt("URL", previousUrl ?? "https://");
+      if (url === null) return;
+
+      const trimmed = url.trim();
+      if (!trimmed) {
+        editor.chain().focus().updateAttributes("image", { href: null, target: null, rel: null }).run();
+        return;
+      }
+
+      const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      editor.chain().focus().updateAttributes("image", { href: normalized, target: null, rel: null }).run();
+      return;
+    }
+
     const previousUrl = editor.getAttributes("link").href as string | undefined;
     const url = window.prompt("URL", previousUrl ?? "https://");
     if (url === null) return;
@@ -204,7 +265,17 @@ export default function RichEditor({
           <AdminButton ariaLabel="Set link" ariaPressed={editor.isActive("link")} onPress={setLink} type="button">
             Link
           </AdminButton>
-          <AdminButton ariaLabel="Remove link" onPress={() => editor.chain().focus().unsetLink().run()} type="button">
+          <AdminButton
+            ariaLabel="Remove link"
+            onPress={() => {
+              if (editor.isActive("image")) {
+                editor.chain().focus().updateAttributes("image", { href: null, target: null, rel: null }).run();
+                return;
+              }
+              editor.chain().focus().unsetLink().run();
+            }}
+            type="button"
+          >
             Unlink
           </AdminButton>
         </div>
