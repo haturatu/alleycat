@@ -8,11 +8,14 @@ type TitleSlugFieldsProps = {
   titleError?: string;
   slugError?: string;
   autoDisabled?: boolean;
+  aiGenerateAvailable?: boolean;
+  aiGenerateDisabled?: boolean;
   titleInputRef?: RefObject<HTMLInputElement | null>;
   slugInputRef?: RefObject<HTMLInputElement | null>;
   onTitleChange: (value: string) => void;
   onSlugChange: (value: string) => void;
   onAutoSlug: () => void;
+  onAISlugGenerate?: () => void;
   onToggleSlugMode?: () => void;
   editorial?: boolean;
 };
@@ -24,11 +27,14 @@ export default function TitleSlugFields({
   titleError,
   slugError,
   autoDisabled,
+  aiGenerateAvailable,
+  aiGenerateDisabled,
   titleInputRef,
   slugInputRef,
   onTitleChange,
   onSlugChange,
   onAutoSlug,
+  onAISlugGenerate,
   onToggleSlugMode,
   editorial = false,
 }: TitleSlugFieldsProps) {
@@ -66,6 +72,16 @@ export default function TitleSlugFields({
           <AdminButton type="button" className="admin-secondary admin-slug-action" disabled={autoDisabled} onPress={onAutoSlug}>
             Generate
           </AdminButton>
+          {aiGenerateAvailable && onAISlugGenerate ? (
+            <AdminButton
+              type="button"
+              className="admin-secondary admin-slug-action"
+              disabled={aiGenerateDisabled}
+              onPress={onAISlugGenerate}
+            >
+              AI Generate
+            </AdminButton>
+          ) : null}
         </div>
       </div>
       {slugError ? (

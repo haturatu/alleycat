@@ -10,6 +10,7 @@ import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "@cms
 import FormStatusMessage from "@cms/ui/FormStatusMessage";
 import PublishFields from "@cms/features/editor/components/PublishFields";
 import TitleSlugFields from "@cms/features/editor/components/TitleSlugFields";
+import { fetchAISlugStatus, generateAISlug } from "@cms/features/editor/aiSlug";
 import useAdminPageTitle from "@cms/useAdminPageTitle";
 import useUnsavedChangesGuard from "@cms/features/editor/hooks/useUnsavedChangesGuard";
 import useEditorFormState from "@cms/features/editor/hooks/useEditorFormState";
@@ -41,6 +42,8 @@ export default function AdminPageEditor() {
   const [published, setPublished] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiSlugAvailable, setAISlugAvailable] = useState(false);
+  const [aiSlugGenerating, setAISlugGenerating] = useState(false);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const { saveMessage, clearSaveMessage, isDirty, lastSavedAt, markDirty, markSaved } = useEditorFormState();
@@ -74,6 +77,20 @@ export default function AdminPageEditor() {
     setPublished,
     markDirty,
   });
+
+  useEffect(() => {
+    let active = true;
+    fetchAISlugStatus()
+      .then((enabled) => {
+        if (active) setAISlugAvailable(enabled);
+      })
+      .catch(() => {
+        if (active) setAISlugAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!id || id === "new") {
@@ -205,6 +222,31 @@ export default function AdminPageEditor() {
     }
   };
 
+  const handleAISlugGenerate = async () => {
+    const trimmedTitle = title.trim();
+    const titleError = validateTitle(trimmedTitle);
+    setFieldError("title", titleError);
+    if (titleError) {
+      setError("Title is required before generating an AI slug.");
+      titleInputRef.current?.focus();
+      return;
+    }
+
+    setError("");
+    setAISlugGenerating(true);
+    try {
+      const nextSlug = await generateAISlug(trimmedTitle);
+      setSlug(nextSlug);
+      setSlugEditedManually(true);
+      markDirty();
+      setFieldError("slug", validateSlug(nextSlug));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate AI slug.");
+    } finally {
+      setAISlugGenerating(false);
+    }
+  };
+
   return (
     <section>
       <header className="admin-header admin-editor-header">
@@ -234,11 +276,14 @@ export default function AdminPageEditor() {
               titleError={fieldErrors.title}
               slugError={fieldErrors.slug}
               autoDisabled={saving}
+              aiGenerateAvailable={aiSlugAvailable}
+              aiGenerateDisabled={saving || aiSlugGenerating}
               titleInputRef={titleInputRef}
               slugInputRef={slugInputRef}
               onTitleChange={onTitleChange}
               onSlugChange={onSlugChange}
               onAutoSlug={onAutoSlug}
+              onAISlugGenerate={() => void handleAISlugGenerate()}
             />
             <AdminTextField
               inputRef={urlInputRef}

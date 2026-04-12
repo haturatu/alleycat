@@ -13,6 +13,7 @@ func Run() {
 
 	app := pocketbase.New()
 	registerTranslationFeatures(app)
+	registerSlugGenerationAPI(app)
 	registerBackupImportCommand(app)
 	registerMediaChecksumBackfillCommand(app)
 	registerStaticRegenHooks(app)

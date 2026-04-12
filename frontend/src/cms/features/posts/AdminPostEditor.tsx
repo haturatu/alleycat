@@ -15,6 +15,7 @@ import {
   AdminTextField,
 } from "@cms/ui/AriaControls";
 import ContentEditorField, { type EditorMode, type MarkdownViewMode } from "@cms/features/editor/components/ContentEditorField";
+import { fetchAISlugStatus, generateAISlug } from "@cms/features/editor/aiSlug";
 import FormStatusMessage from "@cms/ui/FormStatusMessage";
 import PublishFields from "@cms/features/editor/components/PublishFields";
 import TitleSlugFields from "@cms/features/editor/components/TitleSlugFields";
@@ -109,6 +110,8 @@ export default function AdminPostEditor() {
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiSlugAvailable, setAISlugAvailable] = useState(false);
+  const [aiSlugGenerating, setAISlugGenerating] = useState(false);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [activeTagSuggestion, setActiveTagSuggestion] = useState(-1);
@@ -183,6 +186,20 @@ export default function AdminPostEditor() {
     setPublished,
     markDirty,
   });
+
+  useEffect(() => {
+    let active = true;
+    fetchAISlugStatus()
+      .then((enabled) => {
+        if (active) setAISlugAvailable(enabled);
+      })
+      .catch(() => {
+        if (active) setAISlugAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const applyRecordToForm = (record: EditorPostRecord) => {
     const loadedBody = record.body || "";
@@ -342,6 +359,31 @@ export default function AdminPostEditor() {
     if (activeCategorySuggestion < categorySuggestions.length) return;
     setActiveCategorySuggestion(-1);
   }, [activeCategorySuggestion, categorySuggestions.length]);
+
+  const handleAISlugGenerate = async () => {
+    const trimmedTitle = title.trim();
+    const titleError = validateTitle(trimmedTitle);
+    setFieldError("title", titleError);
+    if (titleError) {
+      setError("Title is required before generating an AI slug.");
+      titleInputRef.current?.focus();
+      return;
+    }
+
+    setError("");
+    setAISlugGenerating(true);
+    try {
+      const nextSlug = await generateAISlug(trimmedTitle);
+      setSlug(nextSlug);
+      setSlugEditedManually(true);
+      markDirty();
+      setFieldError("slug", validateSlug(nextSlug));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate AI slug.");
+    } finally {
+      setAISlugGenerating(false);
+    }
+  };
 
   useUnsavedChangesGuard(isDirty && !saving);
 
@@ -736,11 +778,15 @@ export default function AdminPostEditor() {
               slugEditedManually={slugEditedManually}
               titleError={fieldErrors.title}
               slugError={fieldErrors.slug}
+              autoDisabled={saving}
+              aiGenerateAvailable={aiSlugAvailable}
+              aiGenerateDisabled={saving || aiSlugGenerating}
               titleInputRef={titleInputRef}
               slugInputRef={slugInputRef}
               onTitleChange={onTitleChange}
               onSlugChange={onSlugChange}
               onAutoSlug={onAutoSlug}
+              onAISlugGenerate={() => void handleAISlugGenerate()}
               onToggleSlugMode={() => {
                 if (slugEditedManually) {
                   onAutoSlug();
