@@ -1,6 +1,6 @@
 module alleycat-backend
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/pocketbase/dbx v1.11.0
