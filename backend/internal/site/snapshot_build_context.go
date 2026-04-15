@@ -9,11 +9,15 @@ import (
 )
 
 var activeSnapshotBuild = struct {
-	mu  sync.RWMutex
-	ctx *snapshotBuildContext
+	mu     sync.RWMutex
+	execMu sync.Mutex
+	ctx    *snapshotBuildContext
 }{}
 
 func withSnapshotBuildContext(ctx *snapshotBuildContext, fn func() error) error {
+	activeSnapshotBuild.execMu.Lock()
+	defer activeSnapshotBuild.execMu.Unlock()
+
 	activeSnapshotBuild.mu.Lock()
 	prev := activeSnapshotBuild.ctx
 	activeSnapshotBuild.ctx = ctx
