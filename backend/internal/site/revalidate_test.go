@@ -341,6 +341,80 @@ func TestRevalidateDAGAffectedPostRoutesUpdatesNeighborRoute(t *testing.T) {
 	}
 }
 
+func TestRevalidateDAGAffectedPostRoutesUpdatesBaseRouteForTranslationChange(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	source := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>Hello</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	translation := PostTranslationRecord{
+		ID:          "tr-1",
+		SourcePost:  source.ID,
+		Locale:      "ru",
+		Slug:        "privet",
+		Title:       "Privet",
+		Body:        "<p>Privet</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/posts/hello/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath base: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll base: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile base: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{source},
+		postBySlug:           map[string]PostRecord{source.Slug: source},
+		postByID:             map[string]PostRecord{source.ID: source},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{source.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("ru", translation.Slug)})
+	})
+	if err != nil {
+		t.Fatalf("revalidateDAGAffectedPostRoutes: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile base: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("base route still stale")
+	}
+	if !strings.Contains(text, `/ru/posts/privet/`) {
+		t.Fatalf("base route missing updated translation link: %s", text)
+	}
+}
+
 func TestDAGAffectedRouteReasonsIncludesDependencyPath(t *testing.T) {
 	t.Parallel()
 
