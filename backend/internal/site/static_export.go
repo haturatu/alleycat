@@ -190,50 +190,8 @@ type snapshotRenderTask struct {
 }
 
 func buildSnapshotRenderTasks(ctx *snapshotBuildContext, settings SettingsRecord) []snapshotRenderTask {
-	tasks := make([]snapshotRenderTask, 0, len(ctx.publishedPosts)+len(ctx.publishedPages)+len(ctx.translationByKey))
-	for _, post := range ctx.publishedPosts {
-		post := post
-		slug := strings.TrimSpace(post.Slug)
-		if slug == "" {
-			continue
-		}
-		tasks = append(tasks, snapshotRenderTask{
-			route: "/posts/" + url.PathEscape(slug) + "/",
-			render: func() ([]byte, bool) {
-				html, ok := renderPostFromInput(&postRenderInput{
-					path:   "/posts/" + slug + "/",
-					locale: "",
-					slug:   slug,
-					post:   &post,
-				}, settings)
-				return []byte(html), ok
-			},
-		})
-	}
-	for locale, items := range ctx.translationsByLocale {
-		locale := locale
-		for _, item := range items {
-			item := item
-			slug := strings.TrimSpace(item.Slug)
-			if slug == "" {
-				continue
-			}
-			tasks = append(tasks, snapshotRenderTask{
-				route: "/" + url.PathEscape(locale) + "/posts/" + url.PathEscape(slug) + "/",
-				render: func() ([]byte, bool) {
-					post := translationToPost(item)
-					html, ok := renderPostFromInput(&postRenderInput{
-						path:        "/" + locale + "/posts/" + slug + "/",
-						locale:      locale,
-						slug:        slug,
-						post:        &post,
-						translation: &item,
-					}, settings)
-					return []byte(html), ok
-				},
-			})
-		}
-	}
+	tasks := make([]snapshotRenderTask, 0, len(ctx.postRouteKeys())+len(ctx.publishedPages))
+	tasks = append(tasks, buildPostSnapshotRenderTasks(ctx)...)
 	for _, page := range ctx.publishedPages {
 		page := page
 		pageURL := strings.TrimSpace(page.URL)
@@ -245,6 +203,35 @@ func buildSnapshotRenderTasks(ctx *snapshotBuildContext, settings SettingsRecord
 			render: func() ([]byte, bool) {
 				html, ok := renderPageFromRecord(&page, settings)
 				return []byte(html), ok
+			},
+		})
+	}
+	return tasks
+}
+
+func buildPostSnapshotRenderTasks(ctx *snapshotBuildContext) []snapshotRenderTask {
+	if ctx == nil {
+		return nil
+	}
+
+	engine := newSiteDAGEngine()
+	tasks := make([]snapshotRenderTask, 0, len(ctx.postRouteKeys()))
+	for _, key := range ctx.postRouteKeys() {
+		route := key.ID
+		tasks = append(tasks, snapshotRenderTask{
+			route: route,
+			render: func() ([]byte, bool) {
+				resolveCtx := engine.NewContext()
+				value, err := engine.Resolve(resolveCtx, routeNodeKey(route))
+				if err != nil {
+					slog.Error("static snapshot post route render failed", "route", route, "error", err)
+					return nil, false
+				}
+				rendered, ok := value.(routeValue)
+				if !ok {
+					return nil, false
+				}
+				return append([]byte(nil), rendered.Body...), true
 			},
 		})
 	}
