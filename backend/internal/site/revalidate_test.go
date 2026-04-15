@@ -100,3 +100,79 @@ func TestRevalidateTranslationContextUpdatesHomeAndArchive(t *testing.T) {
 		}
 	}
 }
+
+func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "en"
+
+	older := PostRecord{
+		ID:          "post-older",
+		Slug:        "weekly-fail2ban-report-public-monitoring",
+		Title:       "Weekly fail2ban report public monitoring",
+		Body:        "<p>older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-10T10:00:00Z",
+	}
+	current := PostRecord{
+		ID:          "post-current",
+		Slug:        "ultimate-freebsd-pf-conf",
+		Title:       "Ultimate FreeBSD pf.conf",
+		Body:        "<p>current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/posts/"+older.Slug+"/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath older: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll older: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile older: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 nil,
+		publishedPosts:       []PostRecord{current, older},
+		publishedPages:       nil,
+		tags:                 nil,
+		categories:           nil,
+		postBySlug:           map[string]PostRecord{older.Slug: older, current.Slug: current},
+		postByID:             map[string]PostRecord{older.ID: older, current.ID: current},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{current, older}, pageCount: 1},
+		},
+	}
+
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateAdjacentPostContext(root, settings, &current, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateAdjacentPostContext: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile older: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("older route still stale")
+	}
+	if !strings.Contains(text, "/posts/"+current.Slug+"/") {
+		t.Fatalf("older route missing updated newer link: %s", text)
+	}
+}

@@ -194,6 +194,68 @@ func (ctx *snapshotBuildContext) getAdjacentPostsInLocale(post *PostRecord, loca
 	return newer, older
 }
 
+func comparePostOrder(a, b PostRecord) int {
+	at := postPublishedTime(a)
+	bt := postPublishedTime(b)
+	if !at.Equal(bt) {
+		if at.After(bt) {
+			return -1
+		}
+		return 1
+	}
+
+	as := strings.TrimSpace(a.Slug)
+	bs := strings.TrimSpace(b.Slug)
+	switch {
+	case as < bs:
+		return -1
+	case as > bs:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (ctx *snapshotBuildContext) getAdjacentPostsAroundReferenceInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
+	if post == nil {
+		return nil, nil
+	}
+
+	items := ctx.postsForLocale(locale)
+	if len(items) == 0 {
+		return nil, nil
+	}
+
+	index := -1
+	for i := range items {
+		if strings.TrimSpace(items[i].Slug) == strings.TrimSpace(post.Slug) {
+			index = i
+			break
+		}
+	}
+	if index >= 0 {
+		return ctx.getAdjacentPostsInLocale(post, locale)
+	}
+
+	insertAt := len(items)
+	for i := range items {
+		if comparePostOrder(*post, items[i]) < 0 {
+			insertAt = i
+			break
+		}
+	}
+
+	if insertAt > 0 {
+		copy := items[insertAt-1]
+		newer = &copy
+	}
+	if insertAt < len(items) {
+		copy := items[insertAt]
+		older = &copy
+	}
+	return newer, older
+}
+
 func (ctx *snapshotBuildContext) getRelatedPostsInLocale(post *PostRecord, locale string, limit int) []PostRecord {
 	return scoreRelatedPosts(post, ctx.postsForLocale(locale), limit)
 }

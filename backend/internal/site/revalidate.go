@@ -173,6 +173,9 @@ func revalidatePost(root string, req revalidateRequest) error {
 	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
 		return err
 	}
+	if err := revalidateAdjacentPostContext(root, settings, current, original); err != nil {
+		return err
+	}
 	impact := analyzePostImpact(current, original)
 	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 	if impact.home || impact.mainArchive {
@@ -217,6 +220,9 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 
 	slog.Info("revalidate translation context start")
 	if err := revalidateTranslationContext(root, settings, current, original); err != nil {
+		return err
+	}
+	if err := revalidateAdjacentTranslationContext(root, settings, current, original); err != nil {
 		return err
 	}
 	return nil
@@ -415,6 +421,75 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 		slog.Info("revalidate translation archive impact analyzed", "source_post_id", sourceID, "home", impact.home, "main_archive", impact.mainArchive, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 		if err := revalidateHomeAndArchives(root, settings, sourcePost, sourcePost, impact); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func revalidateAdjacentPostContext(root string, settings SettingsRecord, current, original *PostRecord) error {
+	ctx := currentSnapshotBuildContext()
+	if ctx == nil {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	references := []*PostRecord{current, original}
+	for _, ref := range references {
+		if ref == nil {
+			continue
+		}
+		newer, older := ctx.getAdjacentPostsAroundReferenceInLocale(ref, "")
+		for _, candidate := range []*PostRecord{newer, older} {
+			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
+				continue
+			}
+			slug := strings.TrimSpace(candidate.Slug)
+			if _, ok := seen[slug]; ok {
+				continue
+			}
+			seen[slug] = struct{}{}
+			if err := revalidatePostRecordAndTranslations(root, settings, strings.TrimSpace(candidate.ID)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func revalidateAdjacentTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
+	ctx := currentSnapshotBuildContext()
+	if ctx == nil {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	references := []*PostTranslationRecord{current, original}
+	for _, ref := range references {
+		if ref == nil {
+			continue
+		}
+		locale := normalizeLocale(ref.Locale)
+		if locale == "" {
+			continue
+		}
+		post := translationToPost(*ref)
+		newer, older := ctx.getAdjacentPostsAroundReferenceInLocale(&post, locale)
+		for _, candidate := range []*PostRecord{newer, older} {
+			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
+				continue
+			}
+			key := locale + "|" + strings.TrimSpace(candidate.Slug)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			translation := getPostTranslationBySlugLocale(candidate.Slug, locale)
+			if translation == nil {
+				continue
+			}
+			if err := revalidateTranslationContext(root, settings, translation, translation); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
