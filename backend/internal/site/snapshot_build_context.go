@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"alleycat-backend/internal/dag"
 )
 
 var activeSnapshotBuild = struct {
@@ -146,6 +148,45 @@ func buildMenuPages(pages []PageRecord) []PageRecord {
 		return menu[i].URL < menu[j].URL
 	})
 	return menu
+}
+
+func (ctx *snapshotBuildContext) postRouteKeys() []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+
+	routes := make([]dag.NodeKey, 0, len(ctx.publishedPosts)+len(ctx.translationByKey))
+	seen := map[dag.NodeKey]struct{}{}
+
+	for _, post := range ctx.publishedPosts {
+		slug := strings.TrimSpace(post.Slug)
+		if slug == "" {
+			continue
+		}
+		key := routeNodeKey(postRoutePath("", slug))
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		routes = append(routes, key)
+	}
+
+	for locale, items := range ctx.translationsByLocale {
+		for _, item := range items {
+			slug := strings.TrimSpace(item.Slug)
+			if slug == "" || normalizeLocale(locale) == "" {
+				continue
+			}
+			key := routeNodeKey(postRoutePath(locale, slug))
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			routes = append(routes, key)
+		}
+	}
+
+	return routes
 }
 
 func (ctx *snapshotBuildContext) buildArchiveListing(items []PostRecord) archiveListing {

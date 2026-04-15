@@ -1231,6 +1231,33 @@ func TestDAGAffectedRouteReasonsIncludesExtraReasons(t *testing.T) {
 	}
 }
 
+func TestSnapshotBuildContextPostRouteKeysIncludesBaseAndLocalizedRoutes(t *testing.T) {
+	t.Parallel()
+
+	ctx := &snapshotBuildContext{
+		publishedPosts: []PostRecord{
+			{Slug: "hello"},
+		},
+		translationsByLocale: map[string][]PostTranslationRecord{
+			"ru": []PostTranslationRecord{{Slug: "privet"}},
+		},
+		translationByKey: map[string]PostTranslationRecord{
+			"ru|privet": {Slug: "privet", Locale: "ru"},
+		},
+	}
+
+	keys := ctx.postRouteKeys()
+	if len(keys) != 2 {
+		t.Fatalf("postRouteKeys length = %d, want 2 (%#v)", len(keys), keys)
+	}
+	if keys[0] != routeNodeKey("/posts/hello/") && keys[1] != routeNodeKey("/posts/hello/") {
+		t.Fatalf("postRouteKeys missing base route: %#v", keys)
+	}
+	if keys[0] != routeNodeKey("/ru/posts/privet/") && keys[1] != routeNodeKey("/ru/posts/privet/") {
+		t.Fatalf("postRouteKeys missing localized route: %#v", keys)
+	}
+}
+
 type resolverFunc func(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error)
 
 func (f resolverFunc) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {

@@ -650,22 +650,7 @@ func dagSeedPostRouteKeys(snapshot *snapshotBuildContext) []dag.NodeKey {
 	if snapshot == nil {
 		return nil
 	}
-	routes := make([]dag.NodeKey, 0, len(snapshot.publishedPosts)+len(snapshot.translationByKey))
-	for _, post := range snapshot.publishedPosts {
-		if strings.TrimSpace(post.Slug) == "" {
-			continue
-		}
-		routes = append(routes, routeNodeKey(postRoutePath("", post.Slug)))
-	}
-	for locale, items := range snapshot.translationsByLocale {
-		for _, item := range items {
-			if strings.TrimSpace(item.Slug) == "" || normalizeLocale(locale) == "" {
-				continue
-			}
-			routes = append(routes, routeNodeKey(postRoutePath(locale, item.Slug)))
-		}
-	}
-	return routes
+	return snapshot.postRouteKeys()
 }
 
 func revalidateTranslationContext(root string, current, original *PostTranslationRecord) error {
