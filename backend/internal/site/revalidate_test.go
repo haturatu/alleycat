@@ -243,6 +243,118 @@ func TestRevalidateTranslationUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.
 	}
 }
 
+func TestRevalidatePostRemovesOldRouteAndUpdatesNeighborWhenUnpublishedWithDAG(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	newer := PostRecord{
+		ID:          "post-newer",
+		Slug:        "newer",
+		Title:       "Newer",
+		Body:        "<p>newer</p>",
+		Published:   false,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	original := PostRecord{
+		ID:          "post-newer",
+		Slug:        "newer",
+		Title:       "Newer",
+		Body:        "<p>newer</p>",
+		Published:   true,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	current := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	older := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-15T10:00:00Z",
+	}
+
+	removedTarget, err := snapshotFilePath(root, "/posts/newer/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath removed route: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(removedTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll removed route: %v", err)
+	}
+	if err := os.WriteFile(removedTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile removed route: %v", err)
+	}
+
+	neighborTarget, err := snapshotFilePath(root, "/posts/current/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath neighbor route: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(neighborTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll neighbor route: %v", err)
+	}
+	if err := os.WriteFile(neighborTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile neighbor route: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:       settings,
+		publishedPosts: []PostRecord{current, older},
+		postBySlug: map[string]PostRecord{
+			current.Slug: current,
+			older.Slug:   older,
+		},
+		postByID: map[string]PostRecord{
+			current.ID: current,
+			older.ID:   older,
+		},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	req := revalidateRequest{
+		Current:  mustMarshalJSONRaw(t, newer),
+		Original: mustMarshalJSONRaw(t, original),
+	}
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidatePost(root, req)
+	})
+	if err != nil {
+		t.Fatalf("revalidatePost: %v", err)
+	}
+
+	if _, err := os.Stat(removedTarget); !os.IsNotExist(err) {
+		t.Fatalf("removed route should be deleted, stat err = %v", err)
+	}
+
+	body, err := os.ReadFile(neighborTarget)
+	if err != nil {
+		t.Fatalf("ReadFile neighbor route: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("neighbor route still stale")
+	}
+	if strings.Contains(text, `/posts/newer/`) {
+		t.Fatalf("neighbor route still references removed post: %s", text)
+	}
+}
+
 func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
 	root := t.TempDir()
 	settings := defaultSettings()
@@ -789,7 +901,7 @@ func TestRevalidateDAGAffectedPostRoutesUpdatesNeighborRoute(t *testing.T) {
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("", newer.Slug)})
+		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("", newer.Slug)}, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateDAGAffectedPostRoutes: %v", err)
@@ -863,7 +975,7 @@ func TestRevalidateDAGAffectedPostRoutesUpdatesBaseRouteForTranslationChange(t *
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("ru", translation.Slug)})
+		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("ru", translation.Slug)}, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateDAGAffectedPostRoutes: %v", err)
@@ -937,7 +1049,7 @@ func TestRevalidateDAGAffectedPostRoutesUpdatesLocalizedRouteForSourceChange(t *
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("", source.Slug)})
+		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("", source.Slug)}, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateDAGAffectedPostRoutes: %v", err)
