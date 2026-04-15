@@ -3,6 +3,8 @@ package site
 import (
 	"strings"
 	"testing"
+
+	"alleycat-backend/internal/dag"
 )
 
 func TestSiteDAGResolvesBasePostRoute(t *testing.T) {
@@ -133,6 +135,72 @@ func TestSiteDAGResolvesLocalizedPostRoute(t *testing.T) {
 		}
 		if !strings.Contains(body, `href="/ru/posts/hello"`) {
 			t.Fatalf("localized route body missing localized canonical path: %s", body)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}
+
+func TestSiteDAGMarksNeighborRouteAffectedByAdjacentPostChange(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	newer := PostRecord{
+		ID:          "post-newer",
+		Slug:        "newer",
+		Title:       "Newer",
+		Body:        "<p>Newer</p>",
+		Published:   true,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	current := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>Current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	older := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>Older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-15T10:00:00Z",
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{newer, current, older},
+		postBySlug:           map[string]PostRecord{newer.Slug: newer, current.Slug: current, older.Slug: older},
+		postByID:             map[string]PostRecord{newer.ID: newer, current.ID: current, older.ID: older},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		engine := newSiteDAGEngine()
+		resolveCtx := engine.NewContext()
+		route := routeNodeKey("/posts/current/")
+		if _, err := engine.Resolve(resolveCtx, route); err != nil {
+			t.Fatalf("Resolve route: %v", err)
+		}
+
+		affected := dagAffectedRouteKeysFromChanged(resolveCtx, []dag.NodeKey{postBySlugNodeKey("", newer.Slug)})
+		if len(affected) != 1 || affected[0] != route {
+			t.Fatalf("affected routes = %#v", affected)
 		}
 		return nil
 	})

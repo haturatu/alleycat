@@ -96,14 +96,21 @@ func (adjacentPostsResolver) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (
 		return dag.ResolveResult{}, nil
 	}
 	newer, older := getAdjacentPostsInLocale(post, localeScopeValue(key.Scope))
+	deps := []dag.NodeKey{
+		postBySlugNodeKey(localeScopeValue(key.Scope), key.ID),
+	}
+	for _, candidate := range []*PostRecord{newer, older} {
+		if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
+			continue
+		}
+		deps = append(deps, postBySlugNodeKey(localeScopeValue(key.Scope), candidate.Slug))
+	}
 	return dag.ResolveResult{
 		Value: adjacentPostsValue{
 			Newer: newer,
 			Older: older,
 		},
-		Deps: []dag.NodeKey{
-			postBySlugNodeKey(localeScopeValue(key.Scope), key.ID),
-		},
+		Deps: deps,
 	}, nil
 }
 
