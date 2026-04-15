@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"alleycat-backend/internal/dag"
 )
 
 func TestRevalidateTranslationContextUpdatesHomeAndArchive(t *testing.T) {
@@ -175,4 +177,93 @@ func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
 	if !strings.Contains(text, "/posts/"+current.Slug+"/") {
 		t.Fatalf("older route missing updated newer link: %s", text)
 	}
+}
+
+func TestRenderPostRouteForRevalidationUsesDAGWhenEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	post := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>Body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 nil,
+		publishedPosts:       []PostRecord{post},
+		postBySlug:           map[string]PostRecord{post.Slug: post},
+		postByID:             map[string]PostRecord{post.ID: post},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		body, ok, err := renderPostRouteForRevalidation("/posts/hello/", func() (string, bool) {
+			t.Fatal("fallback should not be used when DAG is enabled")
+			return "", false
+		})
+		if err != nil {
+			t.Fatalf("renderPostRouteForRevalidation: %v", err)
+		}
+		if !ok {
+			t.Fatal("renderPostRouteForRevalidation ok = false")
+		}
+		if !strings.Contains(string(body), "Hello") {
+			t.Fatalf("route body missing post title: %s", string(body))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}
+
+func TestDAGAffectedRouteKeysFromChangedFiltersRoutes(t *testing.T) {
+	t.Parallel()
+
+	engine := dag.NewEngine()
+	resolveCtx := engine.NewContext()
+
+	source := dag.NodeKey{Kind: "source", ID: "a"}
+	input := dag.NodeKey{Kind: nodePostRenderInput, Scope: nodeScopeBase, ID: "hello"}
+	route := routeNodeKey("/posts/hello/")
+
+	engine.Register(source.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "source"}, nil
+	}))
+	engine.Register(input.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "input", Deps: []dag.NodeKey{source}}, nil
+	}))
+	engine.Register(route.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "route", Deps: []dag.NodeKey{input}}, nil
+	}))
+
+	if _, err := engine.Resolve(resolveCtx, route); err != nil {
+		t.Fatalf("Resolve(route): %v", err)
+	}
+
+	affected := dagAffectedRouteKeysFromChanged(resolveCtx, []dag.NodeKey{source})
+	if len(affected) != 1 || affected[0] != route {
+		t.Fatalf("dagAffectedRouteKeysFromChanged = %#v", affected)
+	}
+}
+
+type resolverFunc func(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error)
+
+func (f resolverFunc) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {
+	return f(ctx, key)
 }

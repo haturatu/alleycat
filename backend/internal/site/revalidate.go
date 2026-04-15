@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"alleycat-backend/internal/dag"
 )
 
 type revalidateRequest struct {
@@ -155,15 +157,21 @@ func revalidatePost(root string, req revalidateRequest) error {
 	}
 
 	if current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
-		slog.Info("revalidate post render current route", "route", "/posts/"+current.Slug+"/")
-		html, ok := renderPostFromInput(&postRenderInput{
-			path:   "/posts/" + current.Slug + "/",
-			locale: "",
-			slug:   current.Slug,
-			post:   current,
-		}, settings)
+		route := "/posts/" + current.Slug + "/"
+		slog.Info("revalidate post render current route", "route", route)
+		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+			return renderPostFromInput(&postRenderInput{
+				path:   route,
+				locale: "",
+				slug:   current.Slug,
+				post:   current,
+			}, settings)
+		})
+		if err != nil {
+			return err
+		}
 		if ok {
-			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(current.Slug)+"/", []byte(html)); err != nil {
+			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(current.Slug)+"/", html); err != nil {
 				return err
 			}
 		}
@@ -202,17 +210,23 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 	}
 
 	if current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" && isEnabledTranslationLocale(settings, current.Locale) {
-		slog.Info("revalidate translation render current route", "route", "/"+normalizeLocale(current.Locale)+"/posts/"+current.Slug+"/")
+		route := "/" + normalizeLocale(current.Locale) + "/posts/" + current.Slug + "/"
+		slog.Info("revalidate translation render current route", "route", route)
 		post := translationToPost(*current)
-		html, ok := renderPostFromInput(&postRenderInput{
-			path:        "/" + current.Locale + "/posts/" + current.Slug + "/",
-			locale:      normalizeLocale(current.Locale),
-			slug:        current.Slug,
-			post:        &post,
-			translation: current,
-		}, settings)
+		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+			return renderPostFromInput(&postRenderInput{
+				path:        route,
+				locale:      normalizeLocale(current.Locale),
+				slug:        current.Slug,
+				post:        &post,
+				translation: current,
+			}, settings)
+		})
+		if err != nil {
+			return err
+		}
 		if ok {
-			if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", []byte(html)); err != nil {
+			if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", html); err != nil {
 				return err
 			}
 		}
@@ -359,15 +373,21 @@ func revalidateSourcePostFamily(root string, settings SettingsRecord, current, o
 func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, sourcePostID string) error {
 	post := getPostByID(sourcePostID)
 	if post != nil && post.Published && strings.TrimSpace(post.Slug) != "" {
-		slog.Info("revalidate source post render start", "source_post_id", sourcePostID, "route", "/posts/"+post.Slug+"/")
-		html, ok := renderPostFromInput(&postRenderInput{
-			path:   "/posts/" + post.Slug + "/",
-			locale: "",
-			slug:   post.Slug,
-			post:   post,
-		}, settings)
+		route := "/posts/" + post.Slug + "/"
+		slog.Info("revalidate source post render start", "source_post_id", sourcePostID, "route", route)
+		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+			return renderPostFromInput(&postRenderInput{
+				path:   route,
+				locale: "",
+				slug:   post.Slug,
+				post:   post,
+			}, settings)
+		})
+		if err != nil {
+			return err
+		}
 		if ok {
-			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(post.Slug)+"/", []byte(html)); err != nil {
+			if err := writeSnapshotRoute(root, "/posts/"+url.PathEscape(post.Slug)+"/", html); err != nil {
 				return err
 			}
 		}
@@ -378,22 +398,71 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 		if locale == "" || strings.TrimSpace(item.Slug) == "" {
 			continue
 		}
-		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", "/"+locale+"/posts/"+item.Slug+"/")
+		route := "/" + locale + "/posts/" + item.Slug + "/"
+		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", route)
 		post := translationToPost(item)
-		html, ok := renderPostFromInput(&postRenderInput{
-			path:        "/" + locale + "/posts/" + item.Slug + "/",
-			locale:      locale,
-			slug:        item.Slug,
-			post:        &post,
-			translation: &item,
-		}, settings)
+		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+			return renderPostFromInput(&postRenderInput{
+				path:        route,
+				locale:      locale,
+				slug:        item.Slug,
+				post:        &post,
+				translation: &item,
+			}, settings)
+		})
+		if err != nil {
+			return err
+		}
 		if ok {
-			if err := writeSnapshotRoute(root, "/"+url.PathEscape(locale)+"/posts/"+url.PathEscape(item.Slug)+"/", []byte(html)); err != nil {
+			if err := writeSnapshotRoute(root, "/"+url.PathEscape(locale)+"/posts/"+url.PathEscape(item.Slug)+"/", html); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func dagPostRouteRevalidationEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("SITE_DAG_POST_ROUTES"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func renderPostRouteForRevalidation(path string, fallback func() (string, bool)) ([]byte, bool, error) {
+	if !dagPostRouteRevalidationEnabled() {
+		html, ok := fallback()
+		return []byte(html), ok, nil
+	}
+
+	engine := newSiteDAGEngine()
+	resolveCtx := engine.NewContext()
+	value, err := engine.Resolve(resolveCtx, routeNodeKey(path))
+	if err != nil {
+		return nil, false, err
+	}
+	route, ok := value.(routeValue)
+	if !ok {
+		return nil, false, nil
+	}
+	return append([]byte(nil), route.Body...), true, nil
+}
+
+func dagAffectedRouteKeysFromChanged(ctx *dag.ResolveContext, changed []dag.NodeKey) []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+	affected := ctx.AffectedFrom(changed)
+	out := make([]dag.NodeKey, 0, len(affected))
+	for _, key := range affected {
+		if key.Kind != nodeRoute {
+			continue
+		}
+		out = append(out, key)
+	}
+	return out
 }
 
 func revalidateTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
