@@ -179,6 +179,73 @@ func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
 	}
 }
 
+func TestRevalidateAdjacentPostContextSkipsLegacyPathWhenDAGEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	older := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-10T10:00:00Z",
+	}
+	current := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/posts/"+older.Slug+"/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath older: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll older: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile older: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{current, older},
+		postBySlug:           map[string]PostRecord{older.Slug: older, current.Slug: current},
+		postByID:             map[string]PostRecord{older.ID: older, current.ID: current},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateAdjacentPostContext(root, settings, &current, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateAdjacentPostContext: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile older: %v", err)
+	}
+	if string(body) != "stale" {
+		t.Fatalf("legacy adjacent rebuild should be skipped when DAG is enabled: %s", string(body))
+	}
+}
+
 func TestRenderPostRouteForRevalidationUsesDAGWhenEnabled(t *testing.T) {
 	t.Setenv("SITE_DAG_POST_ROUTES", "true")
 

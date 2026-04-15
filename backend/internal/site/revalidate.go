@@ -608,6 +608,9 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 }
 
 func revalidateAdjacentPostContext(root string, settings SettingsRecord, current, original *PostRecord) error {
+	if dagPostRouteRevalidationEnabled() {
+		return nil
+	}
 	ctx := currentSnapshotBuildContext()
 	if ctx == nil {
 		return nil
