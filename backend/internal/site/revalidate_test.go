@@ -913,18 +913,18 @@ func TestRevalidateTranslationContextSkipsLegacyFamilyPathWhenDAGEnabled(t *test
 	}
 }
 
-func TestRenderPostRouteForRevalidationUsesFallback(t *testing.T) {
-	body, ok, err := renderPostRouteForRevalidation("/posts/hello/", func() (string, bool) {
+func TestRenderLegacyPostRouteUsesFallback(t *testing.T) {
+	body, ok, err := renderLegacyPostRoute(func() (string, bool) {
 		return "<html>Hello</html>", true
 	})
 	if err != nil {
-		t.Fatalf("renderPostRouteForRevalidation: %v", err)
+		t.Fatalf("renderLegacyPostRoute: %v", err)
 	}
 	if !ok {
-		t.Fatal("renderPostRouteForRevalidation ok = false")
+		t.Fatal("renderLegacyPostRoute ok = false")
 	}
 	if string(body) != "<html>Hello</html>" {
-		t.Fatalf("renderPostRouteForRevalidation body = %q", string(body))
+		t.Fatalf("renderLegacyPostRoute body = %q", string(body))
 	}
 }
 

@@ -159,7 +159,7 @@ func revalidatePost(root string, req revalidateRequest) error {
 	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
 		route := "/posts/" + current.Slug + "/"
 		slog.Info("revalidate post render current route", "route", route)
-		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
 			return renderPostFromInput(&postRenderInput{
 				path:   route,
 				locale: "",
@@ -216,7 +216,7 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 		route := "/" + normalizeLocale(current.Locale) + "/posts/" + current.Slug + "/"
 		slog.Info("revalidate translation render current route", "route", route)
 		post := translationToPost(*current)
-		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
 			return renderPostFromInput(&postRenderInput{
 				path:        route,
 				locale:      normalizeLocale(current.Locale),
@@ -384,7 +384,7 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 	if post != nil && post.Published && strings.TrimSpace(post.Slug) != "" {
 		route := "/posts/" + post.Slug + "/"
 		slog.Info("revalidate source post render start", "source_post_id", sourcePostID, "route", route)
-		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
 			return renderPostFromInput(&postRenderInput{
 				path:   route,
 				locale: "",
@@ -410,7 +410,7 @@ func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, s
 		route := "/" + locale + "/posts/" + item.Slug + "/"
 		slog.Info("revalidate translation render start", "source_post_id", sourcePostID, "locale", locale, "route", route)
 		post := translationToPost(item)
-		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
+		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
 			return renderPostFromInput(&postRenderInput{
 				path:        route,
 				locale:      locale,
@@ -440,8 +440,7 @@ func dagPostRouteRevalidationEnabled() bool {
 	}
 }
 
-func renderPostRouteForRevalidation(path string, fallback func() (string, bool)) ([]byte, bool, error) {
-	_ = path
+func renderLegacyPostRoute(fallback func() (string, bool)) ([]byte, bool, error) {
 	html, ok := fallback()
 	return []byte(html), ok, nil
 }
