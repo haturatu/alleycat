@@ -76,7 +76,7 @@ func TestRevalidateTranslationContextUpdatesHomeAndArchive(t *testing.T) {
 	}
 
 	err := withSnapshotBuildContext(ctx, func() error {
-		return revalidateTranslationContext(root, settings, &translation, nil)
+		return revalidateTranslationContext(root, &translation, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateTranslationContext: %v", err)
@@ -567,7 +567,7 @@ func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateAdjacentPostContext(root, settings, &current, nil)
+		return revalidateAdjacentPostContext(root, &current, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateAdjacentPostContext: %v", err)
@@ -638,7 +638,7 @@ func TestRevalidateAdjacentPostContextSkipsLegacyPathWhenDAGEnabled(t *testing.T
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateAdjacentPostContext(root, settings, &current, nil)
+		return revalidateAdjacentPostContext(root, &current, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateAdjacentPostContext: %v", err)
@@ -740,7 +740,7 @@ func TestRevalidateAdjacentTranslationContextSkipsLegacyPathWhenDAGEnabled(t *te
 	}
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		return revalidateAdjacentTranslationContext(root, settings, &currentTranslation, nil)
+		return revalidateAdjacentTranslationContext(root, &currentTranslation, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateAdjacentTranslationContext: %v", err)
@@ -812,7 +812,7 @@ func TestRevalidateSourcePostFamilySkipsLegacyPathWhenDAGEnabled(t *testing.T) {
 	}
 
 	err := withSnapshotBuildContext(ctx, func() error {
-		return revalidateSourcePostFamily(root, settings, &source, nil)
+		return revalidateSourcePostFamily(root, &source, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateSourcePostFamily: %v", err)
@@ -892,7 +892,7 @@ func TestRevalidateTranslationContextSkipsLegacyFamilyPathWhenDAGEnabled(t *test
 	}
 
 	err := withSnapshotBuildContext(ctx, func() error {
-		return revalidateTranslationContext(root, settings, &translation, nil)
+		return revalidateTranslationContext(root, &translation, nil)
 	})
 	if err != nil {
 		t.Fatalf("revalidateTranslationContext: %v", err)

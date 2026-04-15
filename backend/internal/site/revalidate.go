@@ -181,10 +181,10 @@ func revalidatePost(root string, req revalidateRequest) error {
 	}
 
 	slog.Info("revalidate post family start")
-	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
+	if err := revalidateSourcePostFamily(root, current, original); err != nil {
 		return err
 	}
-	if err := revalidateAdjacentPostContext(root, settings, current, original); err != nil {
+	if err := revalidateAdjacentPostContext(root, current, original); err != nil {
 		return err
 	}
 	impact := analyzePostImpact(current, original)
@@ -239,10 +239,10 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 	}
 
 	slog.Info("revalidate translation context start")
-	if err := revalidateTranslationContext(root, settings, current, original); err != nil {
+	if err := revalidateTranslationContext(root, current, original); err != nil {
 		return err
 	}
-	if err := revalidateAdjacentTranslationContext(root, settings, current, original); err != nil {
+	if err := revalidateAdjacentTranslationContext(root, current, original); err != nil {
 		return err
 	}
 	return nil
@@ -363,7 +363,7 @@ func archiveFilterForBasePath(basePath string) (string, bool) {
 	return route.filter, true
 }
 
-func revalidateSourcePostFamily(root string, settings SettingsRecord, current, original *PostRecord) error {
+func revalidateSourcePostFamily(root string, current, original *PostRecord) error {
 	if dagPostRouteRevalidationEnabled() {
 		return nil
 	}
@@ -372,14 +372,18 @@ func revalidateSourcePostFamily(root string, settings SettingsRecord, current, o
 			continue
 		}
 		slog.Info("revalidate source post family item start", "source_post_id", item.ID)
-		if err := revalidatePostRecordAndTranslations(root, settings, item.ID); err != nil {
+		if err := revalidatePostRecordAndTranslations(root, item.ID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func revalidatePostRecordAndTranslations(root string, settings SettingsRecord, sourcePostID string) error {
+func revalidatePostRecordAndTranslations(root string, sourcePostID string) error {
+	settings := getSettings()
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		settings = snapshot.settings
+	}
 	post := getPostByID(sourcePostID)
 	if post != nil && post.Published && strings.TrimSpace(post.Slug) != "" {
 		route := "/posts/" + post.Slug + "/"
@@ -654,7 +658,11 @@ func dagSeedPostRouteKeys(snapshot *snapshotBuildContext) []dag.NodeKey {
 	return routes
 }
 
-func revalidateTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
+func revalidateTranslationContext(root string, current, original *PostTranslationRecord) error {
+	settings := getSettings()
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		settings = snapshot.settings
+	}
 	seen := map[string]struct{}{}
 	for _, item := range []*PostTranslationRecord{current, original} {
 		if item == nil {
@@ -669,7 +677,7 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 		}
 		seen[sourceID] = struct{}{}
 		if !dagPostRouteRevalidationEnabled() {
-			if err := revalidatePostRecordAndTranslations(root, settings, sourceID); err != nil {
+			if err := revalidatePostRecordAndTranslations(root, sourceID); err != nil {
 				return err
 			}
 		}
@@ -686,7 +694,7 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 	return nil
 }
 
-func revalidateAdjacentPostContext(root string, settings SettingsRecord, current, original *PostRecord) error {
+func revalidateAdjacentPostContext(root string, current, original *PostRecord) error {
 	if dagPostRouteRevalidationEnabled() {
 		return nil
 	}
@@ -711,7 +719,7 @@ func revalidateAdjacentPostContext(root string, settings SettingsRecord, current
 				continue
 			}
 			seen[slug] = struct{}{}
-			if err := revalidatePostRecordAndTranslations(root, settings, strings.TrimSpace(candidate.ID)); err != nil {
+			if err := revalidatePostRecordAndTranslations(root, strings.TrimSpace(candidate.ID)); err != nil {
 				return err
 			}
 		}
@@ -719,7 +727,7 @@ func revalidateAdjacentPostContext(root string, settings SettingsRecord, current
 	return nil
 }
 
-func revalidateAdjacentTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {
+func revalidateAdjacentTranslationContext(root string, current, original *PostTranslationRecord) error {
 	if dagPostRouteRevalidationEnabled() {
 		return nil
 	}
@@ -753,7 +761,7 @@ func revalidateAdjacentTranslationContext(root string, settings SettingsRecord, 
 			if translation == nil {
 				continue
 			}
-			if err := revalidateTranslationContext(root, settings, translation, translation); err != nil {
+			if err := revalidateTranslationContext(root, translation, translation); err != nil {
 				return err
 			}
 		}
