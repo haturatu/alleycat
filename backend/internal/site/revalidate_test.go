@@ -1,6 +1,7 @@
 package site
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,6 +101,145 @@ func TestRevalidateTranslationContextUpdatesHomeAndArchive(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("%q missing %q: %s", route, want, text)
 		}
+	}
+}
+
+func TestRevalidatePostUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	post := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/posts/hello/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath current: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll current: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile current: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{post},
+		postBySlug:           map[string]PostRecord{post.Slug: post},
+		postByID:             map[string]PostRecord{post.ID: post},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	req := revalidateRequest{Current: mustMarshalJSONRaw(t, post)}
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidatePost(root, req)
+	})
+	if err != nil {
+		t.Fatalf("revalidatePost: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile current: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("current route still stale")
+	}
+	if !strings.Contains(text, "Hello") {
+		t.Fatalf("current route missing rendered post: %s", text)
+	}
+}
+
+func TestRevalidateTranslationUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	source := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	translation := PostTranslationRecord{
+		ID:          "tr-1",
+		SourcePost:  source.ID,
+		Locale:      "ru",
+		Slug:        "privet",
+		Title:       "Privet",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/ru/posts/privet/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath localized: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll localized: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile localized: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{source},
+		postBySlug:           map[string]PostRecord{source.Slug: source},
+		postByID:             map[string]PostRecord{source.ID: source},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{source.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	req := revalidateRequest{Current: mustMarshalJSONRaw(t, translation)}
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateTranslation(root, req)
+	})
+	if err != nil {
+		t.Fatalf("revalidateTranslation: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile localized: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("localized route still stale")
+	}
+	if !strings.Contains(text, "Privet") {
+		t.Fatalf("localized route missing rendered translation: %s", text)
 	}
 }
 
@@ -853,4 +993,13 @@ type resolverFunc func(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveRes
 
 func (f resolverFunc) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {
 	return f(ctx, key)
+}
+
+func mustMarshalJSONRaw(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	return json.RawMessage(data)
 }

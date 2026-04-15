@@ -156,7 +156,7 @@ func revalidatePost(root string, req revalidateRequest) error {
 		}
 	}
 
-	if current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
+	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
 		route := "/posts/" + current.Slug + "/"
 		slog.Info("revalidate post render current route", "route", route)
 		html, ok, err := renderPostRouteForRevalidation(route, func() (string, bool) {
@@ -212,7 +212,7 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 		}
 	}
 
-	if current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" && isEnabledTranslationLocale(settings, current.Locale) {
+	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" && isEnabledTranslationLocale(settings, current.Locale) {
 		route := "/" + normalizeLocale(current.Locale) + "/posts/" + current.Slug + "/"
 		slog.Info("revalidate translation render current route", "route", route)
 		post := translationToPost(*current)
