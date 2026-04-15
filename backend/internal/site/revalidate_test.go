@@ -467,8 +467,8 @@ func TestRevalidateTranslationRemovesOldRouteAndUpdatesNeighborWhenUnpublishedWi
 		},
 		pageByURL: map[string]PageRecord{},
 		translationByKey: map[string]PostTranslationRecord{
-			"ru|" + current.Slug:  current,
-			"ru|" + older.Slug:    older,
+			"ru|" + current.Slug: current,
+			"ru|" + older.Slug:   older,
 		},
 		translationsBySource: map[string][]PostTranslationRecord{
 			sourceCurrent.ID: []PostTranslationRecord{current},

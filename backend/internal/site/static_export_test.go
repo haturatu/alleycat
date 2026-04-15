@@ -33,9 +33,9 @@ func TestBuildSnapshotRenderTasksUsesDAGForPostRoutes(t *testing.T) {
 		PublishedAt: "2026-04-16T10:00:00Z",
 	}
 	page := PageRecord{
-		Title:      "About",
-		URL:        "/about/",
-		Published:  true,
+		Title:       "About",
+		URL:         "/about/",
+		Published:   true,
 		MenuVisible: true,
 	}
 
