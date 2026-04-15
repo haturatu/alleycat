@@ -341,6 +341,39 @@ func TestRevalidateDAGAffectedPostRoutesUpdatesNeighborRoute(t *testing.T) {
 	}
 }
 
+func TestDAGAffectedRouteReasonsIncludesDependencyPath(t *testing.T) {
+	t.Parallel()
+
+	engine := dag.NewEngine()
+	resolveCtx := engine.NewContext()
+
+	source := dag.NodeKey{Kind: "source", ID: "newer"}
+	input := dag.NodeKey{Kind: nodePostRenderInput, Scope: nodeScopeBase, ID: "current"}
+	route := routeNodeKey("/posts/current/")
+
+	engine.Register(source.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "source"}, nil
+	}))
+	engine.Register(input.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "input", Deps: []dag.NodeKey{source}}, nil
+	}))
+	engine.Register(route.Kind, resolverFunc(func(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+		return dag.ResolveResult{Value: "route", Deps: []dag.NodeKey{input}}, nil
+	}))
+
+	if _, err := engine.Resolve(resolveCtx, route); err != nil {
+		t.Fatalf("Resolve(route): %v", err)
+	}
+
+	reasons := dagAffectedRouteReasons(resolveCtx, []dag.NodeKey{source}, route)
+	if len(reasons) != 1 {
+		t.Fatalf("dagAffectedRouteReasons length = %d, want 1 (%#v)", len(reasons), reasons)
+	}
+	if !strings.Contains(reasons[0], source.String()) || !strings.Contains(reasons[0], route.String()) {
+		t.Fatalf("dagAffectedRouteReasons = %#v", reasons)
+	}
+}
+
 type resolverFunc func(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error)
 
 func (f resolverFunc) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {

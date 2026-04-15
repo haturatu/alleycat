@@ -520,6 +520,7 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey) error {
 	}
 
 	for _, route := range dagAffectedRouteKeysFromChanged(resolveCtx, changed) {
+		slog.Info("revalidate DAG affected route", "route", route.ID, "reasons", dagAffectedRouteReasons(resolveCtx, changed, route))
 		value, err := engine.Resolve(resolveCtx, route)
 		if err != nil {
 			return err
@@ -533,6 +534,25 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey) error {
 		}
 	}
 	return nil
+}
+
+func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, route dag.NodeKey) []string {
+	if ctx == nil {
+		return nil
+	}
+	out := make([]string, 0, len(changed))
+	for _, key := range changed {
+		path := ctx.ExplainPath(key, route)
+		if len(path) == 0 {
+			continue
+		}
+		parts := make([]string, 0, len(path))
+		for _, item := range path {
+			parts = append(parts, item.String())
+		}
+		out = append(out, strings.Join(parts, " -> "))
+	}
+	return out
 }
 
 func dagSeedPostRouteKeys(snapshot *snapshotBuildContext) []dag.NodeKey {

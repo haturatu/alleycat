@@ -131,6 +131,42 @@ func (ctx *ResolveContext) AffectedFrom(changed []NodeKey) []NodeKey {
 	return affected
 }
 
+func (ctx *ResolveContext) ExplainPath(from, to NodeKey) []NodeKey {
+	if from == to {
+		return []NodeKey{from}
+	}
+
+	type pathNode struct {
+		key  NodeKey
+		prev int
+	}
+
+	queue := []pathNode{{key: from, prev: -1}}
+	seen := map[NodeKey]struct{}{from: {}}
+
+	for i := 0; i < len(queue); i++ {
+		current := queue[i]
+		for _, next := range ctx.revDeps[current.key] {
+			if _, ok := seen[next]; ok {
+				continue
+			}
+			seen[next] = struct{}{}
+			queue = append(queue, pathNode{key: next, prev: i})
+			if next != to {
+				continue
+			}
+			path := []NodeKey{to}
+			for prev := i; prev >= 0; prev = queue[prev].prev {
+				path = append(path, queue[prev].key)
+			}
+			reverseKeys(path)
+			return path
+		}
+	}
+
+	return nil
+}
+
 func appendUniqueKey(items []NodeKey, candidate NodeKey) []NodeKey {
 	for _, item := range items {
 		if item == candidate {
@@ -152,4 +188,10 @@ func filterKeys(items []NodeKey, remove NodeKey) []NodeKey {
 		filtered = append(filtered, item)
 	}
 	return append([]NodeKey(nil), filtered...)
+}
+
+func reverseKeys(items []NodeKey) {
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
 }

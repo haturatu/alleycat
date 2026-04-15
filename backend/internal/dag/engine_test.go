@@ -72,6 +72,11 @@ func TestResolveBuildsDependencyIndexes(t *testing.T) {
 	if affected[0] != route && affected[1] != route {
 		t.Fatalf("AffectedFrom(source) missing route: %#v", affected)
 	}
+
+	path := ctx.ExplainPath(source, route)
+	if len(path) != 3 || path[0] != source || path[1] != derived || path[2] != route {
+		t.Fatalf("ExplainPath(source, route) = %#v", path)
+	}
 }
 
 func TestResolveReturnsCycleError(t *testing.T) {
@@ -120,6 +125,19 @@ func TestResolveReturnsResolverNotRegistered(t *testing.T) {
 	}
 	if !errors.Is(err, ErrResolverNotRegistered) {
 		t.Fatalf("Resolve(missing) error = %v, want ErrResolverNotRegistered", err)
+	}
+}
+
+func TestExplainPathReturnsNilWhenUnreachable(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+	ctx := engine.NewContext()
+
+	source := NodeKey{Kind: "source", ID: "a"}
+	target := NodeKey{Kind: "route", ID: "/posts/a/"}
+	if path := ctx.ExplainPath(source, target); path != nil {
+		t.Fatalf("ExplainPath(source, target) = %#v, want nil", path)
 	}
 }
 
