@@ -246,6 +246,108 @@ func TestRevalidateAdjacentPostContextSkipsLegacyPathWhenDAGEnabled(t *testing.T
 	}
 }
 
+func TestRevalidateAdjacentTranslationContextSkipsLegacyPathWhenDAGEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	sourceOlder := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-10T10:00:00Z",
+	}
+	sourceCurrent := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11T10:00:00Z",
+	}
+	olderTranslation := PostTranslationRecord{
+		ID:          "tr-older",
+		SourcePost:  sourceOlder.ID,
+		Locale:      "ru",
+		Slug:        "older-ru",
+		Title:       "Older RU",
+		Body:        "<p>older ru</p>",
+		Published:   true,
+		PublishedAt: "2026-04-10T10:00:00Z",
+	}
+	currentTranslation := PostTranslationRecord{
+		ID:          "tr-current",
+		SourcePost:  sourceCurrent.ID,
+		Locale:      "ru",
+		Slug:        "current-ru",
+		Title:       "Current RU",
+		Body:        "<p>current ru</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/ru/posts/"+olderTranslation.Slug+"/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath older translation: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll older translation: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile older translation: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:       settings,
+		publishedPosts: []PostRecord{sourceCurrent, sourceOlder},
+		postBySlug: map[string]PostRecord{
+			sourceOlder.Slug:   sourceOlder,
+			sourceCurrent.Slug: sourceCurrent,
+		},
+		postByID: map[string]PostRecord{
+			sourceOlder.ID:   sourceOlder,
+			sourceCurrent.ID: sourceCurrent,
+		},
+		pageByURL: map[string]PageRecord{},
+		translationByKey: map[string]PostTranslationRecord{
+			"ru|" + olderTranslation.Slug:   olderTranslation,
+			"ru|" + currentTranslation.Slug: currentTranslation,
+		},
+		translationsBySource: map[string][]PostTranslationRecord{
+			sourceOlder.ID:   []PostTranslationRecord{olderTranslation},
+			sourceCurrent.ID: []PostTranslationRecord{currentTranslation},
+		},
+		translationsByLocale: map[string][]PostTranslationRecord{
+			"ru": []PostTranslationRecord{currentTranslation, olderTranslation},
+		},
+		postsByTag:      map[string][]PostRecord{},
+		postsByCategory: map[string][]PostRecord{},
+		archiveIndex:    map[string]archiveListing{},
+	}
+
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateAdjacentTranslationContext(root, settings, &currentTranslation, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateAdjacentTranslationContext: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile older translation: %v", err)
+	}
+	if string(body) != "stale" {
+		t.Fatalf("legacy translation adjacent rebuild should be skipped when DAG is enabled: %s", string(body))
+	}
+}
+
 func TestRenderPostRouteForRevalidationUsesDAGWhenEnabled(t *testing.T) {
 	t.Setenv("SITE_DAG_POST_ROUTES", "true")
 
