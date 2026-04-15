@@ -208,3 +208,64 @@ func TestSiteDAGMarksNeighborRouteAffectedByAdjacentPostChange(t *testing.T) {
 		t.Fatalf("withSnapshotBuildContext: %v", err)
 	}
 }
+
+func TestSiteDAGMarksBaseRouteAffectedByTranslationChange(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	source := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>Body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	translation := PostTranslationRecord{
+		ID:          "tr-1",
+		SourcePost:  source.ID,
+		Locale:      "ru",
+		Slug:        "hello",
+		Title:       "Privet",
+		Body:        "<p>Body RU</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{source},
+		postBySlug:           map[string]PostRecord{source.Slug: source},
+		postByID:             map[string]PostRecord{source.ID: source},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{source.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		engine := newSiteDAGEngine()
+		resolveCtx := engine.NewContext()
+		baseRoute := routeNodeKey("/posts/hello/")
+		if _, err := engine.Resolve(resolveCtx, baseRoute); err != nil {
+			t.Fatalf("Resolve base route: %v", err)
+		}
+
+		affected := dagAffectedRouteKeysFromChanged(resolveCtx, []dag.NodeKey{postBySlugNodeKey("ru", translation.Slug)})
+		if len(affected) != 1 || affected[0] != baseRoute {
+			t.Fatalf("affected routes = %#v", affected)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}

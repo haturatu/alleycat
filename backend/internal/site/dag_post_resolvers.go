@@ -77,11 +77,23 @@ func (postFamilyResolver) Resolve(_ *dag.ResolveContext, key dag.NodeKey) (dag.R
 		settings = snapshot.settings
 	}
 	source, translations := loadPostFamily(key.ID, nil, settings)
+	deps := make([]dag.NodeKey, 0, 1+len(translations))
+	if source != nil && strings.TrimSpace(source.Slug) != "" {
+		deps = append(deps, postBySlugNodeKey("", strings.TrimSpace(source.Slug)))
+	}
+	for _, item := range translations {
+		locale := normalizeLocale(item.Locale)
+		if locale == "" || strings.TrimSpace(item.Slug) == "" {
+			continue
+		}
+		deps = appendUniqueDAGNodeKey(deps, postBySlugNodeKey(locale, strings.TrimSpace(item.Slug)))
+	}
 	return dag.ResolveResult{
 		Value: postFamilyValue{
 			Source:       source,
 			Translations: translations,
 		},
+		Deps: deps,
 	}, nil
 }
 
