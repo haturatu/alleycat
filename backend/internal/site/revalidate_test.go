@@ -1209,11 +1209,24 @@ func TestDAGAffectedRouteReasonsIncludesDependencyPath(t *testing.T) {
 		t.Fatalf("Resolve(route): %v", err)
 	}
 
-	reasons := dagAffectedRouteReasons(resolveCtx, []dag.NodeKey{source}, route)
+	reasons := dagAffectedRouteReasons(resolveCtx, []dag.NodeKey{source}, route, nil)
 	if len(reasons) != 1 {
 		t.Fatalf("dagAffectedRouteReasons length = %d, want 1 (%#v)", len(reasons), reasons)
 	}
 	if !strings.Contains(reasons[0], source.String()) || !strings.Contains(reasons[0], route.String()) {
+		t.Fatalf("dagAffectedRouteReasons = %#v", reasons)
+	}
+}
+
+func TestDAGAffectedRouteReasonsIncludesExtraReasons(t *testing.T) {
+	t.Parallel()
+
+	route := routeNodeKey("/posts/current/")
+	reasons := dagAffectedRouteReasons(nil, nil, route, []string{"adjacent bridge from site.post_by_slug|base|newer|"})
+	if len(reasons) != 1 {
+		t.Fatalf("dagAffectedRouteReasons length = %d, want 1 (%#v)", len(reasons), reasons)
+	}
+	if !strings.Contains(reasons[0], "adjacent bridge") {
 		t.Fatalf("dagAffectedRouteReasons = %#v", reasons)
 	}
 }

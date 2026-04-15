@@ -492,7 +492,12 @@ func appendUniqueDAGNodeKey(items []dag.NodeKey, candidate dag.NodeKey) []dag.No
 	return append(items, candidate)
 }
 
-func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRoutes []dag.NodeKey) error {
+type dagExtraRoute struct {
+	Key     dag.NodeKey
+	Reasons []string
+}
+
+func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRoutes []dagExtraRoute) error {
 	if !dagPostRouteRevalidationEnabled() || (len(changed) == 0 && len(extraRoutes) == 0) {
 		return nil
 	}
@@ -510,12 +515,14 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 	}
 
 	routes := dagAffectedRouteKeysFromChanged(resolveCtx, changed)
+	extraReasons := map[dag.NodeKey][]string{}
 	for _, route := range extraRoutes {
-		routes = appendUniqueDAGNodeKey(routes, route)
+		routes = appendUniqueDAGNodeKey(routes, route.Key)
+		extraReasons[route.Key] = append([]string(nil), route.Reasons...)
 	}
 
 	for _, route := range routes {
-		slog.Info("revalidate DAG affected route", "route", route.ID, "reasons", dagAffectedRouteReasons(resolveCtx, changed, route))
+		slog.Info("revalidate DAG affected route", "route", route.ID, "reasons", dagAffectedRouteReasons(resolveCtx, changed, route, extraReasons[route]))
 		value, err := engine.Resolve(resolveCtx, route)
 		if err != nil {
 			return err
@@ -531,33 +538,47 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 	return nil
 }
 
-func dagExtraAffectedBaseRoutes(current, original *PostRecord) []dag.NodeKey {
+func dagExtraAffectedBaseRoutes(current, original *PostRecord) []dagExtraRoute {
 	snapshot := currentSnapshotBuildContext()
 	if snapshot == nil {
 		return nil
 	}
-	out := make([]dag.NodeKey, 0, 4)
+	out := make([]dagExtraRoute, 0, 4)
+	seen := map[dag.NodeKey]struct{}{}
 	for _, ref := range []*PostRecord{current, original} {
 		if ref == nil {
 			continue
 		}
+		refSlug := strings.TrimSpace(ref.Slug)
+		refKey := postBySlugNodeKey("", refSlug)
 		newer, older := snapshot.getAdjacentPostsAroundReferenceInLocale(ref, "")
 		for _, candidate := range []*PostRecord{newer, older} {
 			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
 				continue
 			}
-			out = appendUniqueDAGNodeKey(out, routeNodeKey(postRoutePath("", strings.TrimSpace(candidate.Slug))))
+			route := routeNodeKey(postRoutePath("", strings.TrimSpace(candidate.Slug)))
+			if _, ok := seen[route]; ok {
+				continue
+			}
+			seen[route] = struct{}{}
+			out = append(out, dagExtraRoute{
+				Key: route,
+				Reasons: []string{
+					"adjacent bridge from " + refKey.String(),
+				},
+			})
 		}
 	}
 	return out
 }
 
-func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord) []dag.NodeKey {
+func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord) []dagExtraRoute {
 	snapshot := currentSnapshotBuildContext()
 	if snapshot == nil {
 		return nil
 	}
-	out := make([]dag.NodeKey, 0, 4)
+	out := make([]dagExtraRoute, 0, 4)
+	seen := map[dag.NodeKey]struct{}{}
 	for _, ref := range []*PostTranslationRecord{current, original} {
 		if ref == nil {
 			continue
@@ -566,6 +587,7 @@ func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord)
 		if locale == "" {
 			continue
 		}
+		refKey := postBySlugNodeKey(locale, strings.TrimSpace(ref.Slug))
 		post := translationToPost(*ref)
 		newer, older := snapshot.getAdjacentPostsAroundReferenceInLocale(&post, locale)
 		for _, candidate := range []*PostRecord{newer, older} {
@@ -576,17 +598,27 @@ func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord)
 			if translation == nil || strings.TrimSpace(translation.Slug) == "" {
 				continue
 			}
-			out = appendUniqueDAGNodeKey(out, routeNodeKey(postRoutePath(locale, strings.TrimSpace(translation.Slug))))
+			route := routeNodeKey(postRoutePath(locale, strings.TrimSpace(translation.Slug)))
+			if _, ok := seen[route]; ok {
+				continue
+			}
+			seen[route] = struct{}{}
+			out = append(out, dagExtraRoute{
+				Key: route,
+				Reasons: []string{
+					"adjacent translation bridge from " + refKey.String(),
+				},
+			})
 		}
 	}
 	return out
 }
 
-func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, route dag.NodeKey) []string {
+func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, route dag.NodeKey, extras []string) []string {
 	if ctx == nil {
-		return nil
+		return append([]string(nil), extras...)
 	}
-	out := make([]string, 0, len(changed))
+	out := append([]string(nil), extras...)
 	for _, key := range changed {
 		path := ctx.ExplainPath(key, route)
 		if len(path) == 0 {
