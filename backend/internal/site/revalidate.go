@@ -146,7 +146,6 @@ func revalidatePage(root string, req revalidateRequest) error {
 func revalidatePost(root string, req revalidateRequest) error {
 	current := decodePostRecord(req.Current)
 	original := decodePostRecord(req.Original)
-	settings := getSettings()
 	slog.Info("revalidate post start", "action", req.Action, "current_id", valueOrEmptyPostID(current), "current_slug", valueOrEmptyPostSlug(current), "original_id", valueOrEmptyPostID(original), "original_slug", valueOrEmptyPostSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Slug) != "" {
@@ -157,6 +156,7 @@ func revalidatePost(root string, req revalidateRequest) error {
 	}
 
 	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Slug) != "" {
+		settings := currentRevalidationSettings()
 		route := "/posts/" + current.Slug + "/"
 		slog.Info("revalidate post render current route", "route", route)
 		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
@@ -190,6 +190,7 @@ func revalidatePost(root string, req revalidateRequest) error {
 	impact := analyzePostImpact(current, original)
 	slog.Info("revalidate post impact analyzed", "home", impact.home, "main_archive", impact.mainArchive, "tag_routes", len(impact.tagArchives), "category_routes", len(impact.categoryDirs))
 	if impact.home || impact.mainArchive {
+		settings := currentRevalidationSettings()
 		slog.Info("revalidate post home/archive start")
 		if err := revalidateHomeAndArchives(root, settings, current, original, impact); err != nil {
 			return err
@@ -202,7 +203,6 @@ func revalidatePost(root string, req revalidateRequest) error {
 func revalidateTranslation(root string, req revalidateRequest) error {
 	current := decodeTranslationRecord(req.Current)
 	original := decodeTranslationRecord(req.Original)
-	settings := getSettings()
 	slog.Info("revalidate translation start", "action", req.Action, "current_locale", valueOrEmptyTranslationLocale(current), "current_slug", valueOrEmptyTranslationSlug(current), "original_locale", valueOrEmptyTranslationLocale(original), "original_slug", valueOrEmptyTranslationSlug(original))
 
 	if original != nil && strings.TrimSpace(original.Locale) != "" && strings.TrimSpace(original.Slug) != "" {
@@ -212,25 +212,28 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 		}
 	}
 
-	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" && isEnabledTranslationLocale(settings, current.Locale) {
-		route := "/" + normalizeLocale(current.Locale) + "/posts/" + current.Slug + "/"
-		slog.Info("revalidate translation render current route", "route", route)
-		post := translationToPost(*current)
-		html, ok, err := renderLegacyPostRoute(func() (string, bool) {
-			return renderPostFromInput(&postRenderInput{
-				path:        route,
-				locale:      normalizeLocale(current.Locale),
-				slug:        current.Slug,
-				post:        &post,
-				translation: current,
-			}, settings)
-		})
-		if err != nil {
-			return err
-		}
-		if ok {
-			if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", html); err != nil {
+	if !dagPostRouteRevalidationEnabled() && current != nil && current.Published && strings.TrimSpace(current.Locale) != "" && strings.TrimSpace(current.Slug) != "" {
+		settings := currentRevalidationSettings()
+		if isEnabledTranslationLocale(settings, current.Locale) {
+			route := "/" + normalizeLocale(current.Locale) + "/posts/" + current.Slug + "/"
+			slog.Info("revalidate translation render current route", "route", route)
+			post := translationToPost(*current)
+			html, ok, err := renderLegacyPostRoute(func() (string, bool) {
+				return renderPostFromInput(&postRenderInput{
+					path:        route,
+					locale:      normalizeLocale(current.Locale),
+					slug:        current.Slug,
+					post:        &post,
+					translation: current,
+				}, settings)
+			})
+			if err != nil {
 				return err
+			}
+			if ok {
+				if err := writeSnapshotRoute(root, "/"+url.PathEscape(normalizeLocale(current.Locale))+"/posts/"+url.PathEscape(current.Slug)+"/", html); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -447,6 +450,13 @@ func dagPostRouteRevalidationEnabled() bool {
 func renderLegacyPostRoute(fallback func() (string, bool)) ([]byte, bool, error) {
 	html, ok := fallback()
 	return []byte(html), ok, nil
+}
+
+func currentRevalidationSettings() SettingsRecord {
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		return snapshot.settings
+	}
+	return getSettings()
 }
 
 func dagAffectedRouteKeysFromChanged(ctx *dag.ResolveContext, changed []dag.NodeKey) []dag.NodeKey {
