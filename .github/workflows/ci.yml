@@ -84,4 +84,5 @@ jobs:
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run golangci-lint
-        run: "$(go env GOPATH)/bin/golangci-lint" run
+        run: |
+          "$(go env GOPATH)/bin/golangci-lint" run
