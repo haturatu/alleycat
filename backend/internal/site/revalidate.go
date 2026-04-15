@@ -176,6 +176,9 @@ func revalidatePost(root string, req revalidateRequest) error {
 			}
 		}
 	}
+	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForPost(current, original)); err != nil {
+		return err
+	}
 
 	slog.Info("revalidate post family start")
 	if err := revalidateSourcePostFamily(root, settings, current, original); err != nil {
@@ -230,6 +233,9 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 				return err
 			}
 		}
+	}
+	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForTranslation(current, original)); err != nil {
+		return err
 	}
 
 	slog.Info("revalidate translation context start")
@@ -463,6 +469,92 @@ func dagAffectedRouteKeysFromChanged(ctx *dag.ResolveContext, changed []dag.Node
 		out = append(out, key)
 	}
 	return out
+}
+
+func dagChangedKeysForPost(current, original *PostRecord) []dag.NodeKey {
+	keys := make([]dag.NodeKey, 0, 2)
+	for _, item := range []*PostRecord{current, original} {
+		if item == nil || strings.TrimSpace(item.Slug) == "" {
+			continue
+		}
+		keys = appendUniqueDAGNodeKey(keys, postBySlugNodeKey("", strings.TrimSpace(item.Slug)))
+	}
+	return keys
+}
+
+func dagChangedKeysForTranslation(current, original *PostTranslationRecord) []dag.NodeKey {
+	keys := make([]dag.NodeKey, 0, 2)
+	for _, item := range []*PostTranslationRecord{current, original} {
+		if item == nil || strings.TrimSpace(item.Slug) == "" || normalizeLocale(item.Locale) == "" {
+			continue
+		}
+		keys = appendUniqueDAGNodeKey(keys, postBySlugNodeKey(normalizeLocale(item.Locale), strings.TrimSpace(item.Slug)))
+	}
+	return keys
+}
+
+func appendUniqueDAGNodeKey(items []dag.NodeKey, candidate dag.NodeKey) []dag.NodeKey {
+	for _, item := range items {
+		if item == candidate {
+			return items
+		}
+	}
+	return append(items, candidate)
+}
+
+func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey) error {
+	if !dagPostRouteRevalidationEnabled() || len(changed) == 0 {
+		return nil
+	}
+	snapshot := currentSnapshotBuildContext()
+	if snapshot == nil {
+		return nil
+	}
+
+	engine := newSiteDAGEngine()
+	resolveCtx := engine.NewContext()
+	for _, route := range dagSeedPostRouteKeys(snapshot) {
+		if _, err := engine.Resolve(resolveCtx, route); err != nil {
+			return err
+		}
+	}
+
+	for _, route := range dagAffectedRouteKeysFromChanged(resolveCtx, changed) {
+		value, err := engine.Resolve(resolveCtx, route)
+		if err != nil {
+			return err
+		}
+		rendered, ok := value.(routeValue)
+		if !ok {
+			continue
+		}
+		if err := writeSnapshotRoute(root, rendered.Path, append([]byte(nil), rendered.Body...)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func dagSeedPostRouteKeys(snapshot *snapshotBuildContext) []dag.NodeKey {
+	if snapshot == nil {
+		return nil
+	}
+	routes := make([]dag.NodeKey, 0, len(snapshot.publishedPosts)+len(snapshot.translationByKey))
+	for _, post := range snapshot.publishedPosts {
+		if strings.TrimSpace(post.Slug) == "" {
+			continue
+		}
+		routes = append(routes, routeNodeKey(postRoutePath("", post.Slug)))
+	}
+	for locale, items := range snapshot.translationsByLocale {
+		for _, item := range items {
+			if strings.TrimSpace(item.Slug) == "" || normalizeLocale(locale) == "" {
+				continue
+			}
+			routes = append(routes, routeNodeKey(postRoutePath(locale, item.Slug)))
+		}
+	}
+	return routes
 }
 
 func revalidateTranslationContext(root string, settings SettingsRecord, current, original *PostTranslationRecord) error {

@@ -262,6 +262,85 @@ func TestDAGAffectedRouteKeysFromChangedFiltersRoutes(t *testing.T) {
 	}
 }
 
+func TestRevalidateDAGAffectedPostRoutesUpdatesNeighborRoute(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	newer := PostRecord{
+		ID:          "post-newer",
+		Slug:        "newer",
+		Title:       "Newer",
+		Body:        "<p>Newer</p>",
+		Published:   true,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	current := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>Current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	older := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>Older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-15T10:00:00Z",
+	}
+
+	target, err := snapshotFilePath(root, "/posts/current/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath current: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll current: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile current: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{newer, current, older},
+		postBySlug:           map[string]PostRecord{newer.Slug: newer, current.Slug: current, older.Slug: older},
+		postByID:             map[string]PostRecord{newer.ID: newer, current.ID: current, older.ID: older},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateDAGAffectedPostRoutes(root, []dag.NodeKey{postBySlugNodeKey("", newer.Slug)})
+	})
+	if err != nil {
+		t.Fatalf("revalidateDAGAffectedPostRoutes: %v", err)
+	}
+
+	body, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile current: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("current route still stale")
+	}
+	if !strings.Contains(text, "/posts/newer/") {
+		t.Fatalf("current route missing updated newer link: %s", text)
+	}
+}
+
 type resolverFunc func(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error)
 
 func (f resolverFunc) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {
