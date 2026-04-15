@@ -441,22 +441,9 @@ func dagPostRouteRevalidationEnabled() bool {
 }
 
 func renderPostRouteForRevalidation(path string, fallback func() (string, bool)) ([]byte, bool, error) {
-	if !dagPostRouteRevalidationEnabled() {
-		html, ok := fallback()
-		return []byte(html), ok, nil
-	}
-
-	engine := newSiteDAGEngine()
-	resolveCtx := engine.NewContext()
-	value, err := engine.Resolve(resolveCtx, routeNodeKey(path))
-	if err != nil {
-		return nil, false, err
-	}
-	route, ok := value.(routeValue)
-	if !ok {
-		return nil, false, nil
-	}
-	return append([]byte(nil), route.Body...), true, nil
+	_ = path
+	html, ok := fallback()
+	return []byte(html), ok, nil
 }
 
 func dagAffectedRouteKeysFromChanged(ctx *dag.ResolveContext, changed []dag.NodeKey) []dag.NodeKey {

@@ -913,56 +913,18 @@ func TestRevalidateTranslationContextSkipsLegacyFamilyPathWhenDAGEnabled(t *test
 	}
 }
 
-func TestRenderPostRouteForRevalidationUsesDAGWhenEnabled(t *testing.T) {
-	t.Setenv("SITE_DAG_POST_ROUTES", "true")
-
-	settings := defaultSettings()
-	settings.SiteName = "Alleycat"
-	settings.SiteLanguage = "ja"
-	settings.TranslationSourceLocale = "ja"
-
-	post := PostRecord{
-		ID:          "post-1",
-		Slug:        "hello",
-		Title:       "Hello",
-		Body:        "<p>Body</p>",
-		Published:   true,
-		PublishedAt: "2026-04-16T10:00:00Z",
-	}
-
-	ctx := &snapshotBuildContext{
-		settings:             settings,
-		menu:                 nil,
-		publishedPosts:       []PostRecord{post},
-		postBySlug:           map[string]PostRecord{post.Slug: post},
-		postByID:             map[string]PostRecord{post.ID: post},
-		pageByURL:            map[string]PageRecord{},
-		translationByKey:     map[string]PostTranslationRecord{},
-		translationsBySource: map[string][]PostTranslationRecord{},
-		translationsByLocale: map[string][]PostTranslationRecord{},
-		postsByTag:           map[string][]PostRecord{},
-		postsByCategory:      map[string][]PostRecord{},
-		archiveIndex:         map[string]archiveListing{},
-	}
-
-	err := withSnapshotBuildContext(ctx, func() error {
-		body, ok, err := renderPostRouteForRevalidation("/posts/hello/", func() (string, bool) {
-			t.Fatal("fallback should not be used when DAG is enabled")
-			return "", false
-		})
-		if err != nil {
-			t.Fatalf("renderPostRouteForRevalidation: %v", err)
-		}
-		if !ok {
-			t.Fatal("renderPostRouteForRevalidation ok = false")
-		}
-		if !strings.Contains(string(body), "Hello") {
-			t.Fatalf("route body missing post title: %s", string(body))
-		}
-		return nil
+func TestRenderPostRouteForRevalidationUsesFallback(t *testing.T) {
+	body, ok, err := renderPostRouteForRevalidation("/posts/hello/", func() (string, bool) {
+		return "<html>Hello</html>", true
 	})
 	if err != nil {
-		t.Fatalf("withSnapshotBuildContext: %v", err)
+		t.Fatalf("renderPostRouteForRevalidation: %v", err)
+	}
+	if !ok {
+		t.Fatal("renderPostRouteForRevalidation ok = false")
+	}
+	if string(body) != "<html>Hello</html>" {
+		t.Fatalf("renderPostRouteForRevalidation body = %q", string(body))
 	}
 }
 
