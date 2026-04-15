@@ -556,33 +556,7 @@ func dagExtraAffectedBaseRoutes(current, original *PostRecord) []dagExtraRoute {
 	if snapshot == nil {
 		return nil
 	}
-	out := make([]dagExtraRoute, 0, 4)
-	seen := map[dag.NodeKey]struct{}{}
-	for _, ref := range []*PostRecord{current, original} {
-		if ref == nil {
-			continue
-		}
-		refSlug := strings.TrimSpace(ref.Slug)
-		refKey := postBySlugNodeKey("", refSlug)
-		newer, older := snapshot.getAdjacentPostsAroundReferenceInLocale(ref, "")
-		for _, candidate := range []*PostRecord{newer, older} {
-			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
-				continue
-			}
-			route := routeNodeKey(postRoutePath("", strings.TrimSpace(candidate.Slug)))
-			if _, ok := seen[route]; ok {
-				continue
-			}
-			seen[route] = struct{}{}
-			out = append(out, dagExtraRoute{
-				Key: route,
-				Reasons: []string{
-					"adjacent bridge from " + refKey.String(),
-				},
-			})
-		}
-	}
-	return out
+	return snapshot.adjacentBaseRouteKeysForPosts(current, original)
 }
 
 func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord) []dagExtraRoute {
@@ -590,41 +564,7 @@ func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord)
 	if snapshot == nil {
 		return nil
 	}
-	out := make([]dagExtraRoute, 0, 4)
-	seen := map[dag.NodeKey]struct{}{}
-	for _, ref := range []*PostTranslationRecord{current, original} {
-		if ref == nil {
-			continue
-		}
-		locale := normalizeLocale(ref.Locale)
-		if locale == "" {
-			continue
-		}
-		refKey := postBySlugNodeKey(locale, strings.TrimSpace(ref.Slug))
-		post := translationToPost(*ref)
-		newer, older := snapshot.getAdjacentPostsAroundReferenceInLocale(&post, locale)
-		for _, candidate := range []*PostRecord{newer, older} {
-			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
-				continue
-			}
-			translation := getPostTranslationBySlugLocale(candidate.Slug, locale)
-			if translation == nil || strings.TrimSpace(translation.Slug) == "" {
-				continue
-			}
-			route := routeNodeKey(postRoutePath(locale, strings.TrimSpace(translation.Slug)))
-			if _, ok := seen[route]; ok {
-				continue
-			}
-			seen[route] = struct{}{}
-			out = append(out, dagExtraRoute{
-				Key: route,
-				Reasons: []string{
-					"adjacent translation bridge from " + refKey.String(),
-				},
-			})
-		}
-	}
-	return out
+	return snapshot.adjacentLocalizedRouteKeysForTranslations(current, original)
 }
 
 func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, route dag.NodeKey, extras []string) []string {

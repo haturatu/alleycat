@@ -189,6 +189,81 @@ func (ctx *snapshotBuildContext) postRouteKeys() []dag.NodeKey {
 	return routes
 }
 
+func (ctx *snapshotBuildContext) adjacentBaseRouteKeysForPosts(current, original *PostRecord) []dagExtraRoute {
+	if ctx == nil {
+		return nil
+	}
+
+	out := make([]dagExtraRoute, 0, 4)
+	seen := map[dag.NodeKey]struct{}{}
+	for _, ref := range []*PostRecord{current, original} {
+		if ref == nil {
+			continue
+		}
+		refKey := postBySlugNodeKey("", strings.TrimSpace(ref.Slug))
+		newer, older := ctx.getAdjacentPostsAroundReferenceInLocale(ref, "")
+		for _, candidate := range []*PostRecord{newer, older} {
+			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
+				continue
+			}
+			key := routeNodeKey(postRoutePath("", strings.TrimSpace(candidate.Slug)))
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, dagExtraRoute{
+				Key: key,
+				Reasons: []string{
+					"adjacent bridge from " + refKey.String(),
+				},
+			})
+		}
+	}
+	return out
+}
+
+func (ctx *snapshotBuildContext) adjacentLocalizedRouteKeysForTranslations(current, original *PostTranslationRecord) []dagExtraRoute {
+	if ctx == nil {
+		return nil
+	}
+
+	out := make([]dagExtraRoute, 0, 4)
+	seen := map[dag.NodeKey]struct{}{}
+	for _, ref := range []*PostTranslationRecord{current, original} {
+		if ref == nil {
+			continue
+		}
+		locale := normalizeLocale(ref.Locale)
+		if locale == "" {
+			continue
+		}
+		refKey := postBySlugNodeKey(locale, strings.TrimSpace(ref.Slug))
+		post := translationToPost(*ref)
+		newer, older := ctx.getAdjacentPostsAroundReferenceInLocale(&post, locale)
+		for _, candidate := range []*PostRecord{newer, older} {
+			if candidate == nil || strings.TrimSpace(candidate.Slug) == "" {
+				continue
+			}
+			translation, ok := ctx.translationByKey[locale+"|"+strings.TrimSpace(candidate.Slug)]
+			if !ok || strings.TrimSpace(translation.Slug) == "" {
+				continue
+			}
+			key := routeNodeKey(postRoutePath(locale, strings.TrimSpace(translation.Slug)))
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, dagExtraRoute{
+				Key: key,
+				Reasons: []string{
+					"adjacent translation bridge from " + refKey.String(),
+				},
+			})
+		}
+	}
+	return out
+}
+
 func (ctx *snapshotBuildContext) buildArchiveListing(items []PostRecord) archiveListing {
 	copied := append([]PostRecord(nil), items...)
 	perPage := ctx.settings.ArchivePageSize
