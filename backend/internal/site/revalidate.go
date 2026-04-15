@@ -521,7 +521,7 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 
 	engine := newSiteDAGEngine()
 	resolveCtx := engine.NewContext()
-	for _, route := range dagSeedPostRouteKeys(snapshot) {
+	for _, route := range snapshot.postRouteKeys() {
 		if _, err := engine.Resolve(resolveCtx, route); err != nil {
 			return err
 		}
@@ -644,13 +644,6 @@ func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, rou
 		out = append(out, strings.Join(parts, " -> "))
 	}
 	return out
-}
-
-func dagSeedPostRouteKeys(snapshot *snapshotBuildContext) []dag.NodeKey {
-	if snapshot == nil {
-		return nil
-	}
-	return snapshot.postRouteKeys()
 }
 
 func revalidateTranslationContext(root string, current, original *PostTranslationRecord) error {
