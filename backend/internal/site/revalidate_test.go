@@ -348,6 +348,164 @@ func TestRevalidateAdjacentTranslationContextSkipsLegacyPathWhenDAGEnabled(t *te
 	}
 }
 
+func TestRevalidateSourcePostFamilySkipsLegacyPathWhenDAGEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	source := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>Hello</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	translation := PostTranslationRecord{
+		ID:          "tr-1",
+		SourcePost:  source.ID,
+		Locale:      "ru",
+		Slug:        "privet",
+		Title:       "Privet",
+		Body:        "<p>Privet</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	for _, route := range []string{"/posts/hello/", "/ru/posts/privet/"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("MkdirAll(%q): %v", route, err)
+		}
+		if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%q): %v", route, err)
+		}
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{source},
+		postBySlug:           map[string]PostRecord{source.Slug: source},
+		postByID:             map[string]PostRecord{source.ID: source},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{source.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		return revalidateSourcePostFamily(root, settings, &source, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateSourcePostFamily: %v", err)
+	}
+
+	for _, route := range []string{"/posts/hello/", "/ru/posts/privet/"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		body, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("ReadFile(%q): %v", route, err)
+		}
+		if string(body) != "stale" {
+			t.Fatalf("legacy source family rebuild should be skipped when DAG is enabled for %q: %s", route, string(body))
+		}
+	}
+}
+
+func TestRevalidateTranslationContextSkipsLegacyFamilyPathWhenDAGEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.WelcomeText = "Welcome"
+	settings.HomePageSize = 3
+	settings.ArchivePageSize = 10
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	source := PostRecord{
+		ID:          "source-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11 12:33:00.000Z",
+	}
+	translation := PostTranslationRecord{
+		SourcePost:  "source-1",
+		Locale:      "ru",
+		Slug:        "privet",
+		Title:       "Privet",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11 12:33:00.000Z",
+	}
+
+	for _, route := range []string{"/posts/hello/", "/ru/posts/privet/", "/", "/archive/"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("MkdirAll(%q): %v", route, err)
+		}
+		if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%q): %v", route, err)
+		}
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		publishedPosts:       []PostRecord{source},
+		postBySlug:           map[string]PostRecord{source.Slug: source},
+		postByID:             map[string]PostRecord{source.ID: source},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{source.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{source}, pageCount: 1},
+		},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		return revalidateTranslationContext(root, settings, &translation, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateTranslationContext: %v", err)
+	}
+
+	for _, route := range []string{"/posts/hello/", "/ru/posts/privet/"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		body, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("ReadFile(%q): %v", route, err)
+		}
+		if string(body) != "stale" {
+			t.Fatalf("legacy translation family rebuild should be skipped when DAG is enabled for %q: %s", route, string(body))
+		}
+	}
+}
+
 func TestRenderPostRouteForRevalidationUsesDAGWhenEnabled(t *testing.T) {
 	t.Setenv("SITE_DAG_POST_ROUTES", "true")
 

@@ -364,6 +364,9 @@ func archiveFilterForBasePath(basePath string) (string, bool) {
 }
 
 func revalidateSourcePostFamily(root string, settings SettingsRecord, current, original *PostRecord) error {
+	if dagPostRouteRevalidationEnabled() {
+		return nil
+	}
 	for _, item := range []*PostRecord{current, original} {
 		if item == nil || strings.TrimSpace(item.ID) == "" {
 			continue
@@ -591,8 +594,10 @@ func revalidateTranslationContext(root string, settings SettingsRecord, current,
 			continue
 		}
 		seen[sourceID] = struct{}{}
-		if err := revalidatePostRecordAndTranslations(root, settings, sourceID); err != nil {
-			return err
+		if !dagPostRouteRevalidationEnabled() {
+			if err := revalidatePostRecordAndTranslations(root, settings, sourceID); err != nil {
+				return err
+			}
 		}
 		sourcePost := getPostByID(sourceID)
 		impact := analyzePostImpact(sourcePost, sourcePost)
