@@ -176,7 +176,11 @@ func revalidatePost(root string, req revalidateRequest) error {
 			}
 		}
 	}
-	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForPost(current, original), dagExtraAffectedBaseRoutes(current, original)); err != nil {
+	extraRoutes := []dagExtraRoute(nil)
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		extraRoutes = snapshot.adjacentBaseRouteKeysForPosts(current, original)
+	}
+	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForPost(current, original), extraRoutes); err != nil {
 		return err
 	}
 
@@ -237,7 +241,11 @@ func revalidateTranslation(root string, req revalidateRequest) error {
 			}
 		}
 	}
-	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForTranslation(current, original), dagExtraAffectedTranslationRoutes(current, original)); err != nil {
+	extraRoutes := []dagExtraRoute(nil)
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		extraRoutes = snapshot.adjacentLocalizedRouteKeysForTranslations(current, original)
+	}
+	if err := revalidateDAGAffectedPostRoutes(root, dagChangedKeysForTranslation(current, original), extraRoutes); err != nil {
 		return err
 	}
 
@@ -549,22 +557,6 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 		}
 	}
 	return nil
-}
-
-func dagExtraAffectedBaseRoutes(current, original *PostRecord) []dagExtraRoute {
-	snapshot := currentSnapshotBuildContext()
-	if snapshot == nil {
-		return nil
-	}
-	return snapshot.adjacentBaseRouteKeysForPosts(current, original)
-}
-
-func dagExtraAffectedTranslationRoutes(current, original *PostTranslationRecord) []dagExtraRoute {
-	snapshot := currentSnapshotBuildContext()
-	if snapshot == nil {
-		return nil
-	}
-	return snapshot.adjacentLocalizedRouteKeysForTranslations(current, original)
 }
 
 func dagAffectedRouteReasons(ctx *dag.ResolveContext, changed []dag.NodeKey, route dag.NodeKey, extras []string) []string {
