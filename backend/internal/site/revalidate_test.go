@@ -355,6 +355,161 @@ func TestRevalidatePostRemovesOldRouteAndUpdatesNeighborWhenUnpublishedWithDAG(t
 	}
 }
 
+func TestRevalidateTranslationRemovesOldRouteAndUpdatesNeighborWhenUnpublishedWithDAG(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	sourceNewer := PostRecord{
+		ID:          "post-newer",
+		Slug:        "newer",
+		Title:       "Newer",
+		Body:        "<p>newer</p>",
+		Published:   true,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	original := PostTranslationRecord{
+		ID:          "tr-newer",
+		SourcePost:  sourceNewer.ID,
+		Locale:      "ru",
+		Slug:        "newer-ru",
+		Title:       "Newer RU",
+		Body:        "<p>newer ru</p>",
+		Published:   true,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	newer := PostTranslationRecord{
+		ID:          "tr-newer",
+		SourcePost:  sourceNewer.ID,
+		Locale:      "ru",
+		Slug:        "newer-ru",
+		Title:       "Newer RU",
+		Body:        "<p>newer ru</p>",
+		Published:   false,
+		PublishedAt: "2026-04-17T10:00:00Z",
+	}
+	sourceCurrent := PostRecord{
+		ID:          "post-current",
+		Slug:        "current",
+		Title:       "Current",
+		Body:        "<p>current</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	current := PostTranslationRecord{
+		ID:          "tr-current",
+		SourcePost:  sourceCurrent.ID,
+		Locale:      "ru",
+		Slug:        "current-ru",
+		Title:       "Current RU",
+		Body:        "<p>current ru</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	sourceOlder := PostRecord{
+		ID:          "post-older",
+		Slug:        "older",
+		Title:       "Older",
+		Body:        "<p>older</p>",
+		Published:   true,
+		PublishedAt: "2026-04-15T10:00:00Z",
+	}
+	older := PostTranslationRecord{
+		ID:          "tr-older",
+		SourcePost:  sourceOlder.ID,
+		Locale:      "ru",
+		Slug:        "older-ru",
+		Title:       "Older RU",
+		Body:        "<p>older ru</p>",
+		Published:   true,
+		PublishedAt: "2026-04-15T10:00:00Z",
+	}
+
+	removedTarget, err := snapshotFilePath(root, "/ru/posts/newer-ru/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath removed localized route: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(removedTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll removed localized route: %v", err)
+	}
+	if err := os.WriteFile(removedTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile removed localized route: %v", err)
+	}
+
+	neighborTarget, err := snapshotFilePath(root, "/ru/posts/current-ru/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath neighbor localized route: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(neighborTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll neighbor localized route: %v", err)
+	}
+	if err := os.WriteFile(neighborTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile neighbor localized route: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:       settings,
+		publishedPosts: []PostRecord{sourceCurrent, sourceOlder, sourceNewer},
+		postBySlug: map[string]PostRecord{
+			sourceCurrent.Slug: sourceCurrent,
+			sourceOlder.Slug:   sourceOlder,
+			sourceNewer.Slug:   sourceNewer,
+		},
+		postByID: map[string]PostRecord{
+			sourceCurrent.ID: sourceCurrent,
+			sourceOlder.ID:   sourceOlder,
+			sourceNewer.ID:   sourceNewer,
+		},
+		pageByURL: map[string]PageRecord{},
+		translationByKey: map[string]PostTranslationRecord{
+			"ru|" + current.Slug:  current,
+			"ru|" + older.Slug:    older,
+		},
+		translationsBySource: map[string][]PostTranslationRecord{
+			sourceCurrent.ID: []PostTranslationRecord{current},
+			sourceOlder.ID:   []PostTranslationRecord{older},
+		},
+		translationsByLocale: map[string][]PostTranslationRecord{
+			"ru": []PostTranslationRecord{current, older},
+		},
+		postsByTag:      map[string][]PostRecord{},
+		postsByCategory: map[string][]PostRecord{},
+		archiveIndex:    map[string]archiveListing{},
+	}
+
+	req := revalidateRequest{
+		Current:  mustMarshalJSONRaw(t, newer),
+		Original: mustMarshalJSONRaw(t, original),
+	}
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidateTranslation(root, req)
+	})
+	if err != nil {
+		t.Fatalf("revalidateTranslation: %v", err)
+	}
+
+	if _, err := os.Stat(removedTarget); !os.IsNotExist(err) {
+		t.Fatalf("removed localized route should be deleted, stat err = %v", err)
+	}
+
+	body, err := os.ReadFile(neighborTarget)
+	if err != nil {
+		t.Fatalf("ReadFile neighbor localized route: %v", err)
+	}
+	text := string(body)
+	if strings.Contains(text, "stale") {
+		t.Fatalf("neighbor localized route still stale")
+	}
+	if strings.Contains(text, `/ru/posts/newer-ru/`) {
+		t.Fatalf("neighbor localized route still references removed translation: %s", text)
+	}
+}
+
 func TestRevalidateAdjacentPostContextUpdatesNeighborNavigation(t *testing.T) {
 	root := t.TempDir()
 	settings := defaultSettings()
