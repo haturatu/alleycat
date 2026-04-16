@@ -3,7 +3,6 @@ package site
 import (
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -94,27 +93,6 @@ func buildStaticSnapshot() (string, error) {
 	)
 
 	err = withSnapshotBuildContext(ctx, func() error {
-		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
-			return err
-		}
-		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
-			return err
-		}
-		for _, tag := range ctx.tags {
-			filter := fmt.Sprintf("published = true && tags ~ \"%s\"", escapeFilter(tag))
-			basePath := "/archive/" + url.PathEscape(tag) + "/"
-			if err := exportArchiveSeries(root, basePath, filter, settings); err != nil {
-				return err
-			}
-		}
-		for _, category := range ctx.categories {
-			filter := fmt.Sprintf("published = true && category = \"%s\"", escapeFilter(category))
-			basePath := "/archive/category/" + url.PathEscape(category) + "/"
-			if err := exportArchiveSeries(root, basePath, filter, settings); err != nil {
-				return err
-			}
-		}
-
 		if err := renderSnapshotRoutesInParallel(root, snapshotBuildWorkers(), buildSnapshotRenderTasks(ctx, settings)); err != nil {
 			return err
 		}

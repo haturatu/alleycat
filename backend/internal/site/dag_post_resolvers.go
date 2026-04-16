@@ -20,6 +20,8 @@ func newSiteDAGEngine() *dag.Engine {
 	engine.Register(nodePostFamily, postFamilyResolver{})
 	engine.Register(nodeAdjacentPosts, adjacentPostsResolver{})
 	engine.Register(nodeRelatedPosts, relatedPostsResolver{})
+	engine.Register(nodeHomeRenderInput, homeRenderInputResolver{})
+	engine.Register(nodeArchiveRenderInput, archiveRenderInputResolver{})
 	engine.Register(nodePageRenderInput, pageRenderInputResolver{})
 	engine.Register(nodePostRenderInput, postRenderInputResolver{})
 	engine.Register(nodeRoute, routeResolver{})
@@ -249,6 +251,38 @@ func (postRenderInputResolver) Resolve(ctx *dag.ResolveContext, key dag.NodeKey)
 type routeResolver struct{}
 
 func (routeResolver) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {
+	if key.ID == "/" {
+		inputDep := homeRenderInputNodeKey()
+		inputValueRaw, err := ctx.Resolve(inputDep)
+		if err != nil {
+			return dag.ResolveResult{}, err
+		}
+		inputValue, _ := inputValueRaw.(homeRenderInputValue)
+		return dag.ResolveResult{
+			Value: routeValue{
+				Path: key.ID,
+				Body: []byte(renderHome(inputValue.Settings)),
+			},
+			Deps: []dag.NodeKey{inputDep},
+		}, nil
+	}
+
+	if strings.HasPrefix(key.ID, "/archive") {
+		inputDep := archiveRenderInputNodeKey(key.ID)
+		inputValueRaw, err := ctx.Resolve(inputDep)
+		if err != nil {
+			return dag.ResolveResult{}, err
+		}
+		inputValue, _ := inputValueRaw.(archiveRenderInputValue)
+		return dag.ResolveResult{
+			Value: routeValue{
+				Path: key.ID,
+				Body: []byte(renderArchive(key.ID+"/", "", inputValue.Settings)),
+			},
+			Deps: []dag.NodeKey{inputDep},
+		}, nil
+	}
+
 	locale, slug, ok := resolvePostPath(key.ID)
 	if !ok {
 		inputDep := pageRenderInputNodeKey(key.ID)

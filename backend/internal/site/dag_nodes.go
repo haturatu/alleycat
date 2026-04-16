@@ -13,6 +13,8 @@ const (
 	nodePostFamily        dag.NodeKind = "site.post_family"
 	nodeAdjacentPosts     dag.NodeKind = "site.adjacent_posts"
 	nodeRelatedPosts      dag.NodeKind = "site.related_posts"
+	nodeHomeRenderInput   dag.NodeKind = "site.home_render_input"
+	nodeArchiveRenderInput dag.NodeKind = "site.archive_render_input"
 	nodePageRenderInput   dag.NodeKind = "site.page_render_input"
 	nodePostRenderInput   dag.NodeKind = "site.post_render_input"
 	nodeRoute             dag.NodeKind = "site.route"
@@ -91,6 +93,20 @@ func pageRenderInputNodeKey(path string) dag.NodeKey {
 	}
 }
 
+func homeRenderInputNodeKey() dag.NodeKey {
+	return dag.NodeKey{
+		Kind: nodeHomeRenderInput,
+		ID:   "/",
+	}
+}
+
+func archiveRenderInputNodeKey(path string) dag.NodeKey {
+	return dag.NodeKey{
+		Kind: nodeArchiveRenderInput,
+		ID:   cleanPath(path),
+	}
+}
+
 func routeNodeKey(path string) dag.NodeKey {
 	return dag.NodeKey{
 		Kind: nodeRoute,
@@ -120,6 +136,17 @@ type postRenderInputValue struct {
 
 type pageRenderInputValue struct {
 	Page     *PageRecord
+	Settings SettingsRecord
+	Menu     []PageRecord
+}
+
+type homeRenderInputValue struct {
+	Settings SettingsRecord
+	Menu     []PageRecord
+}
+
+type archiveRenderInputValue struct {
+	Path     string
 	Settings SettingsRecord
 	Menu     []PageRecord
 }

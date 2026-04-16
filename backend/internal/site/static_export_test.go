@@ -52,13 +52,15 @@ func TestBuildSnapshotRenderTasksUsesDAGForRoutes(t *testing.T) {
 		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
 		postsByTag:           map[string][]PostRecord{},
 		postsByCategory:      map[string][]PostRecord{},
-		archiveIndex:         map[string]archiveListing{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{source}, pageCount: 1},
+		},
 	}
 
 	err := withSnapshotBuildContext(ctx, func() error {
 		tasks := buildSnapshotRenderTasks(ctx, settings)
-		if len(tasks) != 3 {
-			t.Fatalf("buildSnapshotRenderTasks length = %d, want 3", len(tasks))
+		if len(tasks) != 5 {
+			t.Fatalf("buildSnapshotRenderTasks length = %d, want 5", len(tasks))
 		}
 
 		seen := map[string]bool{}
@@ -69,6 +71,14 @@ func TestBuildSnapshotRenderTasksUsesDAGForRoutes(t *testing.T) {
 			}
 			seen[task.route] = true
 			switch task.route {
+			case "/":
+				if !strings.Contains(string(body), "More posts can be found") {
+					t.Fatalf("home body missing expected content: %s", string(body))
+				}
+			case "/archive":
+				if !strings.Contains(string(body), "Archive") {
+					t.Fatalf("archive body missing title: %s", string(body))
+				}
 			case "/posts/hello":
 				if !strings.Contains(string(body), "Hello") {
 					t.Fatalf("base post body missing title: %s", string(body))
@@ -83,7 +93,7 @@ func TestBuildSnapshotRenderTasksUsesDAGForRoutes(t *testing.T) {
 				}
 			}
 		}
-		for _, route := range []string{"/posts/hello", "/ru/posts/privet", "/about"} {
+		for _, route := range []string{"/", "/archive", "/posts/hello", "/ru/posts/privet", "/about"} {
 			if !seen[route] {
 				t.Fatalf("missing route %q in tasks", route)
 			}

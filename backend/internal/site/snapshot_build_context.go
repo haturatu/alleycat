@@ -3,6 +3,7 @@ package site
 import (
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -211,14 +212,50 @@ func (ctx *snapshotBuildContext) pageRouteKeys() []dag.NodeKey {
 	return routes
 }
 
+func (ctx *snapshotBuildContext) listingRouteKeys() []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+
+	routes := []dag.NodeKey{routeNodeKey("/")}
+	seen := map[dag.NodeKey]struct{}{
+		routeNodeKey("/"): {},
+	}
+
+	appendListing := func(basePath string, listing archiveListing) {
+		pageCount := listing.pageCount
+		if pageCount < 1 {
+			pageCount = 1
+		}
+		for pageNumber := 1; pageNumber <= pageCount; pageNumber++ {
+			route := strings.TrimSuffix(basePath, "/")
+			if pageNumber > 1 {
+				route = route + "/" + strconv.Itoa(pageNumber)
+			}
+			key := routeNodeKey(route)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			routes = append(routes, key)
+		}
+	}
+
+	for basePath, listing := range ctx.archiveIndex {
+		appendListing(basePath, listing)
+	}
+
+	return routes
+}
+
 func (ctx *snapshotBuildContext) routeKeys() []dag.NodeKey {
 	if ctx == nil {
 		return nil
 	}
 
-	routes := make([]dag.NodeKey, 0, len(ctx.postRouteKeys())+len(ctx.pageRouteKeys()))
+	routes := make([]dag.NodeKey, 0, len(ctx.postRouteKeys())+len(ctx.pageRouteKeys())+len(ctx.listingRouteKeys()))
 	seen := map[dag.NodeKey]struct{}{}
-	for _, key := range append(ctx.postRouteKeys(), ctx.pageRouteKeys()...) {
+	for _, key := range append(append(ctx.postRouteKeys(), ctx.pageRouteKeys()...), ctx.listingRouteKeys()...) {
 		if _, ok := seen[key]; ok {
 			continue
 		}
