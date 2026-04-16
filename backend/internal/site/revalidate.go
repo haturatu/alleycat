@@ -269,6 +269,9 @@ type postRevalidationImpact struct {
 }
 
 func revalidateHomeAndArchives(root string, settings SettingsRecord, current, original *PostRecord, impact postRevalidationImpact) error {
+	if dagPostRouteRevalidationEnabled() {
+		return revalidateDAGListingRoutes(root, impact)
+	}
 	if impact.home {
 		slog.Info("revalidate home write start")
 		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
@@ -284,6 +287,44 @@ func revalidateHomeAndArchives(root string, settings SettingsRecord, current, or
 	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
 		slog.Info("revalidate archive route rebuild start", "route", route)
 		if err := rebuildArchiveRoute(root, settings, route); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func revalidateDAGListingRoutes(root string, impact postRevalidationImpact) error {
+	snapshot := currentSnapshotBuildContext()
+	if snapshot == nil {
+		return nil
+	}
+
+	routes := make([]dag.NodeKey, 0, 1+1+len(impact.tagArchives)+len(impact.categoryDirs))
+	if impact.home {
+		routes = append(routes, snapshot.listingRouteKeysForBase("/")...)
+	}
+	if impact.mainArchive {
+		routes = append(routes, snapshot.listingRouteKeysForBase("/archive/")...)
+	}
+	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
+		routes = append(routes, snapshot.listingRouteKeysForBase(route)...)
+	}
+
+	seen := map[dag.NodeKey]struct{}{}
+	for _, route := range routes {
+		if _, ok := seen[route]; ok {
+			continue
+		}
+		seen[route] = struct{}{}
+		slog.Info("revalidate DAG listing route", "route", route.ID)
+		body, ok, err := renderRouteFromDAG(route.ID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if err := writeSnapshotRoute(root, route.ID, body); err != nil {
 			return err
 		}
 	}

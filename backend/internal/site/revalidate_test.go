@@ -104,6 +104,97 @@ func TestRevalidateTranslationContextUpdatesHomeAndArchive(t *testing.T) {
 	}
 }
 
+func TestRevalidateTranslationContextUsesDAGForHomeAndArchiveWhenEnabled(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	for _, route := range []string{"/", "/archive/"} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("MkdirAll(%q): %v", route, err)
+		}
+		if err := os.WriteFile(target, []byte("stale"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%q): %v", route, err)
+		}
+	}
+
+	settings := defaultSettings()
+	settings.WelcomeText = "Welcome"
+	settings.HomePageSize = 3
+	settings.ArchivePageSize = 10
+	settings.TranslationSourceLocale = "ja"
+	settings.TranslationLocales = "ru"
+
+	post := PostRecord{
+		ID:          "source-1",
+		Slug:        "new-post",
+		Title:       "New Post",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11 12:33:00.000Z",
+	}
+	translation := PostTranslationRecord{
+		SourcePost:  "source-1",
+		Locale:      "ru",
+		Slug:        "new-post",
+		Title:       "New Post RU",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-11 12:33:00.000Z",
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 nil,
+		publishedPosts:       []PostRecord{post},
+		publishedPages:       nil,
+		tags:                 nil,
+		categories:           nil,
+		postBySlug:           map[string]PostRecord{post.Slug: post},
+		postByID:             map[string]PostRecord{post.ID: post},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{"ru|" + translation.Slug: translation},
+		translationsBySource: map[string][]PostTranslationRecord{post.ID: []PostTranslationRecord{translation}},
+		translationsByLocale: map[string][]PostTranslationRecord{"ru": []PostTranslationRecord{translation}},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{post}, pageCount: 1},
+		},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		return revalidateTranslationContext(root, &translation, nil)
+	})
+	if err != nil {
+		t.Fatalf("revalidateTranslationContext: %v", err)
+	}
+
+	for route, want := range map[string]string{
+		"/":        "new-post",
+		"/archive/": "new-post",
+	} {
+		target, err := snapshotFilePath(root, route)
+		if err != nil {
+			t.Fatalf("snapshotFilePath(%q): %v", route, err)
+		}
+		body, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("ReadFile(%q): %v", route, err)
+		}
+		text := string(body)
+		if strings.Contains(text, "stale") {
+			t.Fatalf("%q still stale", route)
+		}
+		if !strings.Contains(text, want) {
+			t.Fatalf("%q missing %q: %s", route, want, text)
+		}
+	}
+}
+
 func TestRevalidatePostUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.T) {
 	t.Setenv("SITE_DAG_POST_ROUTES", "true")
 

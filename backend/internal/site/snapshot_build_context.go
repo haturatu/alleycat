@@ -248,6 +248,34 @@ func (ctx *snapshotBuildContext) listingRouteKeys() []dag.NodeKey {
 	return routes
 }
 
+func (ctx *snapshotBuildContext) listingRouteKeysForBase(basePath string) []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+	if cleanPath(basePath) == "/" {
+		return []dag.NodeKey{routeNodeKey("/")}
+	}
+
+	listing, ok := ctx.archiveListing(basePath)
+	if !ok {
+		return nil
+	}
+	pageCount := listing.pageCount
+	if pageCount < 1 {
+		pageCount = 1
+	}
+	routes := make([]dag.NodeKey, 0, pageCount)
+	base := strings.TrimSuffix(cleanPath(basePath), "/")
+	for pageNumber := 1; pageNumber <= pageCount; pageNumber++ {
+		route := base
+		if pageNumber > 1 {
+			route = route + "/" + strconv.Itoa(pageNumber)
+		}
+		routes = append(routes, routeNodeKey(route))
+	}
+	return routes
+}
+
 func (ctx *snapshotBuildContext) routeKeys() []dag.NodeKey {
 	if ctx == nil {
 		return nil
