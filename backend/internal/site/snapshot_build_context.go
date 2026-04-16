@@ -189,6 +189,45 @@ func (ctx *snapshotBuildContext) postRouteKeys() []dag.NodeKey {
 	return routes
 }
 
+func (ctx *snapshotBuildContext) pageRouteKeys() []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+
+	routes := make([]dag.NodeKey, 0, len(ctx.publishedPages))
+	seen := map[dag.NodeKey]struct{}{}
+	for _, page := range ctx.publishedPages {
+		pageURL := strings.TrimSpace(page.URL)
+		if pageURL == "" {
+			continue
+		}
+		key := routeNodeKey(pageURL)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		routes = append(routes, key)
+	}
+	return routes
+}
+
+func (ctx *snapshotBuildContext) routeKeys() []dag.NodeKey {
+	if ctx == nil {
+		return nil
+	}
+
+	routes := make([]dag.NodeKey, 0, len(ctx.postRouteKeys())+len(ctx.pageRouteKeys()))
+	seen := map[dag.NodeKey]struct{}{}
+	for _, key := range append(ctx.postRouteKeys(), ctx.pageRouteKeys()...) {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		routes = append(routes, key)
+	}
+	return routes
+}
+
 func (ctx *snapshotBuildContext) adjacentBaseRouteKeysForPosts(current, original *PostRecord) []dagExtraRoute {
 	if ctx == nil {
 		return nil

@@ -121,7 +121,6 @@ func rebuildWholeSnapshot() error {
 func revalidatePage(root string, req revalidateRequest) error {
 	current := decodePageRecord(req.Current)
 	original := decodePageRecord(req.Original)
-	settings := getSettings()
 	slog.Info("revalidate page start", "action", req.Action, "current_url", valueOrEmptyPageURL(current), "original_url", valueOrEmptyPageURL(original))
 
 	if original != nil && strings.TrimSpace(original.URL) != "" {
@@ -132,9 +131,12 @@ func revalidatePage(root string, req revalidateRequest) error {
 	}
 	if current != nil && current.Published && strings.TrimSpace(current.URL) != "" {
 		slog.Info("revalidate page render current route", "route", current.URL)
-		html, ok := renderPageFromRecord(current, settings)
+		body, ok, err := renderRouteFromDAG(current.URL)
+		if err != nil {
+			return err
+		}
 		if ok {
-			if err := writeSnapshotRoute(root, current.URL, []byte(html)); err != nil {
+			if err := writeSnapshotRoute(root, current.URL, body); err != nil {
 				return err
 			}
 		}
@@ -458,6 +460,20 @@ func dagPostRouteRevalidationEnabled() bool {
 func renderLegacyPostRoute(fallback func() (string, bool)) ([]byte, bool, error) {
 	html, ok := fallback()
 	return []byte(html), ok, nil
+}
+
+func renderRouteFromDAG(path string) ([]byte, bool, error) {
+	engine := newSiteDAGEngine()
+	resolveCtx := engine.NewContext()
+	value, err := engine.Resolve(resolveCtx, routeNodeKey(path))
+	if err != nil {
+		return nil, false, err
+	}
+	route, ok := value.(routeValue)
+	if !ok {
+		return nil, false, nil
+	}
+	return append([]byte(nil), route.Body...), true, nil
 }
 
 func currentRevalidationSettings() SettingsRecord {

@@ -190,33 +190,18 @@ type snapshotRenderTask struct {
 }
 
 func buildSnapshotRenderTasks(ctx *snapshotBuildContext, settings SettingsRecord) []snapshotRenderTask {
-	tasks := make([]snapshotRenderTask, 0, len(ctx.postRouteKeys())+len(ctx.publishedPages))
-	tasks = append(tasks, buildPostSnapshotRenderTasks(ctx)...)
-	for _, page := range ctx.publishedPages {
-		page := page
-		pageURL := strings.TrimSpace(page.URL)
-		if pageURL == "" {
-			continue
-		}
-		tasks = append(tasks, snapshotRenderTask{
-			route: pageURL,
-			render: func() ([]byte, bool) {
-				html, ok := renderPageFromRecord(&page, settings)
-				return []byte(html), ok
-			},
-		})
-	}
-	return tasks
+	_ = settings
+	return buildRouteSnapshotRenderTasks(ctx)
 }
 
-func buildPostSnapshotRenderTasks(ctx *snapshotBuildContext) []snapshotRenderTask {
+func buildRouteSnapshotRenderTasks(ctx *snapshotBuildContext) []snapshotRenderTask {
 	if ctx == nil {
 		return nil
 	}
 
 	engine := newSiteDAGEngine()
-	tasks := make([]snapshotRenderTask, 0, len(ctx.postRouteKeys()))
-	for _, key := range ctx.postRouteKeys() {
+	tasks := make([]snapshotRenderTask, 0, len(ctx.routeKeys()))
+	for _, key := range ctx.routeKeys() {
 		route := key.ID
 		tasks = append(tasks, snapshotRenderTask{
 			route: route,

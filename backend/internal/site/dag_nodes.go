@@ -7,11 +7,13 @@ const (
 
 	nodeSettings          dag.NodeKind = "site.settings"
 	nodeMenuPages         dag.NodeKind = "site.menu_pages"
+	nodePageByURL         dag.NodeKind = "site.page_by_url"
 	nodePostBySlug        dag.NodeKind = "site.post_by_slug"
 	nodeTranslationBySlug dag.NodeKind = "site.translation_by_slug"
 	nodePostFamily        dag.NodeKind = "site.post_family"
 	nodeAdjacentPosts     dag.NodeKind = "site.adjacent_posts"
 	nodeRelatedPosts      dag.NodeKind = "site.related_posts"
+	nodePageRenderInput   dag.NodeKind = "site.page_render_input"
 	nodePostRenderInput   dag.NodeKind = "site.post_render_input"
 	nodeRoute             dag.NodeKind = "site.route"
 )
@@ -41,6 +43,13 @@ func postBySlugNodeKey(locale, slug string) dag.NodeKey {
 		Kind:  kind,
 		Scope: scope,
 		ID:    slug,
+	}
+}
+
+func pageByURLNodeKey(path string) dag.NodeKey {
+	return dag.NodeKey{
+		Kind: nodePageByURL,
+		ID:   cleanPath(path),
 	}
 }
 
@@ -75,6 +84,13 @@ func postRenderInputNodeKey(locale, slug string) dag.NodeKey {
 	}
 }
 
+func pageRenderInputNodeKey(path string) dag.NodeKey {
+	return dag.NodeKey{
+		Kind: nodePageRenderInput,
+		ID:   cleanPath(path),
+	}
+}
+
 func routeNodeKey(path string) dag.NodeKey {
 	return dag.NodeKey{
 		Kind: nodeRoute,
@@ -100,6 +116,12 @@ type postRenderInputValue struct {
 	Adjacent    adjacentPostsValue
 	Related     []PostRecord
 	CurrentPost *PostRecord
+}
+
+type pageRenderInputValue struct {
+	Page     *PageRecord
+	Settings SettingsRecord
+	Menu     []PageRecord
 }
 
 type routeValue struct {

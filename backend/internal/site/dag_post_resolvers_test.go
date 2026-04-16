@@ -269,3 +269,57 @@ func TestSiteDAGMarksBaseRouteAffectedByTranslationChange(t *testing.T) {
 		t.Fatalf("withSnapshotBuildContext: %v", err)
 	}
 }
+
+func TestSiteDAGResolvesPageRoute(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+
+	page := PageRecord{
+		ID:          "page-1",
+		Title:       "About",
+		URL:         "/about/",
+		Body:        "<p>About body</p>",
+		Published:   true,
+		MenuVisible: true,
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 []PageRecord{page},
+		publishedPosts:       []PostRecord{},
+		publishedPages:       []PageRecord{page},
+		postBySlug:           map[string]PostRecord{},
+		postByID:             map[string]PostRecord{},
+		pageByURL:            map[string]PageRecord{page.URL: page},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex:         map[string]archiveListing{},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		engine := newSiteDAGEngine()
+		resolveCtx := engine.NewContext()
+		value, err := engine.Resolve(resolveCtx, routeNodeKey("/about/"))
+		if err != nil {
+			t.Fatalf("Resolve page route: %v", err)
+		}
+		route, ok := value.(routeValue)
+		if !ok {
+			t.Fatalf("route value type = %T", value)
+		}
+		body := string(route.Body)
+		if !strings.Contains(body, "About") {
+			t.Fatalf("page route body missing title: %s", body)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}

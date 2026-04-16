@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBuildSnapshotRenderTasksUsesDAGForPostRoutes(t *testing.T) {
+func TestBuildSnapshotRenderTasksUsesDAGForRoutes(t *testing.T) {
 	t.Parallel()
 
 	settings := defaultSettings()
@@ -77,13 +77,13 @@ func TestBuildSnapshotRenderTasksUsesDAGForPostRoutes(t *testing.T) {
 				if !strings.Contains(string(body), "Privet") {
 					t.Fatalf("localized post body missing title: %s", string(body))
 				}
-			case "/about/":
+			case "/about":
 				if !strings.Contains(string(body), "About") {
 					t.Fatalf("page body missing title: %s", string(body))
 				}
 			}
 		}
-		for _, route := range []string{"/posts/hello", "/ru/posts/privet", "/about/"} {
+		for _, route := range []string{"/posts/hello", "/ru/posts/privet", "/about"} {
 			if !seen[route] {
 				t.Fatalf("missing route %q in tasks", route)
 			}

@@ -14,11 +14,13 @@ func newSiteDAGEngine() *dag.Engine {
 	engine := dag.NewEngine()
 	engine.Register(nodeSettings, settingsResolver{})
 	engine.Register(nodeMenuPages, menuPagesResolver{})
+	engine.Register(nodePageByURL, pageByURLResolver{})
 	engine.Register(nodePostBySlug, postBySlugResolver{})
 	engine.Register(nodeTranslationBySlug, translationBySlugResolver{})
 	engine.Register(nodePostFamily, postFamilyResolver{})
 	engine.Register(nodeAdjacentPosts, adjacentPostsResolver{})
 	engine.Register(nodeRelatedPosts, relatedPostsResolver{})
+	engine.Register(nodePageRenderInput, pageRenderInputResolver{})
 	engine.Register(nodePostRenderInput, postRenderInputResolver{})
 	engine.Register(nodeRoute, routeResolver{})
 	return engine
@@ -249,7 +251,34 @@ type routeResolver struct{}
 func (routeResolver) Resolve(ctx *dag.ResolveContext, key dag.NodeKey) (dag.ResolveResult, error) {
 	locale, slug, ok := resolvePostPath(key.ID)
 	if !ok {
-		return dag.ResolveResult{}, fmt.Errorf("%w: %s", errUnsupportedRouteNode, key.ID)
+		inputDep := pageRenderInputNodeKey(key.ID)
+		inputValueRaw, err := ctx.Resolve(inputDep)
+		if err != nil {
+			return dag.ResolveResult{}, err
+		}
+		inputValue, _ := inputValueRaw.(pageRenderInputValue)
+		if inputValue.Page == nil {
+			return dag.ResolveResult{}, fmt.Errorf("%w: %s", errUnsupportedRouteNode, key.ID)
+		}
+
+		html, ok := renderPageFromRecord(inputValue.Page, inputValue.Settings)
+		if !ok {
+			return dag.ResolveResult{
+				Value: routeValue{
+					Path: key.ID,
+					Body: []byte(renderNotFound(inputValue.Settings)),
+				},
+				Deps: []dag.NodeKey{inputDep},
+			}, nil
+		}
+
+		return dag.ResolveResult{
+			Value: routeValue{
+				Path: key.ID,
+				Body: []byte(html),
+			},
+			Deps: []dag.NodeKey{inputDep},
+		}, nil
 	}
 	inputDep := postRenderInputNodeKey(locale, slug)
 	inputValueRaw, err := ctx.Resolve(inputDep)
