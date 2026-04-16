@@ -259,6 +259,98 @@ func TestRevalidatePostUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestRevalidatePageUsesDAGToUpdateRoutesAffectedByMenuChange(t *testing.T) {
+	t.Setenv("SITE_DAG_POST_ROUTES", "true")
+
+	root := t.TempDir()
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+
+	post := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+	page := PageRecord{
+		ID:          "page-1",
+		Title:       "About",
+		URL:         "/about/",
+		Body:        "<p>about</p>",
+		Published:   true,
+		MenuVisible: true,
+	}
+
+	homeTarget, err := snapshotFilePath(root, "/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath home: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(homeTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll home: %v", err)
+	}
+	if err := os.WriteFile(homeTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile home: %v", err)
+	}
+
+	pageTarget, err := snapshotFilePath(root, "/about/")
+	if err != nil {
+		t.Fatalf("snapshotFilePath page: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(pageTarget), 0o755); err != nil {
+		t.Fatalf("MkdirAll page: %v", err)
+	}
+	if err := os.WriteFile(pageTarget, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile page: %v", err)
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 []PageRecord{page},
+		publishedPosts:       []PostRecord{post},
+		publishedPages:       []PageRecord{page},
+		postBySlug:           map[string]PostRecord{post.Slug: post},
+		postByID:             map[string]PostRecord{post.ID: post},
+		pageByURL:            map[string]PageRecord{page.URL: page},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{post}, pageCount: 1},
+		},
+	}
+
+	req := revalidateRequest{Current: mustMarshalJSONRaw(t, page)}
+	err = withSnapshotBuildContext(ctx, func() error {
+		return revalidatePage(root, req)
+	})
+	if err != nil {
+		t.Fatalf("revalidatePage: %v", err)
+	}
+
+	for route, target := range map[string]string{
+		"/":      homeTarget,
+		"/about/": pageTarget,
+	} {
+		body, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("ReadFile(%q): %v", route, err)
+		}
+		text := string(body)
+		if strings.Contains(text, "stale") {
+			t.Fatalf("%q still stale", route)
+		}
+		if !strings.Contains(text, "About") {
+			t.Fatalf("%q missing menu/page title: %s", route, text)
+		}
+	}
+}
+
 func TestRevalidateTranslationUsesDAGToUpdateCurrentRouteWhenEnabled(t *testing.T) {
 	t.Setenv("SITE_DAG_POST_ROUTES", "true")
 

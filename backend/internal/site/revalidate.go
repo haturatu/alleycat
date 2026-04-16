@@ -141,6 +141,9 @@ func revalidatePage(root string, req revalidateRequest) error {
 			}
 		}
 	}
+	if err := revalidateDAGAffectedRoutes(root, dagChangedKeysForPage(current, original), nil); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -567,6 +570,17 @@ func dagChangedKeysForTranslation(current, original *PostTranslationRecord) []da
 	return keys
 }
 
+func dagChangedKeysForPage(current, original *PageRecord) []dag.NodeKey {
+	keys := make([]dag.NodeKey, 0, 2)
+	for _, item := range []*PageRecord{current, original} {
+		if item == nil || strings.TrimSpace(item.URL) == "" {
+			continue
+		}
+		keys = appendUniqueDAGNodeKey(keys, pageByURLNodeKey(strings.TrimSpace(item.URL)))
+	}
+	return keys
+}
+
 func appendUniqueDAGNodeKey(items []dag.NodeKey, candidate dag.NodeKey) []dag.NodeKey {
 	for _, item := range items {
 		if item == candidate {
@@ -585,6 +599,13 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 	if !dagPostRouteRevalidationEnabled() || (len(changed) == 0 && len(extraRoutes) == 0) {
 		return nil
 	}
+	return revalidateDAGAffectedRoutes(root, changed, extraRoutes)
+}
+
+func revalidateDAGAffectedRoutes(root string, changed []dag.NodeKey, extraRoutes []dagExtraRoute) error {
+	if len(changed) == 0 && len(extraRoutes) == 0 {
+		return nil
+	}
 	snapshot := currentSnapshotBuildContext()
 	if snapshot == nil {
 		return nil
@@ -592,7 +613,7 @@ func revalidateDAGAffectedPostRoutes(root string, changed []dag.NodeKey, extraRo
 
 	engine := newSiteDAGEngine()
 	resolveCtx := engine.NewContext()
-	for _, route := range snapshot.postRouteKeys() {
+	for _, route := range snapshot.routeKeys() {
 		if _, err := engine.Resolve(resolveCtx, route); err != nil {
 			return err
 		}

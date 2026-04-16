@@ -46,8 +46,20 @@ func (settingsResolver) Resolve(_ *dag.ResolveContext, _ dag.NodeKey) (dag.Resol
 type menuPagesResolver struct{}
 
 func (menuPagesResolver) Resolve(_ *dag.ResolveContext, _ dag.NodeKey) (dag.ResolveResult, error) {
+	deps := []dag.NodeKey{}
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil {
+		deps = make([]dag.NodeKey, 0, len(snapshot.publishedPages))
+		for _, page := range snapshot.publishedPages {
+			pageURL := strings.TrimSpace(page.URL)
+			if pageURL == "" {
+				continue
+			}
+			deps = append(deps, pageByURLNodeKey(pageURL))
+		}
+	}
 	return dag.ResolveResult{
 		Value: getPagesMenu(),
+		Deps:  deps,
 	}, nil
 }
 
