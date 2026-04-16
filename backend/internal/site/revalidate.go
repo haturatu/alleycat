@@ -269,28 +269,11 @@ type postRevalidationImpact struct {
 }
 
 func revalidateHomeAndArchives(root string, settings SettingsRecord, current, original *PostRecord, impact postRevalidationImpact) error {
-	if dagPostRouteRevalidationEnabled() {
-		return revalidateDAGListingRoutes(root, impact)
+	_ = settings
+	if !dagPostRouteRevalidationEnabled() {
+		return revalidateLegacyListingRoutes(root, current, original, impact)
 	}
-	if impact.home {
-		slog.Info("revalidate home write start")
-		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
-			return err
-		}
-	}
-	if impact.mainArchive {
-		slog.Info("revalidate main archive export start", "route", "/archive/")
-		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
-			return err
-		}
-	}
-	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
-		slog.Info("revalidate archive route rebuild start", "route", route)
-		if err := rebuildArchiveRoute(root, settings, route); err != nil {
-			return err
-		}
-	}
-	return nil
+	return revalidateDAGListingRoutes(root, impact)
 }
 
 func revalidateDAGListingRoutes(root string, impact postRevalidationImpact) error {
@@ -325,6 +308,29 @@ func revalidateDAGListingRoutes(root string, impact postRevalidationImpact) erro
 			continue
 		}
 		if err := writeSnapshotRoute(root, route.ID, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func revalidateLegacyListingRoutes(root string, current, original *PostRecord, impact postRevalidationImpact) error {
+	settings := currentRevalidationSettings()
+	if impact.home {
+		slog.Info("revalidate home write start")
+		if err := writeSnapshotRoute(root, "/", []byte(renderHome(settings))); err != nil {
+			return err
+		}
+	}
+	if impact.mainArchive {
+		slog.Info("revalidate main archive export start", "route", "/archive/")
+		if err := exportArchiveSeries(root, "/archive/", "published = true", settings); err != nil {
+			return err
+		}
+	}
+	for _, route := range append(append([]string(nil), impact.tagArchives...), impact.categoryDirs...) {
+		slog.Info("revalidate archive route rebuild start", "route", route)
+		if err := rebuildArchiveRoute(root, settings, route); err != nil {
 			return err
 		}
 	}
