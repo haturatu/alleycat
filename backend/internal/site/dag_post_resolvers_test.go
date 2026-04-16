@@ -323,3 +323,72 @@ func TestSiteDAGResolvesPageRoute(t *testing.T) {
 		t.Fatalf("withSnapshotBuildContext: %v", err)
 	}
 }
+
+func TestSiteDAGResolvesArchiveRouteWithListingDependency(t *testing.T) {
+	t.Parallel()
+
+	settings := defaultSettings()
+	settings.SiteName = "Alleycat"
+	settings.SiteLanguage = "ja"
+	settings.TranslationSourceLocale = "ja"
+	settings.ArchivePageSize = 10
+
+	post := PostRecord{
+		ID:          "post-1",
+		Slug:        "hello",
+		Title:       "Hello",
+		Body:        "<p>Body</p>",
+		Published:   true,
+		PublishedAt: "2026-04-16T10:00:00Z",
+	}
+
+	ctx := &snapshotBuildContext{
+		settings:             settings,
+		menu:                 nil,
+		publishedPosts:       []PostRecord{post},
+		publishedPages:       nil,
+		postBySlug:           map[string]PostRecord{post.Slug: post},
+		postByID:             map[string]PostRecord{post.ID: post},
+		pageByURL:            map[string]PageRecord{},
+		translationByKey:     map[string]PostTranslationRecord{},
+		translationsBySource: map[string][]PostTranslationRecord{},
+		translationsByLocale: map[string][]PostTranslationRecord{},
+		postsByTag:           map[string][]PostRecord{},
+		postsByCategory:      map[string][]PostRecord{},
+		archiveIndex: map[string]archiveListing{
+			"/archive/": {posts: []PostRecord{post}, pageCount: 1},
+		},
+	}
+
+	err := withSnapshotBuildContext(ctx, func() error {
+		engine := newSiteDAGEngine()
+		resolveCtx := engine.NewContext()
+		value, err := engine.Resolve(resolveCtx, routeNodeKey("/archive/"))
+		if err != nil {
+			t.Fatalf("Resolve archive route: %v", err)
+		}
+		route, ok := value.(routeValue)
+		if !ok {
+			t.Fatalf("route value type = %T", value)
+		}
+		body := string(route.Body)
+		if !strings.Contains(body, "Archive") || !strings.Contains(body, "Hello") {
+			t.Fatalf("archive route body missing expected content: %s", body)
+		}
+		deps := resolveCtx.Dependencies(routeNodeKey("/archive/"))
+		foundListing := false
+		for _, dep := range deps {
+			if dep.Kind == nodeArchiveRenderInput {
+				foundListing = true
+				break
+			}
+		}
+		if !foundListing {
+			t.Fatalf("archive route deps missing archive render input: %#v", deps)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("withSnapshotBuildContext: %v", err)
+	}
+}

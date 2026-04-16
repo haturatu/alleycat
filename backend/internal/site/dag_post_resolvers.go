@@ -20,6 +20,8 @@ func newSiteDAGEngine() *dag.Engine {
 	engine.Register(nodePostFamily, postFamilyResolver{})
 	engine.Register(nodeAdjacentPosts, adjacentPostsResolver{})
 	engine.Register(nodeRelatedPosts, relatedPostsResolver{})
+	engine.Register(nodeHomeListing, homeListingResolver{})
+	engine.Register(nodeArchiveListing, archiveListingResolver{})
 	engine.Register(nodeHomeRenderInput, homeRenderInputResolver{})
 	engine.Register(nodeArchiveRenderInput, archiveRenderInputResolver{})
 	engine.Register(nodePageRenderInput, pageRenderInputResolver{})
