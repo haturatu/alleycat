@@ -42,8 +42,6 @@ services:
     depends_on:
       pocketbase:
         condition: service_healthy
-      admin:
-        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -67,6 +65,8 @@ services:
       - "5175:5175"
     depends_on:
       pocketbase:
+        condition: service_healthy
+      frontend:
         condition: service_healthy
     deploy:
       resources:
