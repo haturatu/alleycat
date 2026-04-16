@@ -3,6 +3,12 @@ services:
     build:
       context: ./backend
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://127.0.0.1:8091/api/collections/settings/records?page=1&perPage=1' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "8091:8091"
     environment:
@@ -21,6 +27,12 @@ services:
       context: .
       dockerfile: frontend/docker/Dockerfile.site
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/ >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "8888:8888"
     environment:
@@ -28,8 +40,10 @@ services:
       - PB_URL=http://pocketbase:8091
       - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
     depends_on:
-      - pocketbase
-      - admin
+      pocketbase:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -43,10 +57,17 @@ services:
       args:
         VITE_BASE: /admin/
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5175/theme-status >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     ports:
       - "5175:5175"
     depends_on:
-      - pocketbase
+      pocketbase:
+        condition: service_healthy
     deploy:
       resources:
         limits:
