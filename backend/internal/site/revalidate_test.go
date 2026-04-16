@@ -174,7 +174,7 @@ func TestRevalidateTranslationContextUsesDAGForHomeAndArchiveWhenEnabled(t *test
 	}
 
 	for route, want := range map[string]string{
-		"/":        "new-post",
+		"/":         "new-post",
 		"/archive/": "new-post",
 	} {
 		target, err := snapshotFilePath(root, route)
@@ -334,7 +334,7 @@ func TestRevalidatePageUsesDAGToUpdateRoutesAffectedByMenuChange(t *testing.T) {
 	}
 
 	for route, target := range map[string]string{
-		"/":      homeTarget,
+		"/":       homeTarget,
 		"/about/": pageTarget,
 	} {
 		body, err := os.ReadFile(target)
