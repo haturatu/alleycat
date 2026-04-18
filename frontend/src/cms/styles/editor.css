@@ -3,6 +3,7 @@
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
+  max-width: 100%;
   border-radius: 10px;
   border: 1px solid rgb(15 23 42 / 8%);
   background: var(--admin-surface);
@@ -17,8 +18,8 @@
   padding: 4px 0 12px;
   border-bottom: 1px solid rgb(15 23 42 / 8%);
   position: sticky;
-  top: 0;
-  z-index: 2;
+  top: 84px;
+  z-index: 1;
   background: rgb(255 255 255 / 96%);
 }
 
@@ -85,6 +86,27 @@
   height: auto;
 }
 
+.admin-markdown-preview pre {
+  white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
+  max-width: 100%;
+  background: var(--admin-sidebar);
+  color: var(--admin-sidebar-ink);
+  padding: 12px 14px;
+  border-radius: var(--admin-radius-sm);
+  border: 1px solid #2b2b2b;
+  line-height: 1.5;
+  margin: 14px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 28%) transparent;
+}
+
+.admin-markdown-preview pre code {
+  display: block;
+  min-width: max-content;
+}
+
 .editor .ProseMirror pre {
   white-space: pre;
   word-break: normal;
@@ -113,6 +135,14 @@
   border: 1px solid rgb(15 23 42 / 8%);
   background: var(--admin-surface);
   border-radius: 10px;
+  max-width: 100%;
+}
+
+.admin-markdown-panel,
+.admin-tab-panel,
+.admin-markdown-preview {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-markdown-preview {
@@ -121,6 +151,7 @@
   min-height: 520px;
   border: 1px solid rgb(15 23 42 / 8%);
   background: var(--admin-surface);
+  overflow-x: hidden;
 }
 
 .admin-markdown-preview,
@@ -373,6 +404,10 @@
     padding: 10px;
   }
 
+  .editor-toolbar {
+    top: 72px;
+  }
+
   .editor-toolbar button {
     flex: 1 1 calc(50% - 8px);
     justify-content: center;
@@ -396,20 +431,24 @@
   }
 
   /* stylelint-disable-next-line selector-class-pattern */
-  .editor .ProseMirror pre {
+  .editor .ProseMirror pre,
+  .admin-markdown-preview pre {
     padding: 10px 12px;
     font-size: 0.84rem;
   }
 
   /* stylelint-disable selector-class-pattern */
   .editor .ProseMirror pre,
-  .editor .ProseMirror pre code {
+  .editor .ProseMirror pre code,
+  .admin-markdown-preview pre,
+  .admin-markdown-preview pre code {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: normal;
   }
 
-  .editor .ProseMirror pre code {
+  .editor .ProseMirror pre code,
+  .admin-markdown-preview pre code {
     min-width: 0;
   }
   /* stylelint-enable selector-class-pattern */

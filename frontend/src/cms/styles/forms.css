@@ -393,6 +393,14 @@
 .admin-slug-action {
   flex: 0 0 auto;
   min-width: 76px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+
+.admin-slug-action .admin-button-label {
+  white-space: normal;
+  justify-content: center;
 }
 
 .admin-slug-input {
@@ -694,7 +702,7 @@
   }
 
   .admin-slug-inline > .admin-slug-action {
-    flex: 1 1 calc(50% - 4px);
+    flex: 1 1 calc(33.333% - 6px);
     min-width: 0;
   }
 
@@ -729,5 +737,17 @@
   .admin-setting-row,
   .admin-locale-bar {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 640px) {
+  .admin-slug-inline {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-slug-inline > .admin-slug-action {
+    width: 100%;
+    flex: 1 1 100%;
   }
 }
