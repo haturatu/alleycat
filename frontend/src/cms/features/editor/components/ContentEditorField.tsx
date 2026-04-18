@@ -1,4 +1,4 @@
-import { useRef, type ClipboardEvent } from "react";
+import { useMemo, useRef, type ClipboardEvent } from "react";
 import { renderHtmlToMarkdown, renderMarkdownToHtml } from "@cms/utils/markdown";
 import { uploadImageAndGetURL } from "@cms/features/editor/mediaUpload";
 import RichEditor from "@cms/features/editor/RichEditor";
@@ -29,6 +29,10 @@ export default function ContentEditorField({
   onMarkdownViewModeChange,
 }: ContentEditorFieldProps) {
   const markdownTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const previewHtml = useMemo(() => {
+    if (markdownViewMode !== "preview") return "";
+    return renderMarkdownToHtml(markdownBody, { highlightCode: true });
+  }, [markdownBody, markdownViewMode]);
 
   const handleEditorModeChange = (next: EditorMode) => {
     if (editorMode === "markdown" && next === "rich") {
@@ -118,7 +122,7 @@ export default function ContentEditorField({
                 panel: (
                   <div
                     className="admin-markdown-preview"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdownBody, { highlightCode: true }) }}
+                    dangerouslySetInnerHTML={{ __html: previewHtml }}
                   />
                 ),
               },

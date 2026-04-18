@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "@cms/lib/pb";
-import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags } from "@cms/utils/text";
+import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, stripMarkdown } from "@cms/utils/text";
 import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@cms/utils/markdown";
 import SaveButton from "@cms/ui/SaveButton";
 import {
@@ -155,6 +155,11 @@ export default function AdminPostEditor() {
         .slice(0, 20),
     [categories, category]
   );
+  const liveExcerptValue = useMemo(() => {
+    if (excerptLength <= 0) return excerpt;
+    const excerptSource = editorMode === "markdown" ? stripMarkdown(markdownBody) : body;
+    return buildExcerpt(excerptSource, excerptLength);
+  }, [body, editorMode, excerpt, excerptLength, markdownBody]);
 
   const setFieldError = (field: keyof FieldErrors, message?: string) => {
     setFieldErrors((prev) => {
@@ -823,14 +828,7 @@ export default function AdminPostEditor() {
               <div className="admin-secondary-section-body">
                 <AdminTextAreaField
                   label="Excerpt"
-                  value={
-                    excerptLength > 0
-                      ? buildExcerpt(
-                          editorMode === "markdown" ? renderMarkdownToHtml(markdownBody, { highlightCode: false }) : body,
-                          excerptLength
-                        )
-                      : excerpt
-                  }
+                  value={liveExcerptValue}
                   onChange={(value) => {
                     setExcerpt(value);
                     markDirty();

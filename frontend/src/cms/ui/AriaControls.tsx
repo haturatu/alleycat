@@ -547,6 +547,8 @@ export function AdminTabs<T extends string>({
   label,
   tabs,
 }: AdminTabsProps<T>) {
+  const activeTab = tabs.find((tab) => tab.id === selectedKey) ?? tabs[0];
+
   return (
     <Tabs
       aria-label={label}
@@ -561,11 +563,11 @@ export function AdminTabs<T extends string>({
           </Tab>
         ))}
       </TabList>
-      {tabs.map((tab) => (
-        <TabPanel className="admin-tab-panel" id={tab.id} key={tab.id}>
-          {tab.panel}
+      {activeTab ? (
+        <TabPanel className="admin-tab-panel" id={activeTab.id} key={activeTab.id}>
+          {activeTab.panel}
         </TabPanel>
-      ))}
+      ) : null}
     </Tabs>
   );
 }

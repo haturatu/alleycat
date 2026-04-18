@@ -35,6 +35,24 @@ export const buildExcerpt = (value?: string, length = 160) => {
   return `${text.slice(0, length)}...`;
 };
 
+export const stripMarkdown = (value?: string) => {
+  const input = value ?? "";
+  if (!input) return "";
+
+  return input
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^>\s?/gm, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 export const parseTags = (value?: string) =>
   value
     ? value
