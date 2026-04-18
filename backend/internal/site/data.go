@@ -428,11 +428,31 @@ func postPublishedTime(post PostRecord) time.Time {
 	if value == "" {
 		return time.Time{}
 	}
-	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
-		return parsed
+
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.000Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05.000Z",
+		"2006-01-02 15:04:05Z",
+	} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.UTC()
+		}
 	}
+
+	for _, layout := range []string{
+		"2006-01-02 15:04:05.000",
+		"2006-01-02 15:04:05",
+	} {
+		if parsed, err := time.ParseInLocation(layout, value, time.UTC); err == nil {
+			return parsed.UTC()
+		}
+	}
+
 	if parsed, err := time.Parse("2006-01-02", value); err == nil {
-		return parsed
+		return parsed.UTC()
 	}
 	return time.Time{}
 }
