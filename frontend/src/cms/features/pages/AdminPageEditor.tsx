@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "@cms/lib/pb";
+import { formatDateTimeLocalInput, localInputToISOString } from "@cms/utils/datetime";
 import { normalizeMarkdownLinksInHtml, slugify } from "@cms/utils/text";
 import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@cms/utils/markdown";
 import SaveButton from "@cms/ui/SaveButton";
@@ -119,7 +120,7 @@ export default function AdminPageEditor() {
         setMarkdownBody(markdownMode ? loadedBody : "");
         setEditorMode(markdownMode ? "markdown" : "rich");
         setMarkdownViewMode("write");
-        setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
+        setPublishedAt(formatDateTimeLocalInput(record.published_at));
         setPublished(Boolean(record.published));
         setSlugEditedManually(true);
         setFieldErrors({});
@@ -191,7 +192,7 @@ export default function AdminPageEditor() {
       menuOrder,
       menuTitle,
       body: normalizedBody,
-      published_at: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
+      published_at: publishedAt ? localInputToISOString(publishedAt) : new Date().toISOString(),
       published,
     };
 

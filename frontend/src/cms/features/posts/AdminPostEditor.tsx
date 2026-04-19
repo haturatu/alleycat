@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ClientResponseError } from "pocketbase";
 import { pb } from "@cms/lib/pb";
 import { buildExcerpt, normalizeMarkdownLinksInHtml, parseTags, stripMarkdown } from "@cms/utils/text";
+import { formatDateTimeLocalInput, localInputToISOString } from "@cms/utils/datetime";
 import { looksLikeHtml, normalizeFencedCodeBlocksInHtml, renderMarkdownToHtml } from "@cms/utils/markdown";
 import SaveButton from "@cms/ui/SaveButton";
 import {
@@ -221,7 +222,7 @@ export default function AdminPostEditor() {
     setTagInput("");
     setCategory(record.category || "");
     setAuthor(record.author || "");
-    setPublishedAt(record.published_at ? record.published_at.slice(0, 16) : "");
+    setPublishedAt(formatDateTimeLocalInput(record.published_at));
     setPublished(Boolean(record.published));
     setFeaturedImage(null);
     setAttachments([]);
@@ -658,7 +659,7 @@ export default function AdminPostEditor() {
     if (tags.trim() !== "") form.set("tags", tags.trim());
     if (category.trim() !== "") form.set("category", category.trim());
     if (author.trim() !== "") form.set("author", author.trim());
-    form.set("published_at", publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString());
+    form.set("published_at", publishedAt ? localInputToISOString(publishedAt) : new Date().toISOString());
     form.set("published", String(published));
     if (featuredImage) {
       form.set("featured_image", featuredImage);
