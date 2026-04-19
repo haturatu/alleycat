@@ -48,7 +48,7 @@
 .admin-form {
   display: grid;
   gap: 18px;
-  padding: 22px;
+  padding: 0.5em 0;
   box-sizing: border-box;
   min-width: 0;
 }
@@ -472,7 +472,7 @@
 }
 
 .admin-rail-section {
-  gap: 14px;
+  gap: 1em;
 }
 
 .admin-selected-tags {
