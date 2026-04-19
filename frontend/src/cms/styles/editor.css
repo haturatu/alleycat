@@ -15,10 +15,10 @@
   gap: 6px;
   margin-bottom: 12px;
   flex-wrap: wrap;
-  padding: 4px 0 12px;
+  padding: 2px 0 5px;
   border-bottom: 1px solid rgb(15 23 42 / 8%);
   position: sticky;
-  top: 84px;
+  top: 5em;
   z-index: 1;
   background: rgb(255 255 255 / 96%);
 }
@@ -405,7 +405,8 @@
   }
 
   .editor-toolbar {
-    top: 72px;
+    top: 4em;
+    gap: 0em;
   }
 
   .editor-toolbar button {

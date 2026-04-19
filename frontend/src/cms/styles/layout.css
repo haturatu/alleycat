@@ -389,7 +389,7 @@
 
 .admin-editor-header {
   position: sticky;
-  top: 12px;
+  top: -0.5em;
   z-index: 4;
   padding: 14px 0 18px;
   margin-bottom: 22px;
