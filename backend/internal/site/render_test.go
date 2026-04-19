@@ -225,6 +225,18 @@ func TestBuildTOC(t *testing.T) {
 	}
 }
 
+func TestBuildTOCUnescapesHeadingEntities(t *testing.T) {
+	t.Parallel()
+
+	_, toc := buildTOC("<h2>2014年10月14日 EPSON &gt; マルチフォトカラリオ EP-801A</h2>", true)
+	if !strings.Contains(toc, "2014年10月14日 EPSON &gt; マルチフォトカラリオ EP-801A") {
+		t.Fatalf("toc = %q, want escaped display text for literal > character", toc)
+	}
+	if strings.Contains(toc, "&amp;gt;") {
+		t.Fatalf("toc = %q, should not double-escape heading entities", toc)
+	}
+}
+
 func TestRenderPostTags(t *testing.T) {
 	t.Parallel()
 

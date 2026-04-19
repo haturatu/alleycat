@@ -2,6 +2,7 @@ package site
 
 import (
 	"fmt"
+	"html"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -971,7 +972,7 @@ func buildTOC(body string, enabled bool) (string, string) {
 		}
 		attrs := parts[2]
 		content := parts[3]
-		title := strings.TrimSpace(stripHTML(content))
+		title := strings.TrimSpace(html.UnescapeString(stripHTML(content)))
 		if title == "" {
 			return match
 		}
