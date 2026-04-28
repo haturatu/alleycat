@@ -249,6 +249,25 @@ func TestRenderPostTags(t *testing.T) {
 	}
 }
 
+func TestRenderPostListEscapesExcerpt(t *testing.T) {
+	t.Parallel()
+
+	got := renderPostList([]PostRecord{
+		{
+			Title:   "Unsafe excerpt",
+			Slug:    "unsafe-excerpt",
+			Excerpt: `<img src=x onerror=alert(1)>`,
+		},
+	}, false, 160)
+
+	if strings.Contains(got, `<img src=x onerror=alert(1)>`) {
+		t.Fatalf("renderPostList should not render raw excerpt HTML: %q", got)
+	}
+	if !strings.Contains(got, `&lt;img src=x onerror=alert(1)&gt;`) {
+		t.Fatalf("renderPostList should escape excerpt HTML: %q", got)
+	}
+}
+
 func TestRenderCommentsSection(t *testing.T) {
 	t.Parallel()
 

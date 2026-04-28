@@ -523,7 +523,7 @@ func renderPostList(items []PostRecord, showTags bool, excerptLength int) string
           </header>
           <div class="post-excerpt body">%s</div>
           <a href="/posts/%s/" class="post-link">Read →</a>
-        </article>`, escapeHTML(post.Slug), escapeHTML(defaultString(post.Title, post.Slug)), postDetails, excerpt, escapeHTML(post.Slug)))
+        </article>`, escapeHTML(post.Slug), escapeHTML(defaultString(post.Title, post.Slug)), postDetails, escapeHTML(excerpt), escapeHTML(post.Slug)))
 	}
 	return fmt.Sprintf(`<section class="postList">
     %s
