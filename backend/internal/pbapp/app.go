@@ -16,6 +16,7 @@ func Run() {
 	registerSlugGenerationAPI(app)
 	registerBackupImportCommand(app)
 	registerMediaChecksumBackfillCommand(app)
+	registerMediaOptimizationHooks(app)
 	registerStaticRegenHooks(app)
 
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {

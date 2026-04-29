@@ -12,6 +12,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.20
 WORKDIR /pb
+RUN apk add --no-cache libwebp-tools
 COPY --from=build /pb/pocketbase /pb/pocketbase
 EXPOSE 8091
 VOLUME ["/pb/pb_data"]

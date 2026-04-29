@@ -71,10 +71,13 @@ func ensureCollections(app core.App) error {
 		setRuleIfNil(&c.UpdateRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
 		setRuleIfNil(&c.DeleteRule, `@request.auth.id != "" && (@request.auth.role = "admin" || @request.auth.role = "editor")`)
 
-		addFieldIfMissing(c, &core.FileField{
-			Name:      "file",
-			MaxSelect: 1,
-		})
+		addFieldIfMissing(c, &core.FileField{Name: "file"})
+		fileField, ok := c.Fields.GetByName("file").(*core.FileField)
+		if !ok {
+			return fmt.Errorf("media.file field must be a file field")
+		}
+		fileField.MaxSelect = 1
+		fileField.MimeTypes = []string{"image/jpeg", "image/png", "image/webp"}
 		addFieldIfMissing(c, &core.TextField{
 			Name: "path",
 			Max:  200,
