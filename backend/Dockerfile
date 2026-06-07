@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -o /pb/pocketbase ./cmd/pocketbase
 
-FROM alpine:3.20
+FROM alpine:3.23
 WORKDIR /pb
 RUN apk add --no-cache libwebp-tools
 COPY --from=build /pb/pocketbase /pb/pocketbase
