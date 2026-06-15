@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -o /out/site ./cmd/site
 
-FROM alpine:3.23
+FROM alpine:3.24
 WORKDIR /app
 RUN apk add --no-cache \
     fontconfig \
