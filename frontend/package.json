@@ -10,12 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tiptap/core": "^3.26.0",
-    "@tiptap/extension-image": "^3.26.0",
+    "@tiptap/core": "^3.26.1",
+    "@tiptap/extension-image": "^3.26.1",
     "@tiptap/extension-link": "^3.26.0",
-    "@tiptap/pm": "^3.20.4",
-    "@tiptap/react": "^3.26.0",
-    "@tiptap/starter-kit": "^3.26.0",
+    "@tiptap/pm": "^3.26.1",
+    "@tiptap/react": "^3.26.1",
+    "@tiptap/starter-kit": "^3.26.1",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "js-sha256": "^0.11.1",
