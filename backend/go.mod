@@ -4,9 +4,9 @@ go 1.26.0
 
 require (
 	github.com/pocketbase/dbx v1.12.0
-	github.com/pocketbase/pocketbase v0.39.4
+	github.com/pocketbase/pocketbase v0.39.5
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/image v0.42.0
+	golang.org/x/image v0.43.0
 	golang.org/x/net v0.56.0
 )
 
