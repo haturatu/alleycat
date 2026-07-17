@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export CI=true
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ENV_FILE=${1:-"$ROOT_DIR/.env"}
@@ -65,6 +66,9 @@ cp -R "$ROOT_DIR/frontend/dist/." "$ROOT_DIR/cloudflare/public/admin/"
 cp -R "$ROOT_DIR/frontend/default-public-asset/." "$ROOT_DIR/cloudflare/public/"
 if [[ -d "$ROOT_DIR/frontend/public" ]]; then
   cp -R "$ROOT_DIR/frontend/public/." "$ROOT_DIR/cloudflare/public/"
+fi
+if [[ ! -f "$ROOT_DIR/cloudflare/public/styles.css" ]]; then
+  : > "$ROOT_DIR/cloudflare/public/styles.css"
 fi
 
 printf 'Installing Cloudflare deployment dependencies...\n'

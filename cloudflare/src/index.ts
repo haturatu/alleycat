@@ -432,7 +432,7 @@ function layout(config: Data, title: string, body: string, pages: Data[], reques
   const menu = pages.filter(isPublished).sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0))
     .filter((page) => page.menuVisible === true)
     .map((page) => `<a href="${escapeHtml(page.url)}">${escapeHtml(page.menuTitle || page.title)}</a>`).join("");
-  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}<a href="/admin/">Admin</a></nav></header><main>${body}</main><footer>${String(config.footer_html || "")}</footer></body></html>`;
+  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"><link rel="stylesheet" href="/styles.css"></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}<a href="/admin/">Admin</a></nav></header><main>${body}</main><footer>${String(config.footer_html || "")}</footer></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
 }
 
@@ -509,7 +509,10 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const key = String(record.path || "").replace(/^\/uploads\//, "");
     return key ? serveR2(request, env, `uploads/${key}`) : new Response("Not found", { status: 404 });
   }
-  if (url.pathname.startsWith("/uploads/")) return serveR2(request, env, `uploads/${url.pathname.slice(9)}`);
+  if (url.pathname.startsWith("/uploads/")) {
+    const media = await serveR2(request, env, `uploads/${url.pathname.slice(9)}`);
+    return media.status === 404 ? env.ASSETS.fetch(request) : media;
+  }
   if (url.pathname.startsWith("/api/")) return apiError(404, "The requested resource wasn't found.");
 
   const asset = await env.ASSETS.fetch(request);
