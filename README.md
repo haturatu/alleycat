@@ -8,6 +8,7 @@
   - [Usage](#usage)
     - [docker-compose (recommended)](#docker-compose-recommended)
     - [Local (without Docker)](#local-without-docker)
+    - [Cloudflare free-tier deployment](#cloudflare-free-tier-deployment)
   - [Services and Ports](#services-and-ports)
   - [Persistent Data](#persistent-data)
   - [Initial Setup](#initial-setup)
@@ -109,6 +110,34 @@ flowchart LR
    - `npm install`
    - `npm run dev`
 3. If PocketBase is not on `http://127.0.0.1:8091`, set `VITE_PB_URL`.
+
+### Cloudflare free-tier deployment
+
+The Cloudflare deployment uses Workers + Static Assets for the site and CMS,
+D1 for application data, and an R2 Standard bucket for media. It does not use
+Cloudflare Containers because Containers require the Workers Paid plan.
+
+1. Copy `.env.example` to `.env` and set the four required values. The existing
+   misspelled `CF_SERCRET_KEY` name is intentionally retained for compatibility.
+2. Give `CF_API_TOKEN` Account Workers Scripts, D1, and R2 edit permissions.
+3. Run:
+
+   ```sh
+   ./scripts/deploy-cloudflare.sh
+   ```
+
+The script validates `.env`, creates only the `alleycat-db` D1 database and
+`alleycat-media` R2 Standard bucket when missing, builds the CMS, applies schema
+migrations, deploys the Worker, creates the first CMS administrator, and checks
+the live health endpoint. Set `CF_ADMIN_EMAIL` and `CF_ADMIN_PASSWORD` to choose
+the initial login. If the password is omitted, a random password is printed once.
+Repeated runs are idempotent and do not replace an existing administrator.
+
+The deployment is designed around the included quotas: Workers Free request
+limits, D1 Free limits, and R2 Standard's free monthly allowance. Media uploads
+are limited to 10 MiB per file and 5,000 records to avoid accidental unbounded
+storage growth. Cloudflare still meters usage, so monitor the account dashboard
+if the site receives substantial traffic.
 
 ## Services and Ports
 - `8091`: PocketBase API + Admin UI (`/_/`)

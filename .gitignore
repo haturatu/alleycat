@@ -1,6 +1,7 @@
 .DS_Store
 .env
 .env.*
+!.env.example
 .idea/
 .vscode/
 
@@ -39,3 +40,7 @@ pb_data/*
 
 # public/uploads (if you want to ignore uploaded files)
 frontend/public
+
+# Generated Cloudflare deployment files
+cloudflare/public/
+cloudflare/wrangler.deploy.jsonc
