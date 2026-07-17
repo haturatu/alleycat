@@ -14,6 +14,7 @@ const hasPublicAssets = () => {
 };
 
 export default defineConfig({
+  publicDir: process.env.VITE_COPY_PUBLIC === "false" ? false : publicDir,
   plugins: [
     react(),
     {

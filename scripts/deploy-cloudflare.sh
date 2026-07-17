@@ -57,10 +57,15 @@ api_request GET "/accounts/$CF_ACCOUNT_ID/tokens/verify" >/dev/null
 
 printf 'Preparing frontend assets...\n'
 npm --prefix "$ROOT_DIR/frontend" ci
-VITE_BASE=/admin/ npm --prefix "$ROOT_DIR/frontend" run build
+VITE_BASE=/admin/ VITE_COPY_PUBLIC=false npm --prefix "$ROOT_DIR/frontend" run build
+mkdir -p "$ROOT_DIR/cloudflare/public"
+find "$ROOT_DIR/cloudflare/public" -mindepth 1 -delete
 mkdir -p "$ROOT_DIR/cloudflare/public/admin"
 cp -R "$ROOT_DIR/frontend/dist/." "$ROOT_DIR/cloudflare/public/admin/"
 cp -R "$ROOT_DIR/frontend/default-public-asset/." "$ROOT_DIR/cloudflare/public/"
+if [[ -d "$ROOT_DIR/frontend/public" ]]; then
+  cp -R "$ROOT_DIR/frontend/public/." "$ROOT_DIR/cloudflare/public/"
+fi
 
 printf 'Installing Cloudflare deployment dependencies...\n'
 npm --prefix "$ROOT_DIR/cloudflare" ci
