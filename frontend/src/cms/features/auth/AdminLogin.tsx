@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { hasRole, isAuthed, pb } from "@cms/lib/pb";
 import { AdminButton, AdminTextField } from "@cms/ui/AriaControls";
@@ -9,16 +9,40 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionValid, setSessionValid] = useState(false);
   const navigate = useNavigate();
 
   useAdminPageTitle("Login");
 
-  if (isAuthed() && hasRole(["admin", "editor"])) {
-    return <Navigate to="/posts" replace />;
-  }
-  if (isAuthed() && !hasRole(["admin", "editor"])) {
-    pb.authStore.clear();
-  }
+  useEffect(() => {
+    let active = true;
+    const validateSession = async () => {
+      if (!isAuthed()) {
+        if (active) setCheckingSession(false);
+        return;
+      }
+      try {
+        await pb.collection("cms_users").authRefresh();
+        if (hasRole(["admin", "editor"])) {
+          if (active) setSessionValid(true);
+        } else {
+          pb.authStore.clear();
+        }
+      } catch {
+        pb.authStore.clear();
+      } finally {
+        if (active) setCheckingSession(false);
+      }
+    };
+    void validateSession();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (checkingSession) return null;
+  if (sessionValid) return <Navigate to="/posts" replace />;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -6,6 +6,7 @@ interface Env {
   ASSETS: Fetcher;
   AUTH_SECRET: string;
   ENVIRONMENT: string;
+  CMS_ORIGIN: string;
 }
 
 type Data = Record<string, unknown>;
@@ -120,7 +121,7 @@ async function createToken(actor: Omit<Actor, "exp">, secret: string): Promise<s
 
 async function actorFromRequest(request: Request, env: Env): Promise<Actor | null> {
   const authorization = request.headers.get("authorization") || "";
-  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization.trim();
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
@@ -317,6 +318,7 @@ async function recordsApi(request: Request, env: Env, collection: string, id: st
     return json(selectFields(record, new URL(request.url).searchParams.get("fields") || ""));
   }
 
+  if (!actor) return apiError(401, "Authentication required.");
   if (!canWrite(collection, actor)) return apiError(403, "You are not allowed to perform this request.");
 
   if (request.method === "DELETE" && id) {
@@ -385,6 +387,21 @@ async function authWithPassword(request: Request, env: Env): Promise<Response> {
   return json({ token: await createToken(actor, env.AUTH_SECRET), record });
 }
 
+async function refreshAuthentication(request: Request, env: Env): Promise<Response> {
+  const actor = await actorFromRequest(request, env);
+  if (!actor) return apiError(401, "Authentication required.");
+  const row = await rowById(env, "cms_users", actor.id);
+  if (!row) return apiError(401, "Authentication required.");
+  const record = parseRow(row);
+  const refreshedActor = {
+    id: row.id,
+    email: String(record.email || ""),
+    name: String(record.name || ""),
+    role: String(record.role || "viewer"),
+  };
+  return json({ token: await createToken(refreshedActor, env.AUTH_SECRET), record });
+}
+
 async function bootstrap(request: Request, env: Env): Promise<Response> {
   if (request.headers.get("x-bootstrap-secret") !== env.AUTH_SECRET) return apiError(403, "Bootstrap authorization failed.");
   const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM records WHERE collection = 'cms_users'").first<{ count: number }>();
@@ -432,7 +449,7 @@ function layout(config: Data, title: string, body: string, pages: Data[], reques
   const menu = pages.filter(isPublished).sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0))
     .filter((page) => page.menuVisible === true)
     .map((page) => `<a href="${escapeHtml(page.url)}">${escapeHtml(page.menuTitle || page.title)}</a>`).join("");
-  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"><link rel="stylesheet" href="/styles.css"></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}<a href="/admin/">Admin</a></nav></header><main>${body}</main><footer>${String(config.footer_html || "")}</footer></body></html>`;
+  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"><link rel="stylesheet" href="/styles.css"></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}</nav></header><main>${body}</main><footer>${String(config.footer_html || "")}</footer></body></html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
 }
 
@@ -486,9 +503,14 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/healthz") return json({ ok: true, service: "alleycat", environment: env.ENVIRONMENT });
   if (url.pathname === "/admin") return Response.redirect(`${url.origin}/admin/`, 308);
-  if (url.pathname.startsWith("/admin/")) return env.ASSETS.fetch(request);
+  if (url.pathname.startsWith("/admin/")) {
+    const asset = await env.ASSETS.fetch(request);
+    if (asset.status >= 200 && asset.status < 300) return asset;
+    return env.ASSETS.fetch(new Request(new URL("/admin/index.html", request.url), request));
+  }
   if (url.pathname === "/api/bootstrap" && request.method === "POST") return bootstrap(request, env);
   if (url.pathname === "/api/collections/cms_users/auth-with-password" && request.method === "POST") return authWithPassword(request, env);
+  if (url.pathname === "/api/collections/cms_users/auth-refresh" && request.method === "POST") return refreshAuthentication(request, env);
 
   const actor = await actorFromRequest(request, env);
   if (url.pathname === "/api/ai/slug/status") return json({ enabled: Boolean(actor) });
@@ -520,10 +542,24 @@ async function handle(request: Request, env: Env): Promise<Response> {
   return publicSite(request, env);
 }
 
+function corsResponse(request: Request, env: Env, response: Response): Response {
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== env.CMS_ORIGIN) return response;
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  headers.set("access-control-allow-headers", "Authorization, Content-Type");
+  headers.set("vary", "Origin");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      return await handle(request, env);
+      if (request.method === "OPTIONS" && request.headers.get("origin") === env.CMS_ORIGIN) {
+        return corsResponse(request, env, new Response(null, { status: 204 }));
+      }
+      return corsResponse(request, env, await handle(request, env));
     } catch (error) {
       console.error("request failed", error);
       return apiError(500, "Internal Server Error");

@@ -43,5 +43,9 @@ frontend/public
 
 # Generated Cloudflare deployment files
 cloudflare/public/
+cloudflare/public-site/
+cloudflare/cms-public/
+cloudflare/wrangler.public.deploy.jsonc
+cloudflare/wrangler.cms.deploy.jsonc
 cloudflare/wrangler.deploy.jsonc
 cloudflare/.wrangler/
