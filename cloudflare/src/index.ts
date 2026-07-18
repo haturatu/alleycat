@@ -317,6 +317,7 @@ async function recordsApi(request: Request, env: Env, collection: string, id: st
     return json(selectFields(record, new URL(request.url).searchParams.get("fields") || ""));
   }
 
+  if (!actor) return apiError(401, "Authentication required.");
   if (!canWrite(collection, actor)) return apiError(403, "You are not allowed to perform this request.");
 
   if (request.method === "DELETE" && id) {
@@ -383,6 +384,21 @@ async function authWithPassword(request: Request, env: Env): Promise<Response> {
   const record = parseRow(row);
   const actor = { id: row.id, email: String(record.email), name: String(record.name || ""), role: String(record.role || "viewer") };
   return json({ token: await createToken(actor, env.AUTH_SECRET), record });
+}
+
+async function refreshAuthentication(request: Request, env: Env): Promise<Response> {
+  const actor = await actorFromRequest(request, env);
+  if (!actor) return apiError(401, "Authentication required.");
+  const row = await rowById(env, "cms_users", actor.id);
+  if (!row) return apiError(401, "Authentication required.");
+  const record = parseRow(row);
+  const refreshedActor = {
+    id: row.id,
+    email: String(record.email || ""),
+    name: String(record.name || ""),
+    role: String(record.role || "viewer"),
+  };
+  return json({ token: await createToken(refreshedActor, env.AUTH_SECRET), record });
 }
 
 async function bootstrap(request: Request, env: Env): Promise<Response> {
@@ -489,6 +505,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname.startsWith("/admin/")) return env.ASSETS.fetch(request);
   if (url.pathname === "/api/bootstrap" && request.method === "POST") return bootstrap(request, env);
   if (url.pathname === "/api/collections/cms_users/auth-with-password" && request.method === "POST") return authWithPassword(request, env);
+  if (url.pathname === "/api/collections/cms_users/auth-refresh" && request.method === "POST") return refreshAuthentication(request, env);
 
   const actor = await actorFromRequest(request, env);
   if (url.pathname === "/api/ai/slug/status") return json({ enabled: Boolean(actor) });
