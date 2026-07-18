@@ -120,7 +120,7 @@ async function createToken(actor: Omit<Actor, "exp">, secret: string): Promise<s
 
 async function actorFromRequest(request: Request, env: Env): Promise<Actor | null> {
   const authorization = request.headers.get("authorization") || "";
-  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization.trim();
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
