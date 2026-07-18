@@ -133,6 +133,16 @@ the live health endpoint. Set `CF_ADMIN_EMAIL` and `CF_ADMIN_PASSWORD` to choose
 the initial login. If the password is omitted, a random password is printed once.
 Repeated runs are idempotent and do not replace an existing administrator.
 
+To permanently delete this deployment, including all CMS data and every media
+object, run the following and type the displayed confirmation phrase:
+
+```sh
+./scripts/deploy-cloudflare.sh --delete
+```
+
+For non-interactive automation only, add `--yes`. This removes exactly the
+`alleycat` Worker, `alleycat-db` D1 database, and `alleycat-media` R2 bucket.
+
 The deployment is designed around the included quotas: Workers Free request
 limits, D1 Free limits, and R2 Standard's free monthly allowance. Media uploads
 are limited to 10 MiB per file and 5,000 records to avoid accidental unbounded

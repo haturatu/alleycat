@@ -3,18 +3,57 @@ set -Eeuo pipefail
 export CI=true
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-ENV_FILE=${1:-"$ROOT_DIR/.env"}
+ENV_FILE="$ROOT_DIR/.env"
 API_BASE="https://api.cloudflare.com/client/v4"
 DB_NAME="alleycat-db"
 BUCKET_NAME="alleycat-media"
 WORKER_NAME="alleycat"
+DELETE_MODE=false
+SKIP_DELETE_CONFIRMATION=false
 
 die() {
   printf 'error: %s\n' "$*" >&2
   exit 1
 }
 
-for command_name in curl jq npm openssl sed; do
+usage() {
+  printf '%s\n' \
+    'Usage: ./scripts/deploy-cloudflare.sh [--delete] [--yes] [ENV_FILE]' \
+    '' \
+    'Without --delete, builds and deploys Alleycat to Cloudflare.' \
+    '--delete permanently removes the Alleycat Worker, D1 database, R2 media bucket,' \
+    'and every object in that bucket. It asks for a confirmation phrase unless --yes' \
+    'is also supplied.'
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --delete)
+      DELETE_MODE=true
+      ;;
+    --yes)
+      SKIP_DELETE_CONFIRMATION=true
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    -*)
+      die "unknown option: $1"
+      ;;
+    *)
+      [[ "$ENV_FILE" == "$ROOT_DIR/.env" ]] || die "only one environment file can be specified"
+      ENV_FILE=$1
+      ;;
+  esac
+  shift
+done
+
+required_commands=(curl jq)
+if [[ "$DELETE_MODE" != true ]]; then
+  required_commands+=(npm openssl sed find cp mkdir)
+fi
+for command_name in "${required_commands[@]}"; do
   command -v "$command_name" >/dev/null 2>&1 || die "$command_name is required"
 done
 
@@ -53,8 +92,75 @@ api_request() {
   printf '%s' "$payload"
 }
 
+confirm_delete() {
+  if [[ "$SKIP_DELETE_CONFIRMATION" == true ]]; then
+    return
+  fi
+  printf '\nThis permanently deletes the following Cloudflare resources:\n'
+  printf '  Worker: %s\n' "$WORKER_NAME"
+  printf '  D1 database: %s\n' "$DB_NAME"
+  printf '  R2 bucket and every object: %s\n\n' "$BUCKET_NAME"
+  read -r -p "Type 'DELETE $WORKER_NAME' to continue: " confirmation
+  [[ "$confirmation" == "DELETE $WORKER_NAME" ]] || die "deletion cancelled"
+}
+
+delete_r2_bucket() {
+  local r2_list object_list object_count object_key encoded_key
+  r2_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/r2/buckets?per_page=100")
+  if ! jq -e --arg name "$BUCKET_NAME" '.result.buckets[] | select(.name == $name)' <<<"$r2_list" >/dev/null; then
+    printf 'R2 bucket %s does not exist; skipping.\n' "$BUCKET_NAME"
+    return
+  fi
+
+  printf 'Deleting every object in R2 bucket %s...\n' "$BUCKET_NAME"
+  while true; do
+    object_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME/objects")
+    object_count=$(jq 'length' <<<"$object_list")
+    [[ "$object_count" -gt 0 ]] || break
+    while IFS= read -r object_key; do
+      [[ -n "$object_key" ]] || continue
+      encoded_key=$(jq -rn --arg value "$object_key" '$value | @uri')
+      api_request DELETE "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME/objects/$encoded_key" >/dev/null
+    done < <(jq -r '.[].key' <<<"$object_list")
+  done
+  api_request DELETE "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME" >/dev/null
+  printf 'Deleted R2 bucket %s.\n' "$BUCKET_NAME"
+}
+
+delete_cloudflare_resources() {
+  local worker_list d1_list d1_id
+  confirm_delete
+
+  worker_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/workers/scripts?per_page=100")
+  if jq -e --arg name "$WORKER_NAME" '.result[] | select(.id == $name)' <<<"$worker_list" >/dev/null; then
+    printf 'Deleting Worker %s...\n' "$WORKER_NAME"
+    api_request DELETE "/accounts/$CF_ACCOUNT_ID/workers/scripts/$WORKER_NAME?force=true" >/dev/null
+    printf 'Deleted Worker %s.\n' "$WORKER_NAME"
+  else
+    printf 'Worker %s does not exist; skipping.\n' "$WORKER_NAME"
+  fi
+
+  d1_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/d1/database?per_page=100")
+  d1_id=$(jq -r --arg name "$DB_NAME" '[.result[] | select(.name == $name) | .uuid][0] // ""' <<<"$d1_list")
+  if [[ -n "$d1_id" ]]; then
+    printf 'Deleting D1 database %s...\n' "$DB_NAME"
+    api_request DELETE "/accounts/$CF_ACCOUNT_ID/d1/database/$d1_id" >/dev/null
+    printf 'Deleted D1 database %s.\n' "$DB_NAME"
+  else
+    printf 'D1 database %s does not exist; skipping.\n' "$DB_NAME"
+  fi
+
+  delete_r2_bucket
+  printf '\nCloudflare deletion completed.\n'
+}
+
 printf 'Validating Cloudflare credentials...\n'
 api_request GET "/accounts/$CF_ACCOUNT_ID/tokens/verify" >/dev/null
+
+if [[ "$DELETE_MODE" == true ]]; then
+  delete_cloudflare_resources
+  exit 0
+fi
 
 printf 'Preparing frontend assets...\n'
 npm --prefix "$ROOT_DIR/frontend" ci
