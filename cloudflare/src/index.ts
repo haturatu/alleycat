@@ -502,7 +502,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/healthz") return json({ ok: true, service: "alleycat", environment: env.ENVIRONMENT });
   if (url.pathname === "/admin") return Response.redirect(`${url.origin}/admin/`, 308);
-  if (url.pathname.startsWith("/admin/")) return env.ASSETS.fetch(request);
+  if (url.pathname.startsWith("/admin/")) {
+    const asset = await env.ASSETS.fetch(request);
+    if (asset.status !== 404) return asset;
+    return env.ASSETS.fetch(new Request(new URL("/admin/index.html", request.url), request));
+  }
   if (url.pathname === "/api/bootstrap" && request.method === "POST") return bootstrap(request, env);
   if (url.pathname === "/api/collections/cms_users/auth-with-password" && request.method === "POST") return authWithPassword(request, env);
   if (url.pathname === "/api/collections/cms_users/auth-refresh" && request.method === "POST") return refreshAuthentication(request, env);
