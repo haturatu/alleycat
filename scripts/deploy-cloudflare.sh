@@ -115,13 +115,13 @@ delete_r2_bucket() {
   printf 'Deleting every object in R2 bucket %s...\n' "$BUCKET_NAME"
   while true; do
     object_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME/objects")
-    object_count=$(jq 'length' <<<"$object_list")
+    object_count=$(jq '.result | length' <<<"$object_list")
     [[ "$object_count" -gt 0 ]] || break
     while IFS= read -r object_key; do
       [[ -n "$object_key" ]] || continue
       encoded_key=$(jq -rn --arg value "$object_key" '$value | @uri')
       api_request DELETE "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME/objects/$encoded_key" >/dev/null
-    done < <(jq -r '.[].key' <<<"$object_list")
+    done < <(jq -r '.result[] | select(type == "object" and has("key")) | .key' <<<"$object_list")
   done
   api_request DELETE "/accounts/$CF_ACCOUNT_ID/r2/buckets/$BUCKET_NAME" >/dev/null
   printf 'Deleted R2 bucket %s.\n' "$BUCKET_NAME"
