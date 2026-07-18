@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "alleycat",
+  "name": "__FRONT_WORKER_NAME__",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-17",
   "workers_dev": true,

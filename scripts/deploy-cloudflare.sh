@@ -7,8 +7,8 @@ ENV_FILE="$ROOT_DIR/.env"
 API_BASE="https://api.cloudflare.com/client/v4"
 DB_NAME="alleycat-db"
 BUCKET_NAME="alleycat-media"
-WORKER_NAME="alleycat"
-CMS_WORKER_NAME="alleycat-cms"
+WORKER_NAME=""
+CMS_WORKER_NAME=""
 DELETE_MODE=false
 SKIP_DELETE_CONFIRMATION=false
 
@@ -67,6 +67,12 @@ set +a
 for variable_name in CF_ACCOUNT_ID CF_API_TOKEN CF_SERCRET_KEY CF_S3_ENDPOINT; do
   [[ -n "${!variable_name:-}" ]] || die "$variable_name is missing in $ENV_FILE"
 done
+WORKER_NAME=${CF_FRONT_WORKER_NAME:-alleycat}
+CMS_WORKER_NAME=${CF_CMS_WORKER_NAME:-alleycat-cms}
+for worker_name in "$WORKER_NAME" "$CMS_WORKER_NAME"; do
+  [[ "$worker_name" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die "Worker names must use lowercase letters, numbers, and hyphens: $worker_name"
+done
+[[ "$WORKER_NAME" != "$CMS_WORKER_NAME" ]] || die "CF_FRONT_WORKER_NAME and CF_CMS_WORKER_NAME must differ"
 [[ "$CF_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]] || die "CF_ACCOUNT_ID must be a 32-character account ID"
 [[ "$CF_S3_ENDPOINT" == https://* ]] || die "CF_S3_ENDPOINT must use https://"
 [[ ${#CF_SERCRET_KEY} -ge 32 ]] || die "CF_SERCRET_KEY must contain at least 32 characters"
@@ -211,8 +217,8 @@ else
   printf 'Using existing R2 bucket %s.\n' "$BUCKET_NAME"
 fi
 
-sed -e "s/__D1_DATABASE_ID__/$d1_id/g" -e "s|__CMS_ORIGIN__|$cms_url|g" "$ROOT_DIR/cloudflare/wrangler.template.jsonc" > "$ROOT_DIR/cloudflare/wrangler.public.deploy.jsonc"
-cp "$ROOT_DIR/cloudflare/wrangler.cms.template.jsonc" "$ROOT_DIR/cloudflare/wrangler.cms.deploy.jsonc"
+sed -e "s/__D1_DATABASE_ID__/$d1_id/g" -e "s/__FRONT_WORKER_NAME__/$WORKER_NAME/g" -e "s|__CMS_ORIGIN__|$cms_url|g" "$ROOT_DIR/cloudflare/wrangler.template.jsonc" > "$ROOT_DIR/cloudflare/wrangler.public.deploy.jsonc"
+sed "s/__CMS_WORKER_NAME__/$CMS_WORKER_NAME/g" "$ROOT_DIR/cloudflare/wrangler.cms.template.jsonc" > "$ROOT_DIR/cloudflare/wrangler.cms.deploy.jsonc"
 
 printf 'Applying D1 migrations...\n'
 (

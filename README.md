@@ -115,7 +115,8 @@ flowchart LR
 
 The Cloudflare deployment uses separate Workers + Static Assets deployments for
 the public site/API and CMS, D1 for application data, and an R2 Standard bucket
-for media. It does not use
+for media. Set `CF_FRONT_WORKER_NAME` and `CF_CMS_WORKER_NAME` in `.env` to
+choose their names (defaults: `alleycat` and `alleycat-cms`). It does not use
 Cloudflare Containers because Containers require the Workers Paid plan.
 
 1. Copy `.env.example` to `.env` and set the four required values. The existing
