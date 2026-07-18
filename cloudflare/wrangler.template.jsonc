@@ -6,7 +6,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
-    "directory": "./public",
+    "directory": "./public-site",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*", "/uploads/*", "/", "/archive*", "/posts/*", "/*/posts/*", "/feed.*", "/sitemap*.xml", "/robots.txt"]
   },
@@ -25,6 +25,7 @@
     }
   ],
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "CMS_ORIGIN": "__CMS_ORIGIN__"
   }
 }

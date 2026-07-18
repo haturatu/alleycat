@@ -8,6 +8,7 @@ API_BASE="https://api.cloudflare.com/client/v4"
 DB_NAME="alleycat-db"
 BUCKET_NAME="alleycat-media"
 WORKER_NAME="alleycat"
+CMS_WORKER_NAME="alleycat-cms"
 DELETE_MODE=false
 SKIP_DELETE_CONFIRMATION=false
 
@@ -21,7 +22,7 @@ usage() {
     'Usage: ./scripts/deploy-cloudflare.sh [--delete] [--yes] [ENV_FILE]' \
     '' \
     'Without --delete, builds and deploys Alleycat to Cloudflare.' \
-    '--delete permanently removes the Alleycat Worker, D1 database, R2 media bucket,' \
+    '--delete permanently removes both Alleycat Workers, the D1 database, R2 media bucket,' \
     'and every object in that bucket. It asks for a confirmation phrase unless --yes' \
     'is also supplied.'
 }
@@ -97,7 +98,8 @@ confirm_delete() {
     return
   fi
   printf '\nThis permanently deletes the following Cloudflare resources:\n'
-  printf '  Worker: %s\n' "$WORKER_NAME"
+  printf '  Public/API Worker: %s\n' "$WORKER_NAME"
+  printf '  CMS Worker: %s\n' "$CMS_WORKER_NAME"
   printf '  D1 database: %s\n' "$DB_NAME"
   printf '  R2 bucket and every object: %s\n\n' "$BUCKET_NAME"
   read -r -p "Type 'DELETE $WORKER_NAME' to continue: " confirmation
@@ -128,17 +130,19 @@ delete_r2_bucket() {
 }
 
 delete_cloudflare_resources() {
-  local worker_list d1_list d1_id
+  local worker_list d1_list d1_id worker_name
   confirm_delete
 
   worker_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/workers/scripts?per_page=100")
-  if jq -e --arg name "$WORKER_NAME" '.result[] | select(.id == $name)' <<<"$worker_list" >/dev/null; then
-    printf 'Deleting Worker %s...\n' "$WORKER_NAME"
-    api_request DELETE "/accounts/$CF_ACCOUNT_ID/workers/scripts/$WORKER_NAME?force=true" >/dev/null
-    printf 'Deleted Worker %s.\n' "$WORKER_NAME"
-  else
-    printf 'Worker %s does not exist; skipping.\n' "$WORKER_NAME"
-  fi
+  for worker_name in "$CMS_WORKER_NAME" "$WORKER_NAME"; do
+    if jq -e --arg name "$worker_name" '.result[] | select(.id == $name)' <<<"$worker_list" >/dev/null; then
+      printf 'Deleting Worker %s...\n' "$worker_name"
+      api_request DELETE "/accounts/$CF_ACCOUNT_ID/workers/scripts/$worker_name?force=true" >/dev/null
+      printf 'Deleted Worker %s.\n' "$worker_name"
+    else
+      printf 'Worker %s does not exist; skipping.\n' "$worker_name"
+    fi
+  done
 
   d1_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/d1/database?per_page=100")
   d1_id=$(jq -r --arg name "$DB_NAME" '[.result[] | select(.name == $name) | .uuid][0] // ""' <<<"$d1_list")
@@ -162,19 +166,25 @@ if [[ "$DELETE_MODE" == true ]]; then
   exit 0
 fi
 
+subdomain_response=$(api_request GET "/accounts/$CF_ACCOUNT_ID/workers/subdomain")
+workers_subdomain=$(jq -r '.result.subdomain' <<<"$subdomain_response")
+[[ -n "$workers_subdomain" && "$workers_subdomain" != null ]] || die "Workers.dev subdomain is not configured"
+deployment_url="https://$WORKER_NAME.$workers_subdomain.workers.dev"
+cms_url="https://$CMS_WORKER_NAME.$workers_subdomain.workers.dev"
+
 printf 'Preparing frontend assets...\n'
 npm --prefix "$ROOT_DIR/frontend" ci
-VITE_BASE=/admin/ VITE_COPY_PUBLIC=false npm --prefix "$ROOT_DIR/frontend" run build
-mkdir -p "$ROOT_DIR/cloudflare/public"
-find "$ROOT_DIR/cloudflare/public" -mindepth 1 -delete
-mkdir -p "$ROOT_DIR/cloudflare/public/admin"
-cp -R "$ROOT_DIR/frontend/dist/." "$ROOT_DIR/cloudflare/public/admin/"
-cp -R "$ROOT_DIR/frontend/default-public-asset/." "$ROOT_DIR/cloudflare/public/"
+VITE_BASE=/ VITE_PB_URL="$deployment_url" VITE_COPY_PUBLIC=false npm --prefix "$ROOT_DIR/frontend" run build
+mkdir -p "$ROOT_DIR/cloudflare/public-site" "$ROOT_DIR/cloudflare/cms-public"
+find "$ROOT_DIR/cloudflare/public-site" -mindepth 1 -delete
+find "$ROOT_DIR/cloudflare/cms-public" -mindepth 1 -delete
+cp -R "$ROOT_DIR/frontend/dist/." "$ROOT_DIR/cloudflare/cms-public/"
+cp -R "$ROOT_DIR/frontend/default-public-asset/." "$ROOT_DIR/cloudflare/public-site/"
 if [[ -d "$ROOT_DIR/frontend/public" ]]; then
-  cp -R "$ROOT_DIR/frontend/public/." "$ROOT_DIR/cloudflare/public/"
+  cp -R "$ROOT_DIR/frontend/public/." "$ROOT_DIR/cloudflare/public-site/"
 fi
-if [[ ! -f "$ROOT_DIR/cloudflare/public/styles.css" ]]; then
-  : > "$ROOT_DIR/cloudflare/public/styles.css"
+if [[ ! -f "$ROOT_DIR/cloudflare/public-site/styles.css" ]]; then
+  : > "$ROOT_DIR/cloudflare/public-site/styles.css"
 fi
 
 printf 'Installing Cloudflare deployment dependencies...\n'
@@ -182,7 +192,7 @@ npm --prefix "$ROOT_DIR/cloudflare" ci
 
 printf 'Ensuring D1 database exists...\n'
 d1_list=$(api_request GET "/accounts/$CF_ACCOUNT_ID/d1/database?per_page=100")
-d1_id=$(jq -r --arg name "$DB_NAME" '.result[] | select(.name == $name) | .uuid' <<<"$d1_list" | head -n 1)
+d1_id=$(jq -r --arg name "$DB_NAME" '[.result[] | select(.name == $name) | .uuid][0] // ""' <<<"$d1_list")
 if [[ -z "$d1_id" ]]; then
   d1_created=$(api_request POST "/accounts/$CF_ACCOUNT_ID/d1/database" "$(jq -cn --arg name "$DB_NAME" '{name:$name}')")
   d1_id=$(jq -r '.result.uuid' <<<"$d1_created")
@@ -201,30 +211,32 @@ else
   printf 'Using existing R2 bucket %s.\n' "$BUCKET_NAME"
 fi
 
-sed "s/__D1_DATABASE_ID__/$d1_id/g" "$ROOT_DIR/cloudflare/wrangler.template.jsonc" > "$ROOT_DIR/cloudflare/wrangler.deploy.jsonc"
+sed -e "s/__D1_DATABASE_ID__/$d1_id/g" -e "s|__CMS_ORIGIN__|$cms_url|g" "$ROOT_DIR/cloudflare/wrangler.template.jsonc" > "$ROOT_DIR/cloudflare/wrangler.public.deploy.jsonc"
+cp "$ROOT_DIR/cloudflare/wrangler.cms.template.jsonc" "$ROOT_DIR/cloudflare/wrangler.cms.deploy.jsonc"
 
 printf 'Applying D1 migrations...\n'
 (
   cd "$ROOT_DIR/cloudflare"
-  npx wrangler d1 migrations apply "$DB_NAME" --remote --config wrangler.deploy.jsonc
+  npx wrangler d1 migrations apply "$DB_NAME" --remote --config wrangler.public.deploy.jsonc
 )
 
-printf 'Deploying Worker and static assets...\n'
+printf 'Deploying public/API Worker and static assets...\n'
 (
   cd "$ROOT_DIR/cloudflare"
-  npx wrangler deploy --config wrangler.deploy.jsonc
+  npx wrangler deploy --config wrangler.public.deploy.jsonc
 )
 
-printf 'Installing the Worker authentication secret...\n'
+printf 'Installing the public/API Worker authentication secret...\n'
 (
   cd "$ROOT_DIR/cloudflare"
-  printf '%s' "$CF_SERCRET_KEY" | npx wrangler secret put AUTH_SECRET --config wrangler.deploy.jsonc
+  printf '%s' "$CF_SERCRET_KEY" | npx wrangler secret put AUTH_SECRET --config wrangler.public.deploy.jsonc
 )
 
-subdomain_response=$(api_request GET "/accounts/$CF_ACCOUNT_ID/workers/subdomain")
-workers_subdomain=$(jq -r '.result.subdomain' <<<"$subdomain_response")
-[[ -n "$workers_subdomain" && "$workers_subdomain" != null ]] || die "Workers.dev subdomain is not configured"
-deployment_url="https://$WORKER_NAME.$workers_subdomain.workers.dev"
+printf 'Deploying CMS Worker and static assets...\n'
+(
+  cd "$ROOT_DIR/cloudflare"
+  npx wrangler deploy --config wrangler.cms.deploy.jsonc
+)
 
 admin_email=${CF_ADMIN_EMAIL:-admin@alleycat.local}
 generated_password=false
@@ -253,5 +265,5 @@ health_status=$(curl -sS -o /dev/null -w '%{http_code}' "$deployment_url/healthz
 [[ "$health_status" == 200 ]] || die "deployment health check failed (HTTP $health_status)"
 printf '\nDeployment completed within the Cloudflare free-tier architecture.\n'
 printf '  Site:  %s/\n' "$deployment_url"
-printf '  Admin: %s/admin/\n' "$deployment_url"
+printf '  Admin: %s/\n' "$cms_url"
 printf '  API:   %s/api/\n' "$deployment_url"

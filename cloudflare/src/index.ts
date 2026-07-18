@@ -6,6 +6,7 @@ interface Env {
   ASSETS: Fetcher;
   AUTH_SECRET: string;
   ENVIRONMENT: string;
+  CMS_ORIGIN: string;
 }
 
 type Data = Record<string, unknown>;
@@ -541,10 +542,24 @@ async function handle(request: Request, env: Env): Promise<Response> {
   return publicSite(request, env);
 }
 
+function corsResponse(request: Request, env: Env, response: Response): Response {
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== env.CMS_ORIGIN) return response;
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  headers.set("access-control-allow-headers", "Authorization, Content-Type");
+  headers.set("vary", "Origin");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      return await handle(request, env);
+      if (request.method === "OPTIONS" && request.headers.get("origin") === env.CMS_ORIGIN) {
+        return corsResponse(request, env, new Response(null, { status: 204 }));
+      }
+      return corsResponse(request, env, await handle(request, env));
     } catch (error) {
       console.error("request failed", error);
       return apiError(500, "Internal Server Error");

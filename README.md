@@ -113,8 +113,9 @@ flowchart LR
 
 ### Cloudflare free-tier deployment
 
-The Cloudflare deployment uses Workers + Static Assets for the site and CMS,
-D1 for application data, and an R2 Standard bucket for media. It does not use
+The Cloudflare deployment uses separate Workers + Static Assets deployments for
+the public site/API and CMS, D1 for application data, and an R2 Standard bucket
+for media. It does not use
 Cloudflare Containers because Containers require the Workers Paid plan.
 
 1. Copy `.env.example` to `.env` and set the four required values. The existing
@@ -141,7 +142,8 @@ object, run the following and type the displayed confirmation phrase:
 ```
 
 For non-interactive automation only, add `--yes`. This removes exactly the
-`alleycat` Worker, `alleycat-db` D1 database, and `alleycat-media` R2 bucket.
+`alleycat` public/API Worker, `alleycat-cms` CMS Worker, `alleycat-db` D1
+database, and `alleycat-media` R2 bucket.
 
 The deployment is designed around the included quotas: Workers Free request
 limits, D1 Free limits, and R2 Standard's free monthly allowance. Media uploads
