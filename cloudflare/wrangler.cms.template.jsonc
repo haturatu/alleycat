@@ -8,6 +8,6 @@
   "assets": {
     "directory": "./cms-public",
     "binding": "ASSETS",
-    "run_worker_first": ["/*"]
+    "run_worker_first": true
   }
 }
