@@ -504,7 +504,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/admin") return Response.redirect(`${url.origin}/admin/`, 308);
   if (url.pathname.startsWith("/admin/")) {
     const asset = await env.ASSETS.fetch(request);
-    if (asset.status !== 404) return asset;
+    if (asset.status >= 200 && asset.status < 300) return asset;
     return env.ASSETS.fetch(new Request(new URL("/admin/index.html", request.url), request));
   }
   if (url.pathname === "/api/bootstrap" && request.method === "POST") return bootstrap(request, env);
