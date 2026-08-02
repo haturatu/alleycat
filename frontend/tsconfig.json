@@ -12,10 +12,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
-      "@cms/*": ["src/cms/*"]
+      "@cms/*": ["./src/cms/*"]
     }
   },
   "include": ["src"],
