@@ -12,7 +12,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.24
 WORKDIR /app
-RUN apk add --no-cache \
+ARG ALPINE_MIRROR=https://ftp.udx.icscoe.jp/Linux/alpine
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|" /etc/apk/repositories \
+    && apk add --no-cache \
     fontconfig \
     font-noto-all \
     font-noto-cjk-extra \
