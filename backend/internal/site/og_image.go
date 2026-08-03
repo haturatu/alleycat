@@ -472,37 +472,29 @@ func drawStringNoPanic(drawer *font.Drawer, text string) (ok bool) {
 
 func wrapText(value string, set *ogFontSet, maxWidth int, maxLines int) []string {
 	tokens := splitWrapTokens(strings.TrimSpace(value))
-	if len(tokens) == 0 {
+	if len(tokens) == 0 || maxLines <= 0 {
 		return nil
 	}
 	lines := make([]string, 0, maxLines)
 	current := tokens[0]
 
-	for _, token := range tokens[1:] {
+	for i, token := range tokens[1:] {
 		candidate := current + token
 		if measureText(set, candidate).Ceil() <= maxWidth {
 			current = candidate
 			continue
 		}
+		if len(lines) == maxLines-1 {
+			remaining := current + strings.Join(tokens[i+1:], "")
+			lines = append(lines, truncateText(remaining, set, maxWidth))
+			return lines
+		}
 		lines = append(lines, strings.TrimSpace(current))
 		current = strings.TrimLeft(token, " ")
-		if len(lines) == maxLines-1 {
-			break
-		}
 	}
 
-	if len(lines) < maxLines && current != "" {
+	if current != "" {
 		lines = append(lines, strings.TrimSpace(current))
-	}
-	if len(lines) == 0 {
-		return []string{truncateText(value, set, maxWidth)}
-	}
-
-	consumed := strings.Join(lines, "")
-	full := strings.TrimSpace(value)
-	if len([]rune(consumed)) < len([]rune(full)) {
-		remaining := []rune(full)[len([]rune(consumed)):]
-		lines[len(lines)-1] = truncateText(lines[len(lines)-1]+string(remaining), set, maxWidth)
 	}
 	return lines
 }
