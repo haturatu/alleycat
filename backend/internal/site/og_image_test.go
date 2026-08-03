@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -219,6 +220,28 @@ func TestDrawStringNoPanicRecovers(t *testing.T) {
 	}
 	if drawStringNoPanic(drawer, "boom") {
 		t.Fatal("drawStringNoPanic should return false when DrawString panics")
+	}
+}
+
+func TestWrapTextDoesNotDuplicateSuffixAfterWhitespace(t *testing.T) {
+	t.Parallel()
+
+	set := &ogFontSet{entries: []ogFontEntry{{face: basicfont.Face7x13}}}
+	got := wrapText("家のMTU値を下手に変えるとDocker Bridgeが死ぬ", set, 150, 2)
+	want := []string{"家のMTU値を下手に変えるとDocker", "Bridgeが死ぬ"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("wrapText returned %#v, want %#v", got, want)
+	}
+}
+
+func TestWrapTextTruncatesActualRemainingTokens(t *testing.T) {
+	t.Parallel()
+
+	set := &ogFontSet{entries: []ogFontEntry{{face: basicfont.Face7x13}}}
+	got := wrapText("alpha beta gamma", set, 50, 2)
+	want := []string{"alpha", "beta..."}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("wrapText returned %#v, want %#v", got, want)
 	}
 }
 
