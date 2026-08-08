@@ -557,7 +557,7 @@ func translateTitleAndBodyWithGemini(
 		"Return only JSON with keys translated_title and translated_body.\n" +
 		string(inputJSON)
 
-	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute, geminiResponseSchema("translated_title", "translated_body"))
 	if err != nil {
 		return "", "", err
 	}
@@ -587,13 +587,13 @@ func translateTitleWithGemini(
 		"Return only JSON with key translated_title.\n" +
 		string(inputJSON)
 
-	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute, geminiResponseSchema("translated_title"))
 	if err != nil {
 		return "", err
 	}
 
 	var payload translatedTitlePayload
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+	if err := unmarshalGeminiJSON(text, &payload); err != nil {
 		return "", err
 	}
 	payload.TranslatedTitle = strings.TrimSpace(payload.TranslatedTitle)
@@ -628,13 +628,13 @@ func translateBodyChunkWithGemini(
 		"Return only JSON with key translated_body.\n" +
 		string(inputJSON)
 
-	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute, geminiResponseSchema("translated_body"))
 	if err != nil {
 		return "", err
 	}
 
 	var payload translatedBodyPayload
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+	if err := unmarshalGeminiJSON(text, &payload); err != nil {
 		return "", err
 	}
 	payload.TranslatedBody = strings.TrimSpace(payload.TranslatedBody)
@@ -644,7 +644,7 @@ func translateBodyChunkWithGemini(
 	return payload.TranslatedBody, nil
 }
 
-func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int) (string, error) {
+func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int, responseSchema map[string]any) (string, error) {
 	payload := map[string]any{
 		"contents": []map[string]any{
 			{
@@ -656,6 +656,7 @@ func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int) (str
 		},
 		"generationConfig": map[string]any{
 			"responseMimeType": "application/json",
+			"responseSchema":   responseSchema,
 			"temperature":      0.2,
 		},
 	}
@@ -744,7 +745,7 @@ func parseGeminiResponseText(responseBody []byte) (string, error) {
 
 func parseGeminiTranslationText(text string) (translatedPayload, error) {
 	var payload translatedPayload
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+	if err := unmarshalGeminiJSON(text, &payload); err != nil {
 		return translatedPayload{}, err
 	}
 	payload.TranslatedTitle = strings.TrimSpace(payload.TranslatedTitle)
@@ -753,6 +754,92 @@ func parseGeminiTranslationText(text string) (translatedPayload, error) {
 		return translatedPayload{}, errors.New("gemini translation returned empty title/body")
 	}
 	return payload, nil
+}
+
+func geminiResponseSchema(fields ...string) map[string]any {
+	properties := make(map[string]any, len(fields))
+	for _, field := range fields {
+		properties[field] = map[string]any{"type": "STRING"}
+	}
+	return map[string]any{
+		"type":       "OBJECT",
+		"properties": properties,
+		"required":   fields,
+	}
+}
+
+func unmarshalGeminiJSON(text string, target any) error {
+	if err := json.Unmarshal([]byte(text), target); err == nil {
+		return nil
+	} else {
+		repaired, changed := repairInvalidJSONStringEscapes(text)
+		if changed {
+			if repairErr := json.Unmarshal([]byte(repaired), target); repairErr == nil {
+				return nil
+			} else {
+				return fmt.Errorf("invalid Gemini JSON: %w (after escape repair: %v)", err, repairErr)
+			}
+		}
+		return err
+	}
+}
+
+func repairInvalidJSONStringEscapes(value string) (string, bool) {
+	var repaired strings.Builder
+	repaired.Grow(len(value))
+	inString := false
+	changed := false
+
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+		if !inString {
+			repaired.WriteByte(ch)
+			if ch == '"' {
+				inString = true
+			}
+			continue
+		}
+
+		switch ch {
+		case '"':
+			repaired.WriteByte(ch)
+			inString = false
+		case '\\':
+			if i+1 >= len(value) {
+				repaired.WriteString(`\\`)
+				changed = true
+				continue
+			}
+			next := value[i+1]
+			switch next {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				repaired.WriteByte(ch)
+				repaired.WriteByte(next)
+				i++
+			case 'u':
+				if i+5 < len(value) && isJSONHex(value[i+2]) && isJSONHex(value[i+3]) && isJSONHex(value[i+4]) && isJSONHex(value[i+5]) {
+					repaired.WriteString(value[i : i+6])
+					i += 5
+					continue
+				}
+				repaired.WriteString(`\\`)
+				changed = true
+			default:
+				repaired.WriteString(`\\`)
+				changed = true
+			}
+		default:
+			repaired.WriteByte(ch)
+		}
+	}
+
+	return repaired.String(), changed
+}
+
+func isJSONHex(value byte) bool {
+	return (value >= '0' && value <= '9') ||
+		(value >= 'a' && value <= 'f') ||
+		(value >= 'A' && value <= 'F')
 }
 
 func extractFirstJSONObject(text string) (string, error) {
