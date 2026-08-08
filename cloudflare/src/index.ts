@@ -27,7 +27,22 @@ type Actor = {
   exp: number;
 };
 
+type LoginAttempt = {
+  failures: number;
+  windowStartedAt: number;
+  blockedUntil: number;
+  lastSeenAt: number;
+};
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_PIXELS = 25_000_000;
+const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
+const DB_PAGE_SIZE = 200;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+const LOGIN_BLOCK_MS = 15 * 60 * 1000;
+const LOGIN_FAILURE_LIMIT = 10;
+const MAX_LOGIN_TRACKERS = 10_000;
 const PUBLIC_COLLECTIONS = new Set(["posts", "pages", "post_translations", "settings", "media"]);
 const EDITOR_COLLECTIONS = new Set(["posts", "pages", "post_translations", "media"]);
 const KNOWN_COLLECTIONS = new Set([
@@ -79,6 +94,9 @@ const DEFAULT_SETTINGS: Data = {
   enable_comments: false,
   comments_script_tag: "",
 };
+
+const loginAttempts = new Map<string, LoginAttempt>();
+const PUBLIC_SETTINGS_FIELDS = new Set(Object.keys(DEFAULT_SETTINGS));
 
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: JSON_HEADERS });
@@ -133,8 +151,18 @@ async function actorFromRequest(request: Request, env: Env): Promise<Actor | nul
     );
     if (!valid) return null;
     const actor = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[1]))) as Actor;
-    if (!actor.id || actor.exp <= Math.floor(Date.now() / 1000)) return null;
-    return actor;
+    if (!actor.id || !Number.isFinite(actor.exp) || actor.exp <= Math.floor(Date.now() / 1000)) return null;
+    const row = await rowById(env, "cms_users", actor.id);
+    if (!row) return null;
+    const record = parseRow(row);
+    const role = String(record.role || "viewer");
+    if (!new Set(["admin", "editor", "viewer"]).has(role)) return null;
+    return {
+      ...actor,
+      email: String(record.email || actor.email || ""),
+      name: String(record.name || actor.name || ""),
+      role,
+    };
   } catch {
     return null;
   }
@@ -157,11 +185,21 @@ async function rowById(env: Env, collection: string, id: string): Promise<Stored
     .first<StoredRow>();
 }
 
-async function collectionRows(env: Env, collection: string): Promise<StoredRow[]> {
-  const result = await env.DB.prepare("SELECT collection, id, data, created, updated FROM records WHERE collection = ?")
-    .bind(collection)
-    .all<StoredRow>();
+async function collectionRowsPage(env: Env, collection: string, page: number, perPage = DB_PAGE_SIZE): Promise<StoredRow[]> {
+  const offset = Math.max(0, page - 1) * perPage;
+  const result = await env.DB.prepare(
+    "SELECT collection, id, data, created, updated FROM records WHERE collection = ? ORDER BY created DESC, id DESC LIMIT ? OFFSET ?",
+  ).bind(collection, perPage, offset).all<StoredRow>();
   return result.results || [];
+}
+
+async function collectionRows(env: Env, collection: string): Promise<StoredRow[]> {
+  const rows: StoredRow[] = [];
+  for (let page = 1; ; page += 1) {
+    const pageRows = await collectionRowsPage(env, collection, page);
+    rows.push(...pageRows);
+    if (pageRows.length < DB_PAGE_SIZE) return rows;
+  }
 }
 
 function isPublished(record: Data): boolean {
@@ -243,15 +281,31 @@ function selectFields(record: Data, fields: string): Data {
   return selected;
 }
 
+function publicRecord(collection: string, record: Data): Data {
+  if (collection !== "settings") return record;
+  const safe: Data = {};
+  for (const field of PUBLIC_SETTINGS_FIELDS) {
+    if (field in record) safe[field] = record[field];
+  }
+  for (const field of ["id", "collectionId", "collectionName", "created", "updated"]) {
+    if (field in record) safe[field] = record[field];
+  }
+  return safe;
+}
+
 async function bodyData(request: Request): Promise<{ data: Data; file?: File }> {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("multipart/form-data")) {
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_UPLOAD_BYTES + 1024 * 1024) {
+      throw new Error("Multipart requests must be 11 MB or smaller.");
+    }
     const form = await request.formData();
     const data: Data = {};
     let file: File | undefined;
     form.forEach((value, key) => {
       if (value instanceof File) {
-        if (value.size > 10 * 1024 * 1024) throw new Error("Files must be 10 MB or smaller.");
+        if (value.size > MAX_UPLOAD_BYTES) throw new Error("Files must be 10 MB or smaller.");
         file = value;
         data[key] = value.name;
       } else if (value === "true" || value === "false") {
@@ -262,12 +316,114 @@ async function bodyData(request: Request): Promise<{ data: Data; file?: File }> 
     });
     return { data, file };
   }
-  return { data: await request.json<Data>() };
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_JSON_BODY_BYTES) {
+    throw new Error("JSON requests must be 1 MB or smaller.");
+  }
+  const body = await readRequestBytes(request, MAX_JSON_BODY_BYTES);
+  try {
+    return { data: JSON.parse(new TextDecoder().decode(body)) as Data };
+  } catch {
+    throw new Error("Invalid JSON request body.");
+  }
+}
+
+async function readRequestBytes(request: Request, maxBytes: number): Promise<Uint8Array> {
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new Error(`Request body must be ${Math.floor(maxBytes / (1024 * 1024))} MB or smaller.`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
 }
 
 function safeFilename(value: string): string {
   const cleaned = value.normalize("NFKC").replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "");
   return cleaned.slice(0, 180) || "upload.bin";
+}
+
+type ImageDimensions = { width: number; height: number };
+
+function readImageDimensions(bytes: Uint8Array, contentType: string): ImageDimensions | null {
+  if (contentType === "image/png" && bytes.length >= 24 && bytes.slice(0, 8).every((value, index) => value === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index])) {
+    return { width: readUint32BE(bytes, 16), height: readUint32BE(bytes, 20) };
+  }
+  if (contentType === "image/jpeg") return readJpegDimensions(bytes);
+  if (contentType === "image/webp") return readWebpDimensions(bytes);
+  return null;
+}
+
+function readUint32BE(bytes: Uint8Array, offset: number): number {
+  return ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
+}
+
+function readJpegDimensions(bytes: Uint8Array): ImageDimensions | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let offset = 2;
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    const marker = bytes[offset + 1];
+    offset += 2;
+    if (marker === 0xd8 || marker === 0xd9) continue;
+    if (offset + 2 > bytes.length) return null;
+    const length = (bytes[offset] << 8) | bytes[offset + 1];
+    if (length < 2 || offset + length > bytes.length) return null;
+    const isFrame = (marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7) || (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf);
+    if (isFrame && length >= 7) return { width: (bytes[offset + 5] << 8) | bytes[offset + 6], height: (bytes[offset + 3] << 8) | bytes[offset + 4] };
+    offset += length;
+  }
+  return null;
+}
+
+function readWebpDimensions(bytes: Uint8Array): ImageDimensions | null {
+  if (bytes.length < 30 || String.fromCharCode(...bytes.slice(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.slice(8, 12)) !== "WEBP") return null;
+  const type = String.fromCharCode(...bytes.slice(12, 16));
+  if (type === "VP8X") {
+    const width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16);
+    const height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16);
+    return { width, height };
+  }
+  if (type === "VP8 ") {
+    if (bytes.length < 30 || bytes[23] !== 0x9d || bytes[24] !== 0x01 || bytes[25] !== 0x2a) return null;
+    return { width: ((bytes[26] | (bytes[27] << 8)) & 0x3fff), height: ((bytes[28] | (bytes[29] << 8)) & 0x3fff) };
+  }
+  if (type === "VP8L") {
+    if (bytes.length < 25 || bytes[20] !== 0x2f) return null;
+    const width = 1 + bytes[21] + ((bytes[22] & 0x3f) << 8);
+    const height = 1 + ((bytes[22] >> 6) | (bytes[23] << 2) | ((bytes[24] & 0x0f) << 10));
+    return { width, height };
+  }
+  return null;
+}
+
+async function validateImageFile(file: File): Promise<void> {
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Files must be 10 MB or smaller.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const dimensions = readImageDimensions(bytes, file.type);
+  if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) throw new Error("The uploaded file is not a supported image.");
+  if (dimensions.width * dimensions.height > MAX_UPLOAD_PIXELS) throw new Error("Images must be 25 megapixels or smaller.");
 }
 
 async function upsertRecord(env: Env, collection: string, id: string, data: Data, created?: string): Promise<Data> {
@@ -282,10 +438,14 @@ async function upsertRecord(env: Env, collection: string, id: string, data: Data
 async function ensureUnique(env: Env, collection: string, data: Data, exceptId = ""): Promise<Response | null> {
   const uniqueFields = collection === "media" ? ["checksum"] : ["slug"];
   if (collection === "pages") uniqueFields.push("url");
-  const records = (await collectionRows(env, collection)).map(parseRow);
   for (const field of uniqueFields) {
     const value = String(data[field] || "").trim();
-    if (value && records.some((record) => record.id !== exceptId && String(record[field] || "") === value)) {
+    const duplicate = value
+      ? await env.DB.prepare(
+          `SELECT id FROM records WHERE collection = ? AND id != ? AND json_extract(data, '$.${field}') = ? LIMIT 1`,
+        ).bind(collection, exceptId, value).first<{ id: string }>()
+      : null;
+    if (duplicate) {
       return apiError(400, "Failed to create record.", { [field]: { code: `validation_not_unique`, message: "Value must be unique." } });
     }
   }
@@ -298,7 +458,7 @@ async function listRecords(request: Request, env: Env, collection: string, actor
   const perPage = Math.min(500, Math.max(1, Number(url.searchParams.get("perPage") || 30)));
   const filter = url.searchParams.get("filter") || "";
   const fields = url.searchParams.get("fields") || "";
-  let records = (await collectionRows(env, collection)).map(parseRow).filter((record) => canRead(collection, record, actor));
+  let records = (await collectionRows(env, collection)).map(parseRow).filter((record) => canRead(collection, record, actor)).map((record) => publicRecord(collection, record));
   records = sortRecords(records.filter((record) => matchesFilter(record, filter)), url.searchParams.get("sort") || "-created");
   const totalItems = records.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
@@ -315,7 +475,7 @@ async function recordsApi(request: Request, env: Env, collection: string, id: st
     if (!row) return apiError(404, "The requested resource wasn't found.");
     const record = parseRow(row);
     if (!canRead(collection, record, actor)) return apiError(404, "The requested resource wasn't found.");
-    return json(selectFields(record, new URL(request.url).searchParams.get("fields") || ""));
+    return json(selectFields(publicRecord(collection, record), new URL(request.url).searchParams.get("fields") || ""));
   }
 
   if (!actor) return apiError(401, "Authentication required.");
@@ -351,6 +511,7 @@ async function recordsApi(request: Request, env: Env, collection: string, id: st
     if (uniqueError) return uniqueError;
 
     if (collection === "media" && parsed.file) {
+      await validateImageFile(parsed.file);
       const mediaCount = await env.DB.prepare("SELECT COUNT(*) AS count FROM records WHERE collection = 'media'").first<{ count: number }>();
       if ((mediaCount?.count || 0) >= 5000) return apiError(400, "The free-tier media limit of 5,000 files has been reached.");
       const filename = safeFilename(parsed.file.name);
@@ -372,19 +533,87 @@ async function recordsApi(request: Request, env: Env, collection: string, id: st
 }
 
 async function authWithPassword(request: Request, env: Env): Promise<Response> {
-  const input = await request.json<{ identity?: string; password?: string }>();
+  const clientKey = request.headers.get("cf-connecting-ip") || "unknown";
+  const blocked = loginBlocked(clientKey);
+  if (blocked > 0) {
+    const response = apiError(429, "Too many login attempts. Try again later.");
+    response.headers.set("retry-after", String(Math.ceil(blocked / 1000)));
+    return response;
+  }
+  let input: { identity?: string; password?: string };
+  try {
+    input = await readJsonBody(request, MAX_JSON_BODY_BYTES);
+  } catch (error) {
+    return apiError(400, error instanceof Error ? error.message : "Invalid request body.");
+  }
   const identity = String(input.identity || "").trim().toLowerCase();
+  const effectiveAttemptKey = `${clientKey}:${identity}`;
+  const effectiveBlocked = loginBlocked(effectiveAttemptKey);
+  if (effectiveBlocked > 0) {
+    const response = apiError(429, "Too many login attempts. Try again later.");
+    response.headers.set("retry-after", String(Math.ceil(effectiveBlocked / 1000)));
+    return response;
+  }
   const rows = await collectionRows(env, "cms_users");
   const row = rows.find((item) => String((JSON.parse(item.data) as Data).email || "").toLowerCase() === identity);
-  if (!row) return apiError(400, "Failed to authenticate.", { identity: { message: "Invalid login credentials." } });
+  if (!row) {
+    recordLoginFailure(clientKey);
+    if (effectiveAttemptKey !== clientKey) recordLoginFailure(effectiveAttemptKey);
+    return apiError(400, "Failed to authenticate.", { identity: { message: "Invalid login credentials." } });
+  }
   const credential = await env.DB.prepare("SELECT password_hash FROM auth_credentials WHERE collection = 'cms_users' AND record_id = ?")
     .bind(row.id).first<{ password_hash: string }>();
   if (!credential || !(await bcrypt.compare(String(input.password || ""), credential.password_hash))) {
+    recordLoginFailure(clientKey);
+    if (effectiveAttemptKey !== clientKey) recordLoginFailure(effectiveAttemptKey);
     return apiError(400, "Failed to authenticate.", { identity: { message: "Invalid login credentials." } });
   }
+  loginAttempts.delete(clientKey);
+  loginAttempts.delete(effectiveAttemptKey);
   const record = parseRow(row);
   const actor = { id: row.id, email: String(record.email), name: String(record.name || ""), role: String(record.role || "viewer") };
   return json({ token: await createToken(actor, env.AUTH_SECRET), record });
+}
+
+async function readJsonBody<T>(request: Request, maxBytes: number): Promise<T> {
+  const body = await readRequestBytes(request, maxBytes);
+  try {
+    return JSON.parse(new TextDecoder().decode(body)) as T;
+  } catch {
+    throw new Error("Invalid JSON request body.");
+  }
+}
+
+function loginBlocked(key: string): number {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry) return 0;
+  entry.lastSeenAt = now;
+  if (entry.blockedUntil > now) return entry.blockedUntil - now;
+  if (now - entry.windowStartedAt >= LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key);
+    return 0;
+  }
+  return 0;
+}
+
+function recordLoginFailure(key: string): void {
+  const now = Date.now();
+  for (const [trackedKey, entry] of loginAttempts) {
+    if (entry.lastSeenAt + LOGIN_BLOCK_MS <= now) loginAttempts.delete(trackedKey);
+  }
+  if (loginAttempts.size >= MAX_LOGIN_TRACKERS && !loginAttempts.has(key)) {
+    const oldest = [...loginAttempts.entries()].sort((left, right) => left[1].lastSeenAt - right[1].lastSeenAt)[0];
+    if (oldest) loginAttempts.delete(oldest[0]);
+  }
+  const current = loginAttempts.get(key);
+  if (!current || now - current.windowStartedAt >= LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { failures: 1, windowStartedAt: now, blockedUntil: 0, lastSeenAt: now });
+    return;
+  }
+  current.failures += 1;
+  current.lastSeenAt = now;
+  if (current.failures >= LOGIN_FAILURE_LIMIT) current.blockedUntil = now + LOGIN_BLOCK_MS;
 }
 
 async function refreshAuthentication(request: Request, env: Env): Promise<Response> {
@@ -406,7 +635,12 @@ async function bootstrap(request: Request, env: Env): Promise<Response> {
   if (request.headers.get("x-bootstrap-secret") !== env.AUTH_SECRET) return apiError(403, "Bootstrap authorization failed.");
   const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM records WHERE collection = 'cms_users'").first<{ count: number }>();
   if ((count?.count || 0) > 0) return json({ created: false, message: "Administrator already exists." });
-  const input = await request.json<{ email?: string; password?: string }>();
+  let input: { email?: string; password?: string };
+  try {
+    input = await readJsonBody(request, MAX_JSON_BODY_BYTES);
+  } catch (error) {
+    return apiError(400, error instanceof Error ? error.message : "Invalid request body.");
+  }
   const email = String(input.email || "").trim().toLowerCase();
   const password = String(input.password || "");
   if (!email.includes("@") || password.length < 12) return apiError(400, "A valid email and a password of at least 12 characters are required.");
@@ -438,8 +672,8 @@ function asNumber(value: unknown, fallback: number): number {
 }
 
 async function settings(env: Env): Promise<Data> {
-  const rows = await collectionRows(env, "settings");
-  return rows.length ? { ...DEFAULT_SETTINGS, ...parseRow(rows[0]) } : DEFAULT_SETTINGS;
+  const rows = await collectionRowsPage(env, "settings", 1, 1);
+  return rows.length ? { ...DEFAULT_SETTINGS, ...publicRecord("settings", parseRow(rows[0])) } : DEFAULT_SETTINGS;
 }
 
 function layout(config: Data, title: string, body: string, pages: Data[], request: Request): Response {
@@ -516,7 +750,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/ai/slug/status") return json({ enabled: Boolean(actor) });
   if (url.pathname === "/api/ai/slug" && request.method === "POST") {
     if (!actor) return apiError(401, "Authentication required.");
-    const input = await request.json<{ title?: string }>();
+    let input: { title?: string };
+    try {
+      input = await readJsonBody(request, MAX_JSON_BODY_BYTES);
+    } catch (error) {
+      return apiError(400, error instanceof Error ? error.message : "Invalid request body.");
+    }
     const slug = String(input.title || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || `post-${Date.now()}`;
     return json({ slug });
   }
@@ -525,10 +764,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (recordsMatch) return recordsApi(request, env, decodeURIComponent(recordsMatch[1]), recordsMatch[2] ? decodeURIComponent(recordsMatch[2]) : undefined, actor);
   const fileMatch = url.pathname.match(/^\/api\/files\/([^/]+)\/([^/]+)\/([^/]+)$/);
   if (fileMatch) {
-    const row = await rowById(env, decodeURIComponent(fileMatch[1]), decodeURIComponent(fileMatch[2]));
+    if (request.method !== "GET" && request.method !== "HEAD") return apiError(405, "Method not allowed.");
+    const collection = decodeURIComponent(fileMatch[1]);
+    if (collection !== "media") return new Response("Not found", { status: 404 });
+    const row = await rowById(env, collection, decodeURIComponent(fileMatch[2]));
     if (!row) return new Response("Not found", { status: 404 });
     const record = parseRow(row);
+    if (!canRead(collection, record, actor)) return new Response("Not found", { status: 404 });
     const key = String(record.path || "").replace(/^\/uploads\//, "");
+    if (!key || key.includes("..") || key.includes("\\")) return new Response("Not found", { status: 404 });
     return key ? serveR2(request, env, `uploads/${key}`) : new Response("Not found", { status: 404 });
   }
   if (url.pathname.startsWith("/uploads/")) {

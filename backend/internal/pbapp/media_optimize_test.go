@@ -1,6 +1,10 @@
 package pbapp
 
-import "testing"
+import (
+	"encoding/binary"
+	"hash/crc32"
+	"testing"
+)
 
 func TestWebPUploadName(t *testing.T) {
 	t.Parallel()
@@ -48,4 +52,29 @@ func TestIsCWebPSupportedUpload(t *testing.T) {
 	if isCWebPSupportedUpload([]byte("plain text"), "note.txt") {
 		t.Fatalf("plain text should not be optimized")
 	}
+}
+
+func TestValidateMediaDimensions(t *testing.T) {
+	valid := minimalPNG(2000, 2000)
+	if err := validateMediaDimensions(valid); err != nil {
+		t.Fatalf("valid dimensions rejected: %v", err)
+	}
+
+	tooLarge := minimalPNG(5001, 5000)
+	if err := validateMediaDimensions(tooLarge); err == nil {
+		t.Fatal("oversized dimensions should be rejected")
+	}
+}
+
+func minimalPNG(width, height uint32) []byte {
+	data := make([]byte, 33)
+	copy(data, []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+	binary.BigEndian.PutUint32(data[8:12], 13)
+	copy(data[12:16], []byte("IHDR"))
+	binary.BigEndian.PutUint32(data[16:20], width)
+	binary.BigEndian.PutUint32(data[20:24], height)
+	data[24] = 8
+	data[25] = 2
+	binary.BigEndian.PutUint32(data[29:33], crc32.ChecksumIEEE(data[12:29]))
+	return data
 }
