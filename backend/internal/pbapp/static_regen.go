@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pocketbase/pocketbase"
@@ -20,11 +21,38 @@ type regenRequest struct {
 	Original   json.RawMessage `json:"original"`
 }
 
+const staticRegenQueueCapacity = 32
+
+type staticRegenJob struct {
+	target  string
+	token   string
+	payload regenRequest
+}
+
+var staticRegenQueue = struct {
+	once  sync.Once
+	queue chan staticRegenJob
+}{}
+
+var staticRegenHTTPClient = &http.Client{Timeout: 20 * time.Second}
+
 func registerStaticRegenHooks(app *pocketbase.PocketBase) {
+	startStaticRegenWorker()
 	bindRegenHooks(app, "posts")
 	bindRegenHooks(app, "pages")
 	bindRegenHooks(app, "post_translations")
 	bindRegenHooks(app, "settings")
+}
+
+func startStaticRegenWorker() {
+	staticRegenQueue.once.Do(func() {
+		staticRegenQueue.queue = make(chan staticRegenJob, staticRegenQueueCapacity)
+		go func() {
+			for job := range staticRegenQueue.queue {
+				notifyStaticRegen(job)
+			}
+		}()
+	})
 }
 
 func bindRegenHooks(app *pocketbase.PocketBase, collection string) {
@@ -55,40 +83,49 @@ func triggerStaticRegen(collection, action string, current, original *core.Recor
 		Current:    marshalRecordJSON(current),
 		Original:   marshalRecordJSON(original),
 	}
+	startStaticRegenWorker()
+	job := staticRegenJob{
+		target:  target,
+		token:   strings.TrimSpace(os.Getenv("STATIC_REGEN_TOKEN")),
+		payload: payload,
+	}
+	select {
+	case staticRegenQueue.queue <- job:
+		slog.Debug("static regen queued", "collection", collection, "action", action, "queue_capacity", staticRegenQueueCapacity)
+	default:
+		slog.Warn("static regen dropped because queue is full", "collection", collection, "action", action, "queue_capacity", staticRegenQueueCapacity)
+	}
+}
 
-	go func() {
-		body, err := json.Marshal(payload)
-		if err != nil {
-			slog.Error("static regen payload marshal failed", "collection", collection, "action", action, "error", err)
-			return
-		}
+func notifyStaticRegen(job staticRegenJob) {
+	body, err := json.Marshal(job.payload)
+	if err != nil {
+		slog.Error("static regen payload marshal failed", "collection", job.payload.Collection, "action", job.payload.Action, "error", err)
+		return
+	}
 
-		req, err := http.NewRequest(http.MethodPost, target, bytes.NewReader(body))
-		if err != nil {
-			slog.Error("static regen request init failed", "collection", collection, "action", action, "target", target, "error", err)
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		if token := strings.TrimSpace(os.Getenv("STATIC_REGEN_TOKEN")); token != "" {
-			req.Header.Set("X-Regen-Token", token)
-		}
+	req, err := http.NewRequest(http.MethodPost, job.target, bytes.NewReader(body))
+	if err != nil {
+		slog.Error("static regen request init failed", "collection", job.payload.Collection, "action", job.payload.Action, "target", job.target, "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if job.token != "" {
+		req.Header.Set("X-Regen-Token", job.token)
+	}
 
-		client := &http.Client{Timeout: 20 * time.Second}
-		slog.Info("static regen notify start", "collection", collection, "action", action, "target", target)
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Error("static regen notify failed", "collection", collection, "action", action, "target", target, "error", err)
-			return
-		}
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			slog.Warn("static regen notify returned non-success status", "collection", collection, "action", action, "status", resp.StatusCode, "target", target)
-			return
-		}
-		slog.Info("static regen notify completed", "collection", collection, "action", action, "status", resp.StatusCode, "target", target)
-	}()
+	slog.Info("static regen notify start", "collection", job.payload.Collection, "action", job.payload.Action, "target", job.target)
+	resp, err := staticRegenHTTPClient.Do(req)
+	if err != nil {
+		slog.Error("static regen notify failed", "collection", job.payload.Collection, "action", job.payload.Action, "target", job.target, "error", err)
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		slog.Warn("static regen notify returned non-success status", "collection", job.payload.Collection, "action", job.payload.Action, "status", resp.StatusCode, "target", job.target)
+		return
+	}
+	slog.Info("static regen notify completed", "collection", job.payload.Collection, "action", job.payload.Action, "status", resp.StatusCode, "target", job.target)
 }
 
 func marshalRecordJSON(record *core.Record) json.RawMessage {

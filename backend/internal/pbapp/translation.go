@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	defaultTranslationModel = "gemini-1.5-flash"
-	defaultTranslationRPM   = 60
-	maxTranslateRetries     = 3
-	maxTranslationBodyRunes = 4000
+	defaultTranslationModel      = "gemini-1.5-flash"
+	defaultTranslationRPM        = 60
+	maxTranslateRetries          = 3
+	maxTranslationBodyRunes      = 4000
+	postTranslationQueueCapacity = 32
 )
 
 type translationSettings struct {
@@ -88,6 +89,18 @@ type geminiRateLimiter struct {
 
 var sharedGeminiRateLimiter = &geminiRateLimiter{}
 
+type postTranslationTrigger struct {
+	app      core.App
+	sourceID string
+}
+
+var postTranslationQueue = struct {
+	once    sync.Once
+	mu      sync.Mutex
+	queue   chan postTranslationTrigger
+	pending map[string]struct{}
+}{}
+
 func (e *geminiError) Error() string {
 	return fmt.Sprintf("gemini request failed: status=%d", e.Status)
 }
@@ -124,38 +137,72 @@ func triggerPostTranslation(app core.App, source *core.Record) {
 		return
 	}
 	sourceID := source.Id
-	go func() {
-		settings, err := loadTranslationSettings(app)
-		if err != nil {
-			log.Printf("translation settings load failed: %v", err)
-			_ = failTranslationJob(app, sourceID, err)
-			return
-		}
-		if !settings.Enabled || strings.TrimSpace(settings.APIKey) == "" || len(settings.Locales) == 0 {
-			return
-		}
-		if err := upsertTranslationJobState(app, sourceID, func(job *core.Record) {
-			now := time.Now().UTC().Format(time.RFC3339)
-			job.Set("status", string(translationJobQueued))
-			job.Set("total_locales", len(settings.Locales))
-			job.Set("completed_locales", 0)
-			job.Set("failed_locales", 0)
-			job.Set("last_error", "")
-			job.Set("started_at", now)
-			job.Set("finished_at", "")
-		}); err != nil {
-			log.Printf("translation job init failed for source post=%s: %v", sourceID, err)
-		}
-		fresh, err := app.FindRecordById("posts", sourceID)
-		if err != nil {
-			log.Printf("translation source reload failed for source post=%s: %v", sourceID, err)
-			_ = failTranslationJob(app, sourceID, err)
-			return
-		}
-		if err := translateSourcePost(app, fresh, settings); err != nil {
-			log.Printf("translation failed for source post=%s: %v", sourceID, err)
-		}
-	}()
+	startPostTranslationWorker()
+	job := postTranslationTrigger{app: app, sourceID: sourceID}
+	postTranslationQueue.mu.Lock()
+	if _, exists := postTranslationQueue.pending[sourceID]; exists {
+		postTranslationQueue.mu.Unlock()
+		log.Printf("translation job already queued for source post=%s", sourceID)
+		return
+	}
+	postTranslationQueue.pending[sourceID] = struct{}{}
+	select {
+	case postTranslationQueue.queue <- job:
+		postTranslationQueue.mu.Unlock()
+		log.Printf("translation job queued for source post=%s queue_capacity=%d", sourceID, postTranslationQueueCapacity)
+	default:
+		delete(postTranslationQueue.pending, sourceID)
+		postTranslationQueue.mu.Unlock()
+		log.Printf("translation job dropped because queue is full source post=%s queue_capacity=%d", sourceID, postTranslationQueueCapacity)
+	}
+}
+
+func startPostTranslationWorker() {
+	postTranslationQueue.once.Do(func() {
+		postTranslationQueue.queue = make(chan postTranslationTrigger, postTranslationQueueCapacity)
+		postTranslationQueue.pending = map[string]struct{}{}
+		go func() {
+			for job := range postTranslationQueue.queue {
+				runPostTranslation(job)
+				postTranslationQueue.mu.Lock()
+				delete(postTranslationQueue.pending, job.sourceID)
+				postTranslationQueue.mu.Unlock()
+			}
+		}()
+	})
+}
+
+func runPostTranslation(job postTranslationTrigger) {
+	settings, err := loadTranslationSettings(job.app)
+	if err != nil {
+		log.Printf("translation settings load failed: %v", err)
+		_ = failTranslationJob(job.app, job.sourceID, err)
+		return
+	}
+	if !settings.Enabled || strings.TrimSpace(settings.APIKey) == "" || len(settings.Locales) == 0 {
+		return
+	}
+	if err := upsertTranslationJobState(job.app, job.sourceID, func(state *core.Record) {
+		now := time.Now().UTC().Format(time.RFC3339)
+		state.Set("status", string(translationJobQueued))
+		state.Set("total_locales", len(settings.Locales))
+		state.Set("completed_locales", 0)
+		state.Set("failed_locales", 0)
+		state.Set("last_error", "")
+		state.Set("started_at", now)
+		state.Set("finished_at", "")
+	}); err != nil {
+		log.Printf("translation job init failed for source post=%s: %v", job.sourceID, err)
+	}
+	fresh, err := job.app.FindRecordById("posts", job.sourceID)
+	if err != nil {
+		log.Printf("translation source reload failed for source post=%s: %v", job.sourceID, err)
+		_ = failTranslationJob(job.app, job.sourceID, err)
+		return
+	}
+	if err := translateSourcePost(job.app, fresh, settings); err != nil {
+		log.Printf("translation failed for source post=%s: %v", job.sourceID, err)
+	}
 }
 
 func translateAllSourcePosts(app core.App) error {
