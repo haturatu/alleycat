@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"net/url"
 	"sort"
 	"strconv"
@@ -40,16 +41,16 @@ func currentSnapshotBuildContext() *snapshotBuildContext {
 	return ctx
 }
 
-func newSnapshotBuildContext() (*snapshotBuildContext, error) {
-	settings, err := fetchSettingsStrict()
+func newSnapshotBuildContextContext(requestCtx context.Context) (*snapshotBuildContext, error) {
+	settings, err := fetchSettingsStrictContext(requestCtx)
 	if err != nil {
 		return nil, err
 	}
-	pages, err := listPublishedPagesStrict()
+	pages, err := listPublishedPagesStrictContext(requestCtx)
 	if err != nil {
 		return nil, err
 	}
-	posts, err := listPublishedPostsStrict()
+	posts, err := listPublishedPostsStrictContext(requestCtx)
 	if err != nil {
 		return nil, err
 	}

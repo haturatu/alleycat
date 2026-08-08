@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,16 @@ import (
 var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 func fetchJSON[T any](target string) (T, error) {
+	return fetchJSONContext[T](context.Background(), target)
+}
+
+func fetchJSONContext[T any](ctx context.Context, target string) (T, error) {
 	var zero T
-	resp, err := httpClient.Get(target)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return zero, err
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return zero, err
 	}
@@ -33,6 +42,10 @@ func fetchJSON[T any](target string) (T, error) {
 }
 
 func fetchList[T any](base string, params map[string]string) (PBList[T], error) {
+	return fetchListContext[T](context.Background(), base, params)
+}
+
+func fetchListContext[T any](ctx context.Context, base string, params map[string]string) (PBList[T], error) {
 	u, err := url.Parse(base)
 	if err != nil {
 		return PBList[T]{}, err
@@ -45,7 +58,7 @@ func fetchList[T any](base string, params map[string]string) (PBList[T], error) 
 		q.Set(key, value)
 	}
 	u.RawQuery = q.Encode()
-	return fetchJSON[PBList[T]](u.String())
+	return fetchJSONContext[PBList[T]](ctx, u.String())
 }
 
 func fetchRecord[T any](target string) (T, error) {

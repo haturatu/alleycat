@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"sort"
@@ -26,6 +27,7 @@ type mediaPathCacheEntry struct {
 }
 
 type pagedListFetcher[T any] func(params map[string]string) (PBList[T], error)
+type contextPagedListFetcher[T any] func(context.Context, map[string]string) (PBList[T], error)
 
 var taxonomyCache = struct {
 	mu    sync.RWMutex
@@ -592,6 +594,10 @@ func listPublishedPostsStrict() ([]PostRecord, error) {
 	return listPublishedRecords(getPosts, "published = true", 200, true, "-published_at", "-date")
 }
 
+func listPublishedPostsStrictContext(ctx context.Context) ([]PostRecord, error) {
+	return listPublishedRecordsContext(ctx, getPostsContext, "published = true", 200, true, "-published_at", "-date")
+}
+
 func listPublishedPages() []PageRecord {
 	items, _ := listPublishedPagesStrict()
 	return items
@@ -599,6 +605,10 @@ func listPublishedPages() []PageRecord {
 
 func listPublishedPagesStrict() ([]PageRecord, error) {
 	return listPublishedRecords(getPages, "published = true", 200, true, "-published_at", "-date")
+}
+
+func listPublishedPagesStrictContext(ctx context.Context) ([]PageRecord, error) {
+	return listPublishedRecordsContext(ctx, getPagesContext, "published = true", 200, true, "-published_at", "-date")
 }
 
 func listPublishedTranslationsByLocale(locale string) []PostTranslationRecord {
@@ -616,7 +626,21 @@ func listPublishedTranslationsByLocaleStrict(locale string) ([]PostTranslationRe
 	)
 }
 
+func getPostsContext(ctx context.Context, params map[string]string) (PBList[PostRecord], error) {
+	return fetchListContext[PostRecord](ctx, fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
+}
+
+func getPagesContext(ctx context.Context, params map[string]string) (PBList[PageRecord], error) {
+	return fetchListContext[PageRecord](ctx, fmt.Sprintf("%s/api/collections/pages/records", pbURL), params)
+}
+
 func listPublishedRecords[T any](fetch pagedListFetcher[T], filter string, perPage int, strict bool, sorts ...string) ([]T, error) {
+	return listPublishedRecordsContext(context.Background(), func(_ context.Context, params map[string]string) (PBList[T], error) {
+		return fetch(params)
+	}, filter, perPage, strict, sorts...)
+}
+
+func listPublishedRecordsContext[T any](ctx context.Context, fetch contextPagedListFetcher[T], filter string, perPage int, strict bool, sorts ...string) ([]T, error) {
 	if perPage <= 0 {
 		perPage = 200
 	}
@@ -627,7 +651,7 @@ func listPublishedRecords[T any](fetch pagedListFetcher[T], filter string, perPa
 	items := make([]T, 0, perPage)
 	page := 1
 	for {
-		data, err := fetchPublishedPage(fetch, filter, page, perPage, sorts...)
+		data, err := fetchPublishedPageContext(ctx, fetch, filter, page, perPage, sorts...)
 		if err != nil {
 			if strict {
 				return nil, err
@@ -643,10 +667,10 @@ func listPublishedRecords[T any](fetch pagedListFetcher[T], filter string, perPa
 	return items, nil
 }
 
-func fetchPublishedPage[T any](fetch pagedListFetcher[T], filter string, page int, perPage int, sorts ...string) (PBList[T], error) {
+func fetchPublishedPageContext[T any](ctx context.Context, fetch contextPagedListFetcher[T], filter string, page int, perPage int, sorts ...string) (PBList[T], error) {
 	var lastErr error
 	for _, sortValue := range sorts {
-		data, err := fetch(map[string]string{
+		data, err := fetch(ctx, map[string]string{
 			"page":    strconv.Itoa(page),
 			"perPage": strconv.Itoa(perPage),
 			"filter":  filter,

@@ -1,13 +1,16 @@
 package site
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
-	"sync"
+	"time"
 
 	"alleycat-backend/internal/dag"
 )
@@ -19,9 +22,20 @@ type revalidateRequest struct {
 	Original   json.RawMessage `json:"original"`
 }
 
-var snapshotMutation = struct {
-	mu sync.Mutex
-}{}
+const (
+	maxRevalidateBodyBytes = 2 << 20
+	revalidateTimeout      = 30 * time.Second
+)
+
+var snapshotMutation = func() chan struct{} {
+	gate := make(chan struct{}, 1)
+	gate <- struct{}{}
+	return gate
+}()
+
+var rebuildWholeSnapshotForRevalidation = func(ctx context.Context) error {
+	return rebuildWholeSnapshotContext(ctx)
+}
 
 func handleRevalidate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -33,18 +47,36 @@ func handleRevalidate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRevalidateBodyBytes)
 
 	var req revalidateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
 		slog.Warn("revalidate request decode failed", "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		slog.Warn("revalidate request contains trailing data", "error", err)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if !isSupportedRevalidationCollection(req.Collection) {
+		http.Error(w, "unsupported collection", http.StatusBadRequest)
+		return
+	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), revalidateTimeout)
+	defer cancel()
 	slog.Info("revalidate request received", "collection", req.Collection, "action", req.Action)
-	if err := applyRevalidation(req); err != nil {
+	if err := applyRevalidation(ctx, req); err != nil {
 		slog.Error("revalidation failed", "collection", req.Collection, "action", req.Action, "error", err)
-		http.Error(w, "revalidation failed", http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			status = http.StatusServiceUnavailable
+		}
+		http.Error(w, "revalidation failed", status)
 		return
 	}
 	slog.Info("revalidation completed", "collection", req.Collection, "action", req.Action)
@@ -56,43 +88,61 @@ func handleRevalidate(w http.ResponseWriter, r *http.Request) {
 func isRevalidateAuthorized(r *http.Request) bool {
 	token := strings.TrimSpace(os.Getenv("STATIC_REGEN_TOKEN"))
 	if token == "" {
-		return true
+		return false
 	}
 	return r.Header.Get("X-Regen-Token") == token
 }
 
-func applyRevalidation(req revalidateRequest) error {
+func isSupportedRevalidationCollection(collection string) bool {
+	switch collection {
+	case "settings", "pages", "posts", "post_translations":
+		return true
+	default:
+		return false
+	}
+}
+
+func applyRevalidation(ctx context.Context, req revalidateRequest) error {
 	slog.Info("revalidation lock wait start", "collection", req.Collection, "action", req.Action)
-	snapshotMutation.mu.Lock()
-	defer snapshotMutation.mu.Unlock()
+	select {
+	case <-snapshotMutation:
+		defer func() { snapshotMutation <- struct{}{} }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	slog.Info("revalidation lock acquired", "collection", req.Collection, "action", req.Action)
 
 	root := getPrerenderedSnapshotDir()
 	if root == "" {
 		slog.Warn("revalidate requested before snapshot was ready; rebuilding whole snapshot", "collection", req.Collection, "action", req.Action)
 		var err error
-		root, err = buildStaticSnapshot()
+		root, err = buildStaticSnapshotContext(ctx)
 		if err != nil {
 			return err
 		}
 		setPrerenderedSnapshotDir(root)
 		return nil
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if req.Collection == "settings" {
+		invalidateDerivedCaches()
+		slog.Info("revalidate mode selected", "mode", "full", "collection", req.Collection, "action", req.Action)
+		return rebuildWholeSnapshotForRevalidation(ctx)
+	}
 
 	invalidateDerivedCaches()
 	slog.Info("revalidation context build start", "collection", req.Collection, "action", req.Action, "root", root)
-	ctx, err := newSnapshotBuildContext()
+	buildCtx, err := newSnapshotBuildContextContext(ctx)
 	if err != nil {
 		slog.Error("revalidation context build failed", "collection", req.Collection, "action", req.Action, "error", err)
 		return err
 	}
 	slog.Info("revalidation context build completed", "collection", req.Collection, "action", req.Action)
 
-	return withSnapshotBuildContext(ctx, func() error {
+	return withSnapshotBuildContext(buildCtx, func() error {
 		switch req.Collection {
-		case "settings":
-			slog.Info("revalidate mode selected", "mode", "full", "collection", req.Collection, "action", req.Action)
-			return rebuildWholeSnapshot()
 		case "pages":
 			slog.Info("revalidate mode selected", "mode", "page", "collection", req.Collection, "action", req.Action)
 			return revalidatePage(root, req)
@@ -109,8 +159,8 @@ func applyRevalidation(req revalidateRequest) error {
 	})
 }
 
-func rebuildWholeSnapshot() error {
-	root, err := buildStaticSnapshot()
+func rebuildWholeSnapshotContext(ctx context.Context) error {
+	root, err := buildStaticSnapshotContext(ctx)
 	if err != nil {
 		return err
 	}

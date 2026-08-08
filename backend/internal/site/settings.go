@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -55,8 +56,8 @@ func getSettings() SettingsRecord {
 	return item
 }
 
-func fetchSettingsStrict() (SettingsRecord, error) {
-	settings, err := fetchList[SettingsRecord](fmt.Sprintf("%s/api/collections/settings/records", pbURL), map[string]string{
+func fetchSettingsStrictContext(ctx context.Context) (SettingsRecord, error) {
+	settings, err := fetchListContext[SettingsRecord](ctx, fmt.Sprintf("%s/api/collections/settings/records", pbURL), map[string]string{
 		"page":    "1",
 		"perPage": "1",
 	})

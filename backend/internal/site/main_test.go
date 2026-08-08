@@ -60,6 +60,18 @@ func TestRouteHandlerRevalidateRejectsWrongMethod(t *testing.T) {
 	}
 }
 
+func TestHandleRevalidateRequiresToken(t *testing.T) {
+	t.Setenv("STATIC_REGEN_TOKEN", "")
+	req := httptest.NewRequest(http.MethodPost, "/__internal/revalidate", strings.NewReader(`{"collection":"posts","action":"update"}`))
+	rec := httptest.NewRecorder()
+
+	handleRevalidate(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
 func TestRouteHandlerFeedIgnoresStaleSnapshotWhenDisabled(t *testing.T) {
 	root := t.TempDir()
 	target, err := snapshotFilePath(root, "/feed.xml")

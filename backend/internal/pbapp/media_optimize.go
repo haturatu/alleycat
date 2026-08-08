@@ -50,7 +50,7 @@ func convertUploadedImageToWebP(file *filesystem.File) (*filesystem.File, error)
 	if err != nil {
 		return nil, fmt.Errorf("open uploaded media: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	input, err := io.ReadAll(reader)
 	if err != nil {
@@ -81,7 +81,7 @@ func convertImageBytesWithCWebP(input []byte, originalName string) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("create media temp dir: %w", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	inputPath := filepath.Join(dir, "input"+inputExtension(originalName))
 	outputPath := filepath.Join(dir, "output.webp")
