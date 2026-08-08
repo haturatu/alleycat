@@ -267,9 +267,19 @@ func writeHTML(w http.ResponseWriter, content string) {
 }
 
 func writeHTMLStatus(w http.ResponseWriter, content string, status int) {
+	setHTMLSecurityHeaders(w.Header())
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(content))
+}
+
+const contentSecurityPolicy = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; script-src 'self' https:; connect-src 'self' https:; frame-src 'self' https:; worker-src 'self' blob:"
+
+func setHTMLSecurityHeaders(header http.Header) {
+	header.Set("Content-Security-Policy", contentSecurityPolicy)
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	header.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 }
 
 func serveStatic(w http.ResponseWriter, r *http.Request) bool {
@@ -339,6 +349,7 @@ func servePrerenderedSnapshot(w http.ResponseWriter, r *http.Request, clean stri
 	}
 	contentType := snapshotContentType(clean)
 	if strings.HasPrefix(contentType, "text/html") {
+		setHTMLSecurityHeaders(w.Header())
 		body = absolutizePrerenderedSnapshotHTML(body, withRequestSiteURL(getSettings(), r))
 	}
 	w.Header().Set("Cache-Control", "no-store")

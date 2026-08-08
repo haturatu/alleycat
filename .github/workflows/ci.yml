@@ -31,6 +31,18 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: Race test
+        run: go test -race ./...
+
+      - name: HTTP chaos/load regression
+        run: go test ./internal/site -run '^TestRevalidateHTTPChaos$' -count=1
+
+      - name: Fuzz revalidation parser
+        run: go test ./internal/site -run '^$' -fuzz=FuzzDecodeRevalidateRequest -fuzztime=5s
+
+      - name: Go vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   frontend-test:
     name: Frontend Test
     runs-on: ubuntu-latest
@@ -53,6 +65,35 @@ jobs:
 
       - name: Run Vitest
         run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  cloudflare-audit:
+    name: Cloudflare dependency audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cloudflare/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
 
   lint:
     name: Lint

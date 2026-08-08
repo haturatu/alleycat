@@ -35,6 +35,7 @@ type LoginAttempt = {
 };
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const CONTENT_SECURITY_POLICY = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; script-src 'self'; connect-src 'self' https:; frame-src 'self' https:; worker-src 'self' blob:";
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_UPLOAD_PIXELS = 25_000_000;
 const MAX_JSON_BODY_BYTES = 1 * 1024 * 1024;
@@ -666,6 +667,16 @@ function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 }
 
+function sanitizeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, "")
+    .replace(/<\/?(?:embed|object|form|base|meta|link)\b[^>]*>/gi, "")
+    .replace(/\s(?:on[a-z]+|style|srcdoc)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s(?:href|src|action)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|\s*javascript:[^\s>]+)/gi, "");
+}
+
 function asNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -683,8 +694,8 @@ function layout(config: Data, title: string, body: string, pages: Data[], reques
   const menu = pages.filter(isPublished).sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0))
     .filter((page) => page.menuVisible === true)
     .map((page) => `<a href="${escapeHtml(page.url)}">${escapeHtml(page.menuTitle || page.title)}</a>`).join("");
-  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"><link rel="stylesheet" href="/styles.css"></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}</nav></header><main>${body}</main><footer>${String(config.footer_html || "")}</footer></body></html>`;
-  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
+  const html = `<!doctype html><html lang="${escapeHtml(config.site_language || "ja")}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title === siteName ? title : `${title} | ${siteName}`)}</title><meta name="description" content="${escapeHtml(config.description)}"><link rel="canonical" href="${escapeHtml(canonical)}"><link rel="stylesheet" href="/themes/${theme}/styles.css"><link rel="stylesheet" href="/styles.css"><script src="/site.js" defer></script></head><body><header><nav><a href="/">${escapeHtml(siteName)}</a><a href="/archive/">Archive</a>${menu}</nav></header><main>${sanitizeHtml(body)}</main><footer>${sanitizeHtml(config.footer_html)}</footer></body></html>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60", "content-security-policy": CONTENT_SECURITY_POLICY, "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin", "permissions-policy": "camera=(), microphone=(), geolocation=()" } });
 }
 
 async function publicSite(request: Request, env: Env): Promise<Response> {

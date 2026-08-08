@@ -12,6 +12,11 @@ import (
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
 
+const (
+	maxUpstreamJSONBytes  = 8 * 1024 * 1024
+	maxUpstreamErrorBytes = 64 * 1024
+)
+
 func fetchJSON[T any](target string) (T, error) {
 	return fetchJSONContext[T](context.Background(), target)
 }
@@ -30,12 +35,21 @@ func fetchJSONContext[T any](ctx context.Context, target string) (T, error) {
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxUpstreamErrorBytes+1))
+		if len(body) > maxUpstreamErrorBytes {
+			body = append(body[:maxUpstreamErrorBytes], []byte("…(truncated)")...)
+		}
 		return zero, fmt.Errorf("http %d: %s", resp.StatusCode, string(body))
 	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxUpstreamJSONBytes+1))
+	if err != nil {
+		return zero, err
+	}
+	if len(body) > maxUpstreamJSONBytes {
+		return zero, fmt.Errorf("upstream response exceeds %d bytes", maxUpstreamJSONBytes)
+	}
 	var out T
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&out); err != nil {
+	if err := json.Unmarshal(body, &out); err != nil {
 		return zero, err
 	}
 	return out, nil
