@@ -130,3 +130,50 @@ func TestExtractFirstJSONObjectKeepsEscapedQuotes(t *testing.T) {
 		t.Fatalf("extractFirstJSONObject = %q", got)
 	}
 }
+
+func TestParseGeminiTranslationTextRepairsInvalidStringEscapes(t *testing.T) {
+	t.Parallel()
+
+	input := `{"translated_title":"title","translated_body":"Use \uÐ... and C:\Users\docs"}`
+	got, err := parseGeminiTranslationText(input)
+	if err != nil {
+		t.Fatalf("parseGeminiTranslationText returned error: %v", err)
+	}
+	wantBody := `Use \uÐ... and C:\Users\docs`
+	if got.TranslatedBody != wantBody {
+		t.Fatalf("translated body = %q, want %q", got.TranslatedBody, wantBody)
+	}
+}
+
+func TestParseGeminiTranslationTextKeepsValidEscapes(t *testing.T) {
+	t.Parallel()
+
+	input := `{"translated_title":"line\n\\path","translated_body":"こんにちは\\u4f60"}`
+	got, err := parseGeminiTranslationText(input)
+	if err != nil {
+		t.Fatalf("parseGeminiTranslationText returned error: %v", err)
+	}
+	if got.TranslatedTitle != "line\n\\path" {
+		t.Fatalf("translated title = %q, want valid JSON escapes to be decoded", got.TranslatedTitle)
+	}
+	if got.TranslatedBody != "こんにちは\\u4f60" {
+		t.Fatalf("translated body = %q, want literal escaped unicode sequence", got.TranslatedBody)
+	}
+}
+
+func TestTranslationResponseSchema(t *testing.T) {
+	t.Parallel()
+
+	got := geminiResponseSchema("translated_title", "translated_body")
+	want := map[string]any{
+		"type": "OBJECT",
+		"properties": map[string]any{
+			"translated_title": map[string]any{"type": "STRING"},
+			"translated_body":  map[string]any{"type": "STRING"},
+		},
+		"required": []string{"translated_title", "translated_body"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("geminiResponseSchema = %#v, want %#v", got, want)
+	}
+}

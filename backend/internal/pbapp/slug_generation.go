@@ -102,13 +102,13 @@ func generateEnglishSlugWithGemini(title, model, apiKey string, requestsPerMinut
 		"The slug must contain only lowercase ASCII letters, numbers, and single hyphens.\n" +
 		string(inputJSON)
 
-	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute)
+	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute, geminiResponseSchema("slug"))
 	if err != nil {
 		return "", err
 	}
 
 	var payload slugGenerationResponse
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+	if err := unmarshalGeminiJSON(text, &payload); err != nil {
 		return "", err
 	}
 
