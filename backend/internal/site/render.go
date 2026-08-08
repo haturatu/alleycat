@@ -306,7 +306,7 @@ func renderNav(menu []PageRecord, settings SettingsRecord) string {
 		if strings.TrimSpace(label) == "" {
 			label = page.Title
 		}
-		links.WriteString(fmt.Sprintf(`        <li><a href="%s">%s</a></li>`, escapeHTML(page.URL), escapeHTML(label)))
+		_, _ = fmt.Fprintf(&links, `        <li><a href="%s">%s</a></li>`, escapeHTML(page.URL), escapeHTML(label))
 	}
 	return fmt.Sprintf(`<nav class="navbar">
       <a href="/" class="navbar-home">
@@ -426,7 +426,7 @@ func renderTagsNav(tags []string) string {
 	}
 	items := strings.Builder{}
 	for _, tag := range tags {
-		items.WriteString(fmt.Sprintf(`<li><a href="/archive/%s/" class="badge">%s</a></li>`, url.PathEscape(tag), escapeHTML(tag)))
+		_, _ = fmt.Fprintf(&items, `<li><a href="/archive/%s/" class="badge">%s</a></li>`, url.PathEscape(tag), escapeHTML(tag))
 	}
 	return fmt.Sprintf(`<nav class="page-navigation">
     <h2>tags:</h2>
@@ -442,7 +442,7 @@ func renderCategoriesNav(categories []string) string {
 	}
 	items := strings.Builder{}
 	for _, category := range categories {
-		items.WriteString(fmt.Sprintf(`<li><a href="/archive/category/%s/" class="badge">%s</a></li>`, url.PathEscape(category), escapeHTML(category)))
+		_, _ = fmt.Fprintf(&items, `<li><a href="/archive/category/%s/" class="badge">%s</a></li>`, url.PathEscape(category), escapeHTML(category))
 	}
 	return fmt.Sprintf(`<nav class="page-navigation">
     <h2>categories:</h2>
@@ -474,7 +474,7 @@ func renderPostTags(tags []string, show bool) string {
 	}
 	items := strings.Builder{}
 	for _, tag := range tags {
-		items.WriteString(fmt.Sprintf(`<a class="badge" href="/archive/%s/">%s</a>`, url.PathEscape(tag), escapeHTML(tag)))
+		_, _ = fmt.Fprintf(&items, `<a class="badge" href="/archive/%s/">%s</a>`, url.PathEscape(tag), escapeHTML(tag))
 	}
 	return fmt.Sprintf(`<div class="post-tags">%s</div>`, items.String())
 }
@@ -514,7 +514,7 @@ func renderPostList(items []PostRecord, showTags bool, excerptLength int) string
 			}(), calcReadTime(body), tagsHTML)
 		}
 
-		list.WriteString(fmt.Sprintf(`<article class="post">
+		_, _ = fmt.Fprintf(&list, `<article class="post">
           <header class="post-header">
             <h2 class="post-title">
               <a href="/posts/%s/">%s</a>
@@ -523,7 +523,7 @@ func renderPostList(items []PostRecord, showTags bool, excerptLength int) string
           </header>
           <div class="post-excerpt body">%s</div>
           <a href="/posts/%s/" class="post-link">Read →</a>
-        </article>`, escapeHTML(post.Slug), escapeHTML(defaultString(post.Title, post.Slug)), postDetails, escapeHTML(excerpt), escapeHTML(post.Slug)))
+		</article>`, escapeHTML(post.Slug), escapeHTML(defaultString(post.Title, post.Slug)), postDetails, escapeHTML(excerpt), escapeHTML(post.Slug))
 	}
 	return fmt.Sprintf(`<section class="postList">
     %s
@@ -1001,7 +1001,7 @@ func buildTOC(body string, enabled bool) (string, string) {
 
 	list := strings.Builder{}
 	for _, item := range items {
-		list.WriteString(fmt.Sprintf(`<li data-level="%d"><a href="#%s">%s</a></li>`, item.level, escapeHTML(item.id), escapeHTML(item.text)))
+		_, _ = fmt.Fprintf(&list, `<li data-level="%d"><a href="#%s">%s</a></li>`, item.level, escapeHTML(item.id), escapeHTML(item.text))
 	}
 
 	toc := fmt.Sprintf(`<nav class="post-toc" aria-label="Table of contents">
@@ -1084,10 +1084,10 @@ func renderRelatedPosts(items []PostRecord, postPathPrefix string) string {
 		if date != "" {
 			dateHTML = fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
 		}
-		list.WriteString(fmt.Sprintf(`<li>
+		_, _ = fmt.Fprintf(&list, `<li>
           <a href="%s%s/">%s</a>
           %s
-        </li>`, postPathPrefix, url.PathEscape(post.Slug), escapeHTML(defaultString(post.Title, "Post")), dateHTML))
+	        </li>`, postPathPrefix, url.PathEscape(post.Slug), escapeHTML(defaultString(post.Title, "Post")), dateHTML)
 	}
 	return fmt.Sprintf(`<section class="post-related">
       <h2>Related Posts</h2>

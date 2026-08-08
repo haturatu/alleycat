@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -64,6 +65,10 @@ func getPrerenderedSnapshotDir() string {
 }
 
 func buildStaticSnapshot() (string, error) {
+	return buildStaticSnapshotContext(context.Background())
+}
+
+func buildStaticSnapshotContext(ctx context.Context) (string, error) {
 	if err := os.MkdirAll(staticExportDir, 0o755); err != nil {
 		return "", err
 	}
@@ -78,22 +83,22 @@ func buildStaticSnapshot() (string, error) {
 		}
 	}()
 
-	ctx, err := newSnapshotBuildContext()
+	buildCtx, err := newSnapshotBuildContextContext(ctx)
 	if err != nil {
 		return "", err
 	}
-	settings := ctx.settings
+	settings := buildCtx.settings
 	slog.Info("static snapshot build start",
 		"root", root,
-		"posts", len(ctx.publishedPosts),
-		"pages", len(ctx.publishedPages),
-		"tags", len(ctx.tags),
-		"categories", len(ctx.categories),
+		"posts", len(buildCtx.publishedPosts),
+		"pages", len(buildCtx.publishedPages),
+		"tags", len(buildCtx.tags),
+		"categories", len(buildCtx.categories),
 		"locales", len(parseTranslationLocales(settings.TranslationLocales)),
 	)
 
-	err = withSnapshotBuildContext(ctx, func() error {
-		if err := renderSnapshotRoutesInParallel(root, snapshotBuildWorkers(), buildSnapshotRenderTasks(ctx, settings)); err != nil {
+	err = withSnapshotBuildContext(buildCtx, func() error {
+		if err := renderSnapshotRoutesInParallel(root, snapshotBuildWorkers(), buildSnapshotRenderTasks(buildCtx, settings)); err != nil {
 			return err
 		}
 

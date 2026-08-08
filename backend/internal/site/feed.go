@@ -58,24 +58,24 @@ func writeRSSFeed(w http.ResponseWriter, r *http.Request, settings SettingsRecor
 	builder := strings.Builder{}
 	builder.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
 	builder.WriteString("<feed xmlns=\"http://www.w3.org/2005/Atom\">\n")
-	builder.WriteString(fmt.Sprintf("  <title>%s</title>\n", escapeHTML(settings.SiteName)))
+	builder.WriteString("  <title>" + escapeHTML(settings.SiteName) + "</title>\n")
 	if baseURL != "" {
-		builder.WriteString(fmt.Sprintf("  <link href=\"%s/\"/>\n", baseURL))
-		builder.WriteString(fmt.Sprintf("  <link href=\"%s/feed.xml\" rel=\"self\"/>\n", baseURL))
+		builder.WriteString("  <link href=\"" + baseURL + "/\"/>\n")
+		builder.WriteString("  <link href=\"" + baseURL + "/feed.xml\" rel=\"self\"/>\n")
 	}
-	builder.WriteString(fmt.Sprintf("  <updated>%s</updated>\n", updated))
-	builder.WriteString(fmt.Sprintf("  <id>%s</id>\n", escapeHTML(defaultString(baseURL, settings.SiteName))))
+	builder.WriteString("  <updated>" + updated + "</updated>\n")
+	builder.WriteString("  <id>" + escapeHTML(defaultString(baseURL, settings.SiteName)) + "</id>\n")
 	for _, item := range items {
 		builder.WriteString("  <entry>\n")
-		builder.WriteString(fmt.Sprintf("    <title>%s</title>\n", escapeHTML(item.Title)))
+		builder.WriteString("    <title>" + escapeHTML(item.Title) + "</title>\n")
 		if item.URL != "" {
-			builder.WriteString(fmt.Sprintf("    <link href=\"%s\"/>\n", escapeHTML(item.URL)))
-			builder.WriteString(fmt.Sprintf("    <id>%s</id>\n", escapeHTML(item.URL)))
+			builder.WriteString("    <link href=\"" + escapeHTML(item.URL) + "\"/>\n")
+			builder.WriteString("    <id>" + escapeHTML(item.URL) + "</id>\n")
 		}
 		if item.Date != "" {
-			builder.WriteString(fmt.Sprintf("    <updated>%s</updated>\n", escapeHTML(item.Date)))
+			builder.WriteString("    <updated>" + escapeHTML(item.Date) + "</updated>\n")
 		}
-		builder.WriteString(fmt.Sprintf("    <summary>%s</summary>\n", escapeHTML(item.Summary)))
+		builder.WriteString("    <summary>" + escapeHTML(item.Summary) + "</summary>\n")
 		builder.WriteString("  </entry>\n")
 	}
 	builder.WriteString("</feed>")

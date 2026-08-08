@@ -76,7 +76,7 @@ func backfillMediaChecksums(app core.App) (backfillStats, error) {
 	if err != nil {
 		return stats, err
 	}
-	defer fsys.Close()
+	defer func() { _ = fsys.Close() }()
 
 	canonicalByChecksum := make(map[string]canonicalMedia, len(records))
 
