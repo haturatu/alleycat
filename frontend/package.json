@@ -16,7 +16,7 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
-    "gray-matter": "^4.0.3",
+    "dompurify": "^3.4.13",
     "highlight.js": "^11.11.1",
     "js-sha256": "^1.0.0",
     "marked": "^18.0.7",

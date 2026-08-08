@@ -69,6 +69,18 @@ func TestRenderHeadRespectsFeatureFlags(t *testing.T) {
 	}
 }
 
+func TestSanitizeBodyHTMLRemovesActiveContent(t *testing.T) {
+	clean := sanitizeBodyHTML(`<p>safe</p><img src="https://cdn.example/image.png" onerror="alert(1)"><script>alert(1)</script><a href="javascript:alert(1)">link</a>`)
+	if !strings.Contains(clean, `<p>safe</p>`) || !strings.Contains(clean, `src="https://cdn.example/image.png"`) {
+		t.Fatalf("sanitized body lost safe content: %q", clean)
+	}
+	for _, forbidden := range []string{"<script", "onerror", "javascript:"} {
+		if strings.Contains(strings.ToLower(clean), forbidden) {
+			t.Fatalf("sanitized body contains %q: %q", forbidden, clean)
+		}
+	}
+}
+
 func TestRenderHeadOmitsDisabledFeedAlternates(t *testing.T) {
 	t.Parallel()
 

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 const criticalBaseStyles = `<style>
@@ -23,6 +25,15 @@ const criticalBaseStyles = `<style>
 var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\s*=\s*['"]([^'"]+)['"][^>]*>\s*</script>\s*$`)
 var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(?:"([^"]+)"|'([^']+)')`)
 var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+var bodyHTMLPolicy = bluemonday.UGCPolicy()
+
+func sanitizeBodyHTML(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	return bodyHTMLPolicy.Sanitize(value)
+}
 
 func themeStylesheet(themeOverride string) string {
 	if activePublicDir == publicDir {
@@ -201,7 +212,7 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
 	codeHighlight := ""
 	if settings.EnableCodeHighlight {
 		highlightDarkCSS, highlightLightCSS := highlightStylesheets(settings)
-		codeHighlight = fmt.Sprintf("<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link id=\"hljs-theme-link\" rel=\"stylesheet\" href=\"%s\" data-theme-dark=\"%s\" data-theme-light=\"%s\" />\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>\n    <script>window.addEventListener('DOMContentLoaded',()=>{if(window.hljs){window.hljs.highlightAll();}});</script>", highlightDarkCSS, highlightLightCSS, highlightDarkCSS, highlightDarkCSS, highlightLightCSS)
+		codeHighlight = fmt.Sprintf("<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link rel=\"preload\" href=\"%s\" as=\"style\" />\n    <link id=\"hljs-theme-link\" rel=\"stylesheet\" href=\"%s\" data-theme-dark=\"%s\" data-theme-light=\"%s\" />\n    <script defer src=\"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js\"></script>", highlightDarkCSS, highlightLightCSS, highlightDarkCSS, highlightDarkCSS, highlightLightCSS)
 	}
 	if strings.TrimSpace(extraHead) != "" {
 		extraHead = strings.TrimSpace(extraHead)
@@ -222,6 +233,7 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
     %s
     %s
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <script defer src="/site.js"></script>
     <meta name="description" content="%s" />
     <meta name="robots" content="max-image-preview:large" />
     %s
@@ -316,35 +328,8 @@ func renderNav(menu []PageRecord, settings SettingsRecord) string {
       <ul class="navbar-links">
         <li><a href="/archive/">Archive</a></li>
         %s
-	        <li>
-	          <script>
-	            (() => {
-	              const root = document.documentElement;
-	              const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-	              let theme = localStorage.getItem("theme") || (prefersDark ? "dark" : "light");
-	              const applyTheme = (nextTheme) => {
-	                root.dataset.theme = nextTheme;
-	                const hljsThemeLink = document.getElementById("hljs-theme-link");
-	                if (hljsThemeLink) {
-	                  const darkHref = hljsThemeLink.getAttribute("data-theme-dark");
-	                  const lightHref = hljsThemeLink.getAttribute("data-theme-light");
-	                  if (nextTheme === "dark" && darkHref) {
-	                    hljsThemeLink.setAttribute("href", darkHref);
-	                  }
-	                  if (nextTheme === "light" && lightHref) {
-	                    hljsThemeLink.setAttribute("href", lightHref);
-	                  }
-	                }
-	              };
-	              applyTheme(theme);
-	              window.changeTheme = () => {
-	                theme = theme === "dark" ? "light" : "dark";
-	                localStorage.setItem("theme", theme);
-                applyTheme(theme);
-              };
-            })();
-          </script>
-          <button class="button" onclick="changeTheme()">
+		<li>
+	          <button class="button" type="button" data-theme-toggle aria-label="Toggle theme">
             <span class="icon">◐</span>
           </button>
         </li>
@@ -384,7 +369,7 @@ func renderFooter(settings SettingsRecord) string {
 	}
 	return fmt.Sprintf(`<footer class="footer">%s</footer>
   </body>
-</html>`, settings.FooterHTML)
+</html>`, sanitizeBodyHTML(settings.FooterHTML))
 }
 
 func renderPagination(base string, pageNumber, totalPages int, query string) string {
@@ -866,7 +851,7 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 	if body == "" {
 		body = post.Content
 	}
-	body = rewriteMediaURLs(body)
+	body = sanitizeBodyHTML(rewriteMediaURLs(body))
 	body, tocHTML := buildTOC(body, settings.ShowToc)
 	date := post.PublishedAt
 	if date == "" {
@@ -1158,7 +1143,7 @@ func renderPageFromRecord(page *PageRecord, settings SettingsRecord) (string, bo
 	if body == "" {
 		body = page.Content
 	}
-	body = rewriteMediaURLs(body)
+	body = sanitizeBodyHTML(rewriteMediaURLs(body))
 
 	return renderHead(defaultString(page.Title, "Page"), settings) +
 		renderNav(menu, settings) +

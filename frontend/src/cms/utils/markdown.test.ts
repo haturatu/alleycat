@@ -63,4 +63,17 @@ describe("markdown round-trip", () => {
     expect(markdown1).toBe(markdown);
     expect(html2).toBe(html1);
   });
+
+  test("sanitizes raw HTML and unsafe URLs before preview", () => {
+    const html = renderMarkdownToHtml(
+      '<img src="https://cdn.example/image.png" onerror="alert(1)"><script>alert(1)</script><a href="javascript:alert(1)" onclick="alert(1)">link</a>',
+      { highlightCode: false }
+    );
+
+    expect(html).toContain('<img src="https://cdn.example/image.png">');
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("onerror");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("javascript:");
+  });
 });

@@ -1,5 +1,6 @@
 import hljs from "highlight.js";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 marked.setOptions({
   gfm: true,
@@ -11,6 +12,13 @@ type RenderMarkdownOptions = {
 };
 
 const alertKinds = new Set(["note", "tip", "important", "warning", "caution"]);
+
+const sanitizeMarkdownHtml = (value: string) =>
+  DOMPurify.sanitize(value, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ["embed", "form", "iframe", "object", "script", "style"],
+    FORBID_ATTR: ["style"],
+  });
 
 const codeFenceStartRe = /^```([\w+-]+)?\s*$/;
 const codeFenceEndRe = /^```\s*$/;
@@ -226,14 +234,14 @@ export const renderMarkdownToHtml = (value?: string, options: RenderMarkdownOpti
   if (!input.trim()) return "";
   const { highlightCode = true } = options;
 
-  const rendered = marked.parse(input) as string;
+  const rendered = sanitizeMarkdownHtml(marked.parse(input) as string);
   const doc = new DOMParser().parseFromString(`<div id=\"md-root\">${rendered}</div>`, "text/html");
   const root = doc.getElementById("md-root");
   if (!root) return rendered;
   normalizeMarkdownAlertsInContainer(root, doc);
   highlightCodeBlocks(root, highlightCode);
 
-  return root.innerHTML;
+  return sanitizeMarkdownHtml(root.innerHTML);
 };
 
 const htmlTagRe = /<\s*\/?\s*([a-z][a-z0-9-]*)\b[^>]*>/i;

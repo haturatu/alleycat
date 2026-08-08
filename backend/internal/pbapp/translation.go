@@ -25,6 +25,8 @@ const (
 	defaultTranslationRPM        = 60
 	maxTranslateRetries          = 3
 	maxTranslationBodyRunes      = 4000
+	maxGeminiResponseBytes       = 8 * 1024 * 1024
+	maxGeminiErrorBytes          = 64 * 1024
 	postTranslationQueueCapacity = 32
 )
 
@@ -729,11 +731,16 @@ func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int, resp
 		if err != nil {
 			lastErr = err
 		} else {
-			respBody, readErr := io.ReadAll(resp.Body)
+			respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, maxGeminiResponseBytes+1))
 			_ = resp.Body.Close()
 			if readErr != nil {
 				lastErr = readErr
+			} else if len(respBody) > maxGeminiResponseBytes {
+				lastErr = fmt.Errorf("gemini response exceeds %d bytes", maxGeminiResponseBytes)
 			} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				if len(respBody) > maxGeminiErrorBytes {
+					respBody = append(respBody[:maxGeminiErrorBytes], []byte("…(truncated)")...)
+				}
 				lastErr = &geminiError{
 					Status: resp.StatusCode,
 					Body:   string(respBody),

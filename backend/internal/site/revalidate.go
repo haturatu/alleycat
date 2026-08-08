@@ -1,6 +1,7 @@
 package site
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -49,16 +50,9 @@ func handleRevalidate(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxRevalidateBodyBytes)
 
-	var req revalidateRequest
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&req); err != nil {
+	req, err := decodeRevalidateRequest(r.Body)
+	if err != nil {
 		slog.Warn("revalidate request decode failed", "error", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		slog.Warn("revalidate request contains trailing data", "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -83,6 +77,30 @@ func handleRevalidate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
+func decodeRevalidateRequest(reader io.Reader) (revalidateRequest, error) {
+	var request revalidateRequest
+	body, err := io.ReadAll(io.LimitReader(reader, maxRevalidateBodyBytes+1))
+	if err != nil {
+		return request, err
+	}
+	if len(body) > maxRevalidateBodyBytes {
+		return request, errors.New("request body too large")
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	if err := decoder.Decode(&request); err != nil {
+		return request, err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return request, errors.New("request contains trailing data")
+		}
+		return request, err
+	}
+	return request, nil
 }
 
 func isRevalidateAuthorized(r *http.Request) bool {

@@ -72,6 +72,18 @@ func TestHandleRevalidateRequiresToken(t *testing.T) {
 	}
 }
 
+func TestWriteHTMLAddsSecurityHeaders(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeHTML(rec, "<html><body>ok</body></html>")
+
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "script-src 'self'") {
+		t.Fatalf("Content-Security-Policy = %q", got)
+	}
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q", got)
+	}
+}
+
 func TestRouteHandlerFeedIgnoresStaleSnapshotWhenDisabled(t *testing.T) {
 	root := t.TempDir()
 	target, err := snapshotFilePath(root, "/feed.xml")
