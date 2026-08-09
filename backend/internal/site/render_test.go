@@ -81,6 +81,18 @@ func TestSanitizeBodyHTMLRemovesActiveContent(t *testing.T) {
 	}
 }
 
+func TestSanitizeBodyHTMLPreservesSafePresentation(t *testing.T) {
+	clean := sanitizeBodyHTML(`<div id="notice" class="markdown-alert markdown-alert-note"><span class="hljs-keyword" style="color: #933; font-weight: 700; position: fixed;">safe</span></div>`)
+	for _, preserved := range []string{`id="notice"`, `class="markdown-alert markdown-alert-note"`, `class="hljs-keyword"`, `color: #933`, `font-weight: 700`} {
+		if !strings.Contains(clean, preserved) {
+			t.Fatalf("sanitized body lost safe presentation %q: %q", preserved, clean)
+		}
+	}
+	if strings.Contains(clean, "position:") {
+		t.Fatalf("sanitized body retained disallowed layout style: %q", clean)
+	}
+}
+
 func TestRenderHeadOmitsDisabledFeedAlternates(t *testing.T) {
 	t.Parallel()
 

@@ -25,8 +25,60 @@ const criticalBaseStyles = `<style>
 var commentsScriptTagPattern = regexp.MustCompile(`(?is)^\s*<script\b[^>]*\ssrc\s*=\s*['"]([^'"]+)['"][^>]*>\s*</script>\s*$`)
 var headingIDAttrPattern = regexp.MustCompile(`(?is)\sid\s*=\s*(?:"([^"]+)"|'([^']+)')`)
 var nonAlnumPattern = regexp.MustCompile(`[^a-z0-9]+`)
+var safeHTMLClassPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*(?:\s+[A-Za-z][A-Za-z0-9_-]*)*$`)
+var safeHTMLIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
-var bodyHTMLPolicy = bluemonday.UGCPolicy()
+var bodyHTMLPolicy = newBodyHTMLPolicy()
+
+func newBodyHTMLPolicy() *bluemonday.Policy {
+	policy := bluemonday.UGCPolicy()
+	policy.AllowAttrs("class").Matching(safeHTMLClassPattern).Globally()
+	policy.AllowAttrs("id").Matching(safeHTMLIDPattern).Globally()
+	policy.AllowAttrs("style").Globally()
+	policy.AllowStyles(
+		"align-items",
+		"background-color",
+		"border",
+		"border-color",
+		"border-radius",
+		"border-style",
+		"border-width",
+		"color",
+		"display",
+		"flex-direction",
+		"flex-wrap",
+		"font-family",
+		"font-size",
+		"font-style",
+		"font-weight",
+		"gap",
+		"justify-content",
+		"line-height",
+		"margin",
+		"margin-bottom",
+		"margin-left",
+		"margin-right",
+		"margin-top",
+		"max-height",
+		"max-width",
+		"min-height",
+		"min-width",
+		"opacity",
+		"overflow",
+		"overflow-wrap",
+		"padding",
+		"padding-bottom",
+		"padding-left",
+		"padding-right",
+		"padding-top",
+		"text-align",
+		"text-decoration",
+		"vertical-align",
+		"white-space",
+		"width",
+	).Globally()
+	return policy
+}
 
 func sanitizeBodyHTML(value string) string {
 	if strings.TrimSpace(value) == "" {
