@@ -41,6 +41,19 @@ func TestHighlightStylesheets(t *testing.T) {
 	}
 }
 
+func TestAsyncStylesheetTagUsesStylesheetLink(t *testing.T) {
+	t.Parallel()
+
+	got := asyncStylesheetTag("/styles.css?defer=1")
+	want := `<link rel="stylesheet" href="/styles.css?defer=1">`
+	if got != want {
+		t.Fatalf("asyncStylesheetTag() = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "onload=") {
+		t.Fatalf("asyncStylesheetTag() must not emit an inline event handler: %q", got)
+	}
+}
+
 func TestRenderHeadRespectsFeatureFlags(t *testing.T) {
 	t.Parallel()
 

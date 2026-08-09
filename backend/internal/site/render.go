@@ -100,7 +100,7 @@ func themeStylesheet(themeOverride string) string {
 
 func asyncStylesheetTag(href string) string {
 	safeHref := escapeHTML(href)
-	return fmt.Sprintf("<link rel=\"preload\" href=\"%s\" as=\"style\" onload=\"this.onload=null;this.rel='stylesheet'\" />\n    <noscript><link rel=\"stylesheet\" href=\"%s\" /></noscript>", safeHref, safeHref)
+	return fmt.Sprintf("<link rel=\"stylesheet\" href=\"%s\">", safeHref)
 }
 
 func themeFontStylesheet(themeOverride string) string {
