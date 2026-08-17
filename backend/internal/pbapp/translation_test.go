@@ -255,6 +255,68 @@ func TestRequestOpenCodeGoJSON(t *testing.T) {
 	}
 }
 
+func TestOpenCodeZenProtocolForModel(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		model    string
+		protocol openCodeZenProtocol
+	}{
+		{model: "gpt-5.4-mini", protocol: openCodeZenResponsesProtocol},
+		{model: "claude-sonnet-4-6", protocol: openCodeZenMessagesProtocol},
+		{model: "gemini-3.5-flash", protocol: openCodeZenGoogleProtocol},
+		{model: "deepseek-v4-flash-free", protocol: openCodeZenChatProtocol},
+		{model: "opencode/kimi-k2.6", protocol: openCodeZenChatProtocol},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.model, func(t *testing.T) {
+			t.Parallel()
+			if got := openCodeZenProtocolForModel(tc.model); got != tc.protocol {
+				t.Fatalf("openCodeZenProtocolForModel(%q) = %q, want %q", tc.model, got, tc.protocol)
+			}
+		})
+	}
+}
+
+func TestRequestOpenCodeZenChatCompletions(t *testing.T) {
+	originalURL := openCodeZenChatCompletionsURL
+	t.Cleanup(func() { openCodeZenChatCompletionsURL = originalURL })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer test-key")
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if payload["model"] != "deepseek-v4-flash-free" {
+			t.Errorf("model = %v, want deepseek-v4-flash-free", payload["model"])
+		}
+		messages, ok := payload["messages"].([]any)
+		if !ok || len(messages) != 1 {
+			t.Errorf("messages = %#v, want one message", payload["messages"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{\"choices\":[{\"message\":{\"content\":\"{\\\"slug\\\":\\\"hello-world\\\"}\"}}]}"))
+	}))
+	defer server.Close()
+	openCodeZenChatCompletionsURL = server.URL
+
+	text, err := requestOpenCodeZen("translate", "deepseek-v4-flash-free", "test-key", 0)
+	if err != nil {
+		t.Fatalf("requestOpenCodeZen returned error: %v", err)
+	}
+	if text != `{"slug":"hello-world"}` {
+		t.Fatalf("response = %q", text)
+	}
+}
+
 func TestParseOpenCodeZenResponseText(t *testing.T) {
 	t.Parallel()
 

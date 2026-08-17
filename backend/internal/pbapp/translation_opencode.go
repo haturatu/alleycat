@@ -7,22 +7,29 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
 const (
-	defaultOpenCodeGoChatCompletionsURL = "https://opencode.ai/zen/go/v1/chat/completions"
-	defaultOpenCodeGoModelsURL          = "https://opencode.ai/zen/go/v1/models"
-	defaultOpenCodeZenResponsesURL      = "https://opencode.ai/zen/v1/responses"
-	defaultOpenCodeZenModelsURL         = "https://opencode.ai/zen/v1/models"
+	defaultOpenCodeGoChatCompletionsURL  = "https://opencode.ai/zen/go/v1/chat/completions"
+	defaultOpenCodeGoModelsURL           = "https://opencode.ai/zen/go/v1/models"
+	defaultOpenCodeZenResponsesURL       = "https://opencode.ai/zen/v1/responses"
+	defaultOpenCodeZenChatCompletionsURL = "https://opencode.ai/zen/v1/chat/completions"
+	defaultOpenCodeZenMessagesURL        = "https://opencode.ai/zen/v1/messages"
+	defaultOpenCodeZenGoogleModelsURL    = "https://opencode.ai/zen/v1/models"
+	defaultOpenCodeZenModelsURL          = "https://opencode.ai/zen/v1/models"
 )
 
 var (
-	openCodeGoChatCompletionsURL = defaultOpenCodeGoChatCompletionsURL
-	openCodeGoModelsURL          = defaultOpenCodeGoModelsURL
-	openCodeZenResponsesURL      = defaultOpenCodeZenResponsesURL
-	openCodeZenModelsURL         = defaultOpenCodeZenModelsURL
+	openCodeGoChatCompletionsURL  = defaultOpenCodeGoChatCompletionsURL
+	openCodeGoModelsURL           = defaultOpenCodeGoModelsURL
+	openCodeZenResponsesURL       = defaultOpenCodeZenResponsesURL
+	openCodeZenChatCompletionsURL = defaultOpenCodeZenChatCompletionsURL
+	openCodeZenMessagesURL        = defaultOpenCodeZenMessagesURL
+	openCodeZenGoogleModelsURL    = defaultOpenCodeZenGoogleModelsURL
+	openCodeZenModelsURL          = defaultOpenCodeZenModelsURL
 )
 
 type openCodeGoTranslationProvider struct {
@@ -54,6 +61,23 @@ type openCodeZenResponse struct {
 			Text string `json:"text"`
 		} `json:"content"`
 	} `json:"output"`
+}
+
+type openCodeZenMessagesResponse struct {
+	Content []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"content"`
+}
+
+type openCodeZenGoogleResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []struct {
+				Text string `json:"text"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
 }
 
 func (p *openCodeGoTranslationProvider) translateTitleAndBody(title, body, sourceLocale, targetLocale string) (string, string, error) {
@@ -277,14 +301,77 @@ func requestOpenCodeGoJSON(prompt, model, apiKey string, requestsPerMinute int) 
 }
 
 func requestOpenCodeZen(prompt, model, apiKey string, requestsPerMinute int) (string, error) {
-	payload := map[string]any{
-		"model": model,
-		"input": prompt,
+	modelID := normalizeOpenCodeModelID(model)
+	switch openCodeZenProtocolForModel(modelID) {
+	case openCodeZenResponsesProtocol:
+		payload := map[string]any{
+			"model": modelID,
+			"input": prompt,
+		}
+		return requestOpenCodeJSON("opencode-zen", openCodeZenResponsesURL, payload, apiKey, requestsPerMinute, parseOpenCodeZenResponseText)
+	case openCodeZenMessagesProtocol:
+		payload := map[string]any{
+			"model":      modelID,
+			"max_tokens": maxOpenCodeOutputTokens,
+			"messages": []map[string]string{{
+				"role":    "user",
+				"content": prompt,
+			}},
+		}
+		return requestOpenCodeJSONWithHeaders(
+			"opencode-zen",
+			openCodeZenMessagesURL,
+			payload,
+			apiKey,
+			requestsPerMinute,
+			parseOpenCodeZenMessagesResponseText,
+			func(req *http.Request, key string) {
+				req.Header.Set("x-api-key", key)
+				req.Header.Set("anthropic-version", "2023-06-01")
+			},
+		)
+	case openCodeZenGoogleProtocol:
+		payload := map[string]any{
+			"contents": []map[string]any{{
+				"role": "user",
+				"parts": []map[string]string{{
+					"text": prompt,
+				}},
+			}},
+		}
+		endpoint := strings.TrimRight(openCodeZenGoogleModelsURL, "/") + "/" + url.PathEscape(modelID) + ":generateContent"
+		return requestOpenCodeJSONWithHeaders(
+			"opencode-zen",
+			endpoint,
+			payload,
+			apiKey,
+			requestsPerMinute,
+			parseOpenCodeZenGoogleResponseText,
+			func(req *http.Request, key string) {
+				req.Header.Set("x-goog-api-key", key)
+			},
+		)
+	default:
+		payload := map[string]any{
+			"model": modelID,
+			"messages": []map[string]string{{
+				"role":    "user",
+				"content": prompt,
+			}},
+			"temperature": 0.2,
+			"stream":      false,
+		}
+		return requestOpenCodeJSON("opencode-zen", openCodeZenChatCompletionsURL, payload, apiKey, requestsPerMinute, parseOpenCodeGoResponseText)
 	}
-	return requestOpenCodeJSON("opencode-zen", openCodeZenResponsesURL, payload, apiKey, requestsPerMinute, parseOpenCodeZenResponseText)
 }
 
 func requestOpenCodeJSON(provider, endpoint string, payload any, apiKey string, requestsPerMinute int, parse func([]byte) (string, error)) (string, error) {
+	return requestOpenCodeJSONWithHeaders(provider, endpoint, payload, apiKey, requestsPerMinute, parse, func(req *http.Request, key string) {
+		req.Header.Set("Authorization", "Bearer "+key)
+	})
+}
+
+func requestOpenCodeJSONWithHeaders(provider, endpoint string, payload any, apiKey string, requestsPerMinute int, parse func([]byte) (string, error), setHeaders func(*http.Request, string)) (string, error) {
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
@@ -298,7 +385,7 @@ func requestOpenCodeJSON(provider, endpoint string, payload any, apiKey string, 
 		if err != nil {
 			return "", err
 		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+		setHeaders(req, apiKey)
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
@@ -372,4 +459,60 @@ func parseOpenCodeZenResponseText(responseBody []byte) (string, error) {
 		return "", errors.New("opencode-zen returned empty content")
 	}
 	return extractFirstJSONObject(text)
+}
+
+func parseOpenCodeZenMessagesResponseText(responseBody []byte) (string, error) {
+	var result openCodeZenMessagesResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", err
+	}
+	for _, content := range result.Content {
+		if text := strings.TrimSpace(content.Text); text != "" {
+			return extractFirstJSONObject(text)
+		}
+	}
+	return "", errors.New("opencode-zen returned empty content")
+}
+
+func parseOpenCodeZenGoogleResponseText(responseBody []byte) (string, error) {
+	var result openCodeZenGoogleResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", err
+	}
+	for _, candidate := range result.Candidates {
+		for _, part := range candidate.Content.Parts {
+			if text := strings.TrimSpace(part.Text); text != "" {
+				return extractFirstJSONObject(text)
+			}
+		}
+	}
+	return "", errors.New("opencode-zen returned empty content")
+}
+
+const (
+	maxOpenCodeOutputTokens                          = 8192
+	openCodeZenResponsesProtocol openCodeZenProtocol = "responses"
+	openCodeZenMessagesProtocol  openCodeZenProtocol = "messages"
+	openCodeZenGoogleProtocol    openCodeZenProtocol = "google"
+	openCodeZenChatProtocol      openCodeZenProtocol = "chat-completions"
+)
+
+type openCodeZenProtocol string
+
+func normalizeOpenCodeModelID(model string) string {
+	return strings.TrimPrefix(strings.TrimSpace(model), "opencode/")
+}
+
+func openCodeZenProtocolForModel(model string) openCodeZenProtocol {
+	modelID := strings.ToLower(normalizeOpenCodeModelID(model))
+	switch {
+	case strings.HasPrefix(modelID, "gpt-"), strings.HasPrefix(modelID, "grok-"), strings.HasPrefix(modelID, "muse-"):
+		return openCodeZenResponsesProtocol
+	case strings.HasPrefix(modelID, "claude-"), strings.HasPrefix(modelID, "qwen"):
+		return openCodeZenMessagesProtocol
+	case strings.HasPrefix(modelID, "gemini-"):
+		return openCodeZenGoogleProtocol
+	default:
+		return openCodeZenChatProtocol
+	}
 }
