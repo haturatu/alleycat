@@ -332,19 +332,38 @@ func requestOpenCodeZen(prompt, model, apiKey string, requestsPerMinute int) (st
 	default:
 		payload := map[string]any{
 			"model": modelID,
-			"messages": []map[string]string{{
-				"role":    "user",
-				"content": prompt,
-			}},
-			"max_tokens":  maxOpenCodeOutputTokens,
-			"temperature": 0.2,
-			"stream":      false,
+			"messages": []map[string]string{
+				{
+					"role":    "system",
+					"content": "You are a precise JSON generation assistant. Follow the user's requested output exactly.",
+				},
+				{
+					"role":    "user",
+					"content": prompt,
+				},
+			},
+			"max_tokens": maxOpenCodeChatOutputTokens,
+			"stream":     false,
 		}
-		if strings.HasPrefix(strings.ToLower(modelID), "deepseek-v4-") {
-			payload["thinking"] = map[string]string{"type": "disabled"}
-		}
-		return requestOpenCodeJSON("opencode-zen", openCodeZenChatCompletionsURL, payload, apiKey, requestsPerMinute, parseOpenCodeGoResponseText)
+		return requestOpenCodeJSONWithHeaders(
+			"opencode-zen",
+			openCodeZenChatCompletionsURL,
+			payload,
+			apiKey,
+			requestsPerMinute,
+			parseOpenCodeGoResponseText,
+			setOpenCodeZenChatHeaders,
+		)
 	}
+}
+
+func setOpenCodeZenChatHeaders(req *http.Request, apiKey string) {
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("User-Agent", "alleycat/opencode-zen")
+	req.Header.Set("X-Opencode-Client", "alleycat")
+	req.Header.Set("X-Opencode-Project", "alleycat")
+	req.Header.Set("X-Opencode-Request", fmt.Sprintf("msg_alleycat_%d", time.Now().UnixNano()))
+	req.Header.Set("X-Opencode-Session", fmt.Sprintf("ses_alleycat_%d", time.Now().UnixNano()))
 }
 
 func requestOpenCodeJSON(provider, endpoint string, payload any, apiKey string, requestsPerMinute int, parse func([]byte) (string, error)) (string, error) {
@@ -473,6 +492,7 @@ func parseOpenCodeZenGoogleResponseText(responseBody []byte) (string, error) {
 
 const (
 	maxOpenCodeOutputTokens                          = 8192
+	maxOpenCodeChatOutputTokens                      = 32000
 	openCodeZenResponsesProtocol openCodeZenProtocol = "responses"
 	openCodeZenMessagesProtocol  openCodeZenProtocol = "messages"
 	openCodeZenGoogleProtocol    openCodeZenProtocol = "google"

@@ -298,16 +298,27 @@ func TestRequestOpenCodeZenChatCompletions(t *testing.T) {
 		if payload["model"] != "deepseek-v4-flash-free" {
 			t.Errorf("model = %v, want deepseek-v4-flash-free", payload["model"])
 		}
-		thinking, ok := payload["thinking"].(map[string]any)
-		if !ok || thinking["type"] != "disabled" {
-			t.Errorf("thinking = %#v, want disabled", payload["thinking"])
+		if payload["max_tokens"] != float64(maxOpenCodeChatOutputTokens) {
+			t.Errorf("max_tokens = %v, want %d", payload["max_tokens"], maxOpenCodeChatOutputTokens)
 		}
-		if payload["max_tokens"] != float64(maxOpenCodeOutputTokens) {
-			t.Errorf("max_tokens = %v, want %d", payload["max_tokens"], maxOpenCodeOutputTokens)
+		if payload["stream"] != false {
+			t.Errorf("stream = %v, want false", payload["stream"])
 		}
 		messages, ok := payload["messages"].([]any)
-		if !ok || len(messages) != 1 {
-			t.Errorf("messages = %#v, want one message", payload["messages"])
+		if !ok || len(messages) != 2 {
+			t.Fatalf("messages = %#v, want system and user messages", payload["messages"])
+		}
+		if got := messages[0].(map[string]any)["role"]; got != "system" {
+			t.Errorf("first message role = %v, want system", got)
+		}
+		if got := messages[1].(map[string]any)["role"]; got != "user" {
+			t.Errorf("second message role = %v, want user", got)
+		}
+		if got := r.Header.Get("X-Opencode-Client"); got != "alleycat" {
+			t.Errorf("X-Opencode-Client = %q, want alleycat", got)
+		}
+		if got := r.Header.Get("X-Opencode-Project"); got != "alleycat" {
+			t.Errorf("X-Opencode-Project = %q, want alleycat", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("{\"choices\":[{\"message\":{\"content\":\"{\\\"slug\\\":\\\"hello-world\\\"}\"}}]}"))
