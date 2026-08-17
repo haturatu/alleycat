@@ -95,5 +95,11 @@ func (p *geminiTranslationProvider) translateBodyChunk(body, sourceLocale, targe
 }
 
 func (p *geminiTranslationProvider) generateSlug(title string) (string, error) {
-	return generateEnglishSlugWithGemini(title, p.model, p.apiKey, p.requestsPM)
+	return generateSlugWithRequest(
+		func(prompt string) (string, error) {
+			return requestGeminiJSON(prompt, p.model, p.apiKey, p.requestsPM, geminiResponseSchema("slug"))
+		},
+		title,
+		"gemini",
+	)
 }

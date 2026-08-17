@@ -120,7 +120,7 @@ func (p *openCodeGoTranslationProvider) translateBodyChunk(body, sourceLocale, t
 }
 
 func (p *openCodeGoTranslationProvider) generateSlug(title string) (string, error) {
-	return generateSlugWithOpenCodeRequest(
+	return generateSlugWithRequest(
 		func(prompt string) (string, error) {
 			return requestOpenCodeGoJSON(prompt, p.model, p.apiKey, p.requestsPM)
 		},
@@ -169,7 +169,7 @@ func (p *openCodeZenTranslationProvider) translateBodyChunk(body, sourceLocale, 
 }
 
 func (p *openCodeZenTranslationProvider) generateSlug(title string) (string, error) {
-	return generateSlugWithOpenCodeRequest(
+	return generateSlugWithRequest(
 		func(prompt string) (string, error) {
 			return requestOpenCodeZen(prompt, p.model, p.apiKey, p.requestsPM)
 		},
@@ -226,28 +226,6 @@ func buildTranslationPrompt(instruction string, input any, keys string) string {
 		return instruction + " Return ONLY valid JSON with exactly these keys: " + keys + ". Do not use Markdown fences."
 	}
 	return "You are a translation engine for blog content. " + instruction + " Return ONLY valid JSON with exactly these keys: " + keys + ". Do not use Markdown fences.\n" + string(inputJSON)
-}
-
-func generateSlugWithOpenCodeRequest(request func(string) (string, error), title, provider string) (string, error) {
-	input := map[string]string{"title": title}
-	inputJSON, err := json.Marshal(input)
-	if err != nil {
-		return "", err
-	}
-	prompt := "You generate concise English URL slugs for blog posts and pages from titles written in any language. Translate or transliterate the title into natural English keywords when needed. Return ONLY valid JSON with exactly this key: {\"slug\":\"...\"}. The slug must contain only lowercase ASCII letters, numbers, and single hyphens. Do not use Markdown fences.\n" + string(inputJSON)
-	text, err := request(prompt)
-	if err != nil {
-		return "", err
-	}
-	var payload slugGenerationResponse
-	if err := unmarshalTranslationJSON(text, &payload); err != nil {
-		return "", err
-	}
-	slug := normalizeGeneratedSlug(payload.Slug)
-	if slug == "" {
-		return "", fmt.Errorf("%s returned an empty slug", provider)
-	}
-	return slug, nil
 }
 
 func parseTranslatedPayload(text, provider string) (string, string, error) {
@@ -358,8 +336,12 @@ func requestOpenCodeZen(prompt, model, apiKey string, requestsPerMinute int) (st
 				"role":    "user",
 				"content": prompt,
 			}},
+			"max_tokens":  maxOpenCodeOutputTokens,
 			"temperature": 0.2,
 			"stream":      false,
+		}
+		if strings.HasPrefix(strings.ToLower(modelID), "deepseek-v4-") {
+			payload["thinking"] = map[string]string{"type": "disabled"}
 		}
 		return requestOpenCodeJSON("opencode-zen", openCodeZenChatCompletionsURL, payload, apiKey, requestsPerMinute, parseOpenCodeGoResponseText)
 	}

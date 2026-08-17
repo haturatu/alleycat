@@ -2,6 +2,7 @@ package pbapp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -18,6 +19,28 @@ type slugGenerationRequest struct {
 
 type slugGenerationResponse struct {
 	Slug string `json:"slug"`
+}
+
+func generateSlugWithRequest(request func(string) (string, error), title, provider string) (string, error) {
+	input := map[string]string{"title": title}
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+	prompt := "You generate concise English URL slugs for blog posts and pages from titles written in any language. Translate or transliterate the title into natural English keywords when needed. Return ONLY valid JSON with exactly this key: {\"slug\":\"...\"}. The slug must contain only lowercase ASCII letters, numbers, and single hyphens. Do not use Markdown fences.\n" + string(inputJSON)
+	text, err := request(prompt)
+	if err != nil {
+		return "", err
+	}
+	var payload slugGenerationResponse
+	if err := unmarshalTranslationJSON(text, &payload); err != nil {
+		return "", err
+	}
+	slug := normalizeGeneratedSlug(payload.Slug)
+	if slug == "" {
+		return "", fmt.Errorf("%s returned an empty slug", provider)
+	}
+	return slug, nil
 }
 
 var (
@@ -73,6 +96,14 @@ func registerSlugGenerationAPI(app *pocketbase.PocketBase) {
 			}
 			slug, err := provider.generateSlug(title)
 			if err != nil {
+				var providerErr *ProviderError
+				if errors.As(err, &providerErr) {
+					return apis.NewApiError(
+						http.StatusBadGateway,
+						fmt.Sprintf("AI slug generation failed: %s", providerErr.Error()),
+						nil,
+					)
+				}
 				return err
 			}
 
@@ -94,36 +125,6 @@ func requireEditorOrAdminAuth(e *core.RequestEvent) error {
 	}
 
 	return nil
-}
-
-func generateEnglishSlugWithGemini(title, model, apiKey string, requestsPerMinute int) (string, error) {
-	input := map[string]string{
-		"title": title,
-	}
-	inputJSON, _ := json.Marshal(input)
-
-	prompt := "You generate concise English URL slugs for blog posts and pages from titles written in any language. " +
-		"Translate or transliterate the title into natural English keywords when needed. " +
-		"Return only JSON with key slug. " +
-		"The slug must contain only lowercase ASCII letters, numbers, and single hyphens.\n" +
-		string(inputJSON)
-
-	text, err := requestGeminiJSON(prompt, model, apiKey, requestsPerMinute, geminiResponseSchema("slug"))
-	if err != nil {
-		return "", err
-	}
-
-	var payload slugGenerationResponse
-	if err := unmarshalGeminiJSON(text, &payload); err != nil {
-		return "", err
-	}
-
-	slug := normalizeGeneratedSlug(payload.Slug)
-	if slug == "" {
-		return "", apis.NewBadRequestError("Gemini returned an empty slug.", nil)
-	}
-
-	return slug, nil
 }
 
 func normalizeGeneratedSlug(value string) string {

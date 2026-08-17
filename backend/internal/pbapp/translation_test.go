@@ -298,6 +298,13 @@ func TestRequestOpenCodeZenChatCompletions(t *testing.T) {
 		if payload["model"] != "deepseek-v4-flash-free" {
 			t.Errorf("model = %v, want deepseek-v4-flash-free", payload["model"])
 		}
+		thinking, ok := payload["thinking"].(map[string]any)
+		if !ok || thinking["type"] != "disabled" {
+			t.Errorf("thinking = %#v, want disabled", payload["thinking"])
+		}
+		if payload["max_tokens"] != float64(maxOpenCodeOutputTokens) {
+			t.Errorf("max_tokens = %v, want %d", payload["max_tokens"], maxOpenCodeOutputTokens)
+		}
 		messages, ok := payload["messages"].([]any)
 		if !ok || len(messages) != 1 {
 			t.Errorf("messages = %#v, want one message", payload["messages"])

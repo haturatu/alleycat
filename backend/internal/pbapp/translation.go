@@ -30,6 +30,7 @@ const (
 	maxTranslationBodyRunes      = 4000
 	maxTranslationResponseBytes  = 8 * 1024 * 1024
 	maxTranslationErrorBytes     = 64 * 1024
+	maxProviderErrorMessageBytes = 400
 	postTranslationQueueCapacity = 32
 )
 
@@ -109,7 +110,14 @@ var postTranslationQueue = struct {
 }{}
 
 func (e *ProviderError) Error() string {
-	return fmt.Sprintf("%s request failed: status=%d", e.Provider, e.StatusCode)
+	body := strings.TrimSpace(e.Body)
+	if len(body) > maxProviderErrorMessageBytes {
+		body = body[:maxProviderErrorMessageBytes] + "…(truncated)"
+	}
+	if body == "" {
+		return fmt.Sprintf("%s request failed: status=%d", e.Provider, e.StatusCode)
+	}
+	return fmt.Sprintf("%s request failed: status=%d body=%s", e.Provider, e.StatusCode, body)
 }
 
 func registerTranslationFeatures(app *pocketbase.PocketBase) {
