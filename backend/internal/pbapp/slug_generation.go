@@ -2,6 +2,7 @@ package pbapp
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -32,13 +33,14 @@ func registerSlugGenerationAPI(app *pocketbase.PocketBase) {
 				return err
 			}
 
-			apiKey, err := loadGeminiAPIKey(e.App, nil)
+			settings, err := loadTranslationSettings(e.App)
 			if err != nil {
 				return err
 			}
 
 			return e.JSON(http.StatusOK, map[string]any{
-				"enabled": strings.TrimSpace(apiKey) != "",
+				"enabled":  strings.TrimSpace(settings.APIKey) != "",
+				"provider": settings.Provider,
 			})
 		}).Bind(apis.RequireAuth())
 
@@ -62,10 +64,14 @@ func registerSlugGenerationAPI(app *pocketbase.PocketBase) {
 				return err
 			}
 			if strings.TrimSpace(settings.APIKey) == "" {
-				return apis.NewBadRequestError("Gemini API key is not configured.", nil)
+				return apis.NewBadRequestError(fmt.Sprintf("%s API key is not configured.", settings.Provider), nil)
 			}
 
-			slug, err := generateEnglishSlugWithGemini(title, settings.Model, settings.APIKey, settings.RequestsPM)
+			provider, err := newTranslationProvider(settings)
+			if err != nil {
+				return err
+			}
+			slug, err := provider.generateSlug(title)
 			if err != nil {
 				return err
 			}

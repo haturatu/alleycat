@@ -2,6 +2,9 @@ package pbapp
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
@@ -175,5 +178,112 @@ func TestTranslationResponseSchema(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("geminiResponseSchema = %#v, want %#v", got, want)
+	}
+}
+
+func TestNewTranslationProviderSupportsConfiguredProviders(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		provider string
+		wantType any
+	}{
+		{provider: "gemini", wantType: &geminiTranslationProvider{}},
+		{provider: "opencode-go", wantType: &openCodeGoTranslationProvider{}},
+		{provider: "opencode-zen", wantType: &openCodeZenTranslationProvider{}},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.provider, func(t *testing.T) {
+			provider, err := newTranslationProvider(translationSettings{Provider: tc.provider})
+			if err != nil {
+				t.Fatalf("newTranslationProvider returned error: %v", err)
+			}
+			switch tc.wantType.(type) {
+			case *geminiTranslationProvider:
+				if _, ok := provider.(*geminiTranslationProvider); !ok {
+					t.Fatalf("provider = %T, want Gemini provider", provider)
+				}
+			case *openCodeGoTranslationProvider:
+				if _, ok := provider.(*openCodeGoTranslationProvider); !ok {
+					t.Fatalf("provider = %T, want OpenCode Go provider", provider)
+				}
+			case *openCodeZenTranslationProvider:
+				if _, ok := provider.(*openCodeZenTranslationProvider); !ok {
+					t.Fatalf("provider = %T, want OpenCode Zen provider", provider)
+				}
+			}
+		})
+	}
+
+	if _, err := newTranslationProvider(translationSettings{Provider: "unsupported"}); err == nil {
+		t.Fatal("newTranslationProvider accepted an unsupported provider")
+	}
+}
+
+func TestRequestOpenCodeGoJSON(t *testing.T) {
+	originalURL := openCodeGoChatCompletionsURL
+	t.Cleanup(func() { openCodeGoChatCompletionsURL = originalURL })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Errorf("Authorization = %q, want %q", got, "Bearer test-key")
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if payload["model"] != "kimi-k2.6" {
+			t.Errorf("model = %v, want kimi-k2.6", payload["model"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{\"choices\":[{\"message\":{\"content\":\"```json\\n{\\\"translated_title\\\":\\\"Hello\\\",\\\"translated_body\\\":\\\"<p>World</p>\\\"}\\n```\"}}]}"))
+	}))
+	defer server.Close()
+	openCodeGoChatCompletionsURL = server.URL
+
+	text, err := requestOpenCodeGoJSON("translate", "kimi-k2.6", "test-key", 0)
+	if err != nil {
+		t.Fatalf("requestOpenCodeGoJSON returned error: %v", err)
+	}
+	if text != `{"translated_title":"Hello","translated_body":"<p>World</p>"}` {
+		t.Fatalf("response = %q", text)
+	}
+}
+
+func TestParseOpenCodeZenResponseText(t *testing.T) {
+	t.Parallel()
+
+	response := []byte(`{"output":[{"type":"message","content":[{"type":"output_text","text":"{\"slug\":\"hello-world\"}"}]}]}`)
+	got, err := parseOpenCodeZenResponseText(response)
+	if err != nil {
+		t.Fatalf("parseOpenCodeZenResponseText returned error: %v", err)
+	}
+	if got != `{"slug":"hello-world"}` {
+		t.Fatalf("response = %q", got)
+	}
+}
+
+func TestParseTranslationModels(t *testing.T) {
+	t.Parallel()
+
+	gemini, err := parseGeminiModels([]byte(`{"models":[{"name":"models/gemini-2.5-flash","supportedGenerationMethods":["generateContent"]},{"name":"models/embedding-001","supportedGenerationMethods":["embedContent"]}]}`))
+	if err != nil {
+		t.Fatalf("parseGeminiModels returned error: %v", err)
+	}
+	if !reflect.DeepEqual(gemini, []string{"gemini-2.5-flash"}) {
+		t.Fatalf("Gemini models = %#v", gemini)
+	}
+
+	openCode, err := parseOpenCodeModels([]byte(`{"data":[{"id":"kimi-k2.6"},{"id":"glm-5.2"},{"id":"kimi-k2.6"}]}`))
+	if err != nil {
+		t.Fatalf("parseOpenCodeModels returned error: %v", err)
+	}
+	if !reflect.DeepEqual(openCode, []string{"glm-5.2", "kimi-k2.6"}) {
+		t.Fatalf("OpenCode models = %#v", openCode)
 	}
 }
