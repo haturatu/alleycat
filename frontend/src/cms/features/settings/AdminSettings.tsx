@@ -61,6 +61,7 @@ const defaults = {
   show_related_posts: false,
   show_archive_search: true,
   enable_post_translation: false,
+  translation_provider: "gemini",
   translation_source_locale: "ja",
   translation_locales: "en",
   translation_model: "gemini-1.5-flash",
@@ -68,6 +69,11 @@ const defaults = {
 };
 
 type SettingsRecord = typeof defaults & { id?: string };
+
+const buildAuthHeaders = (): Record<string, string> => {
+  const token = pb.authStore.token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 function SettingsSection({
   id,
@@ -142,6 +148,14 @@ export default function AdminSettings() {
   const [themeCheckDone, setThemeCheckDone] = useState(false);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [hasGeminiApiKey, setHasGeminiApiKey] = useState(false);
+  const [opencodeGoApiKey, setOpencodeGoApiKey] = useState("");
+  const [hasOpencodeGoApiKey, setHasOpencodeGoApiKey] = useState(false);
+  const [opencodeZenApiKey, setOpencodeZenApiKey] = useState("");
+  const [hasOpencodeZenApiKey, setHasOpencodeZenApiKey] = useState(false);
+  const [translationModels, setTranslationModels] = useState<string[]>([]);
+  const [translationModelsLoading, setTranslationModelsLoading] = useState(false);
+  const [translationModelsError, setTranslationModelsError] = useState("");
+  const [translationModelsRefresh, setTranslationModelsRefresh] = useState(0);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState("");
@@ -165,11 +179,17 @@ export default function AdminSettings() {
       } finally {
         if (canManageSecrets) {
           try {
-            const secretRes = await pb.collection("app_secrets").getList(1, 1, { fields: "id,gemini_api_key" });
-            const storedKey = String(secretRes.items[0]?.gemini_api_key || "").trim();
-            setHasGeminiApiKey(storedKey !== "");
+            const secretRes = await pb.collection("app_secrets").getList(1, 1, {
+              fields: "id,gemini_api_key,opencode_go_api_key,opencode_zen_api_key",
+            });
+            const secret = secretRes.items[0] || {};
+            setHasGeminiApiKey(String(secret.gemini_api_key || "").trim() !== "");
+            setHasOpencodeGoApiKey(String(secret.opencode_go_api_key || "").trim() !== "");
+            setHasOpencodeZenApiKey(String(secret.opencode_zen_api_key || "").trim() !== "");
           } catch {
             setHasGeminiApiKey(false);
+            setHasOpencodeGoApiKey(false);
+            setHasOpencodeZenApiKey(false);
           }
         }
         setLoading(false);
@@ -178,6 +198,46 @@ export default function AdminSettings() {
     };
     load();
   }, [canManageSecrets]);
+
+  useEffect(() => {
+    let active = true;
+    const provider = settings.translation_provider.trim().toLowerCase() || "gemini";
+    const loadModels = async () => {
+      setTranslationModelsLoading(true);
+      setTranslationModelsError("");
+      try {
+        const res = await fetch(`${pb.baseUrl}/api/ai/translation/models?provider=${encodeURIComponent(provider)}`, {
+          headers: buildAuthHeaders(),
+        });
+        if (!res.ok) {
+          throw new Error(`model list request failed: ${res.status}`);
+        }
+        const data = (await res.json()) as { models?: unknown };
+        const models = Array.isArray(data.models)
+          ? data.models.filter((model): model is string => typeof model === "string" && model.trim() !== "")
+          : [];
+        if (!active) return;
+        setTranslationModels(models);
+        setSettings((prev) => {
+          if (models.length === 0 || models.includes(prev.translation_model)) {
+            return prev;
+          }
+          return { ...prev, translation_model: models[0] };
+        });
+      } catch (err) {
+        if (!active) return;
+        setTranslationModels([]);
+        setTranslationModelsError("Model list could not be loaded. Save an API key or enter a model manually.");
+        console.error("translation model list load failed", err);
+      } finally {
+        if (active) setTranslationModelsLoading(false);
+      }
+    };
+    loadModels();
+    return () => {
+      active = false;
+    };
+  }, [settings.id, settings.translation_provider, translationModelsRefresh]);
 
   useEffect(() => {
     const check = async () => {
@@ -222,6 +282,7 @@ export default function AdminSettings() {
       }
       const payload = {
         ...settings,
+        translation_provider: settings.translation_provider.trim().toLowerCase(),
         translation_source_locale: settings.translation_source_locale.trim().toLowerCase(),
         translation_locales: settings.translation_locales.trim().toLowerCase(),
         translation_model: settings.translation_model.trim(),
@@ -233,22 +294,29 @@ export default function AdminSettings() {
       setDirty(false);
       setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
 
+      const secretPayload: Record<string, string> = {};
       const trimmedGeminiKey = geminiApiKey.trim();
-      if (canManageSecrets && trimmedGeminiKey !== "") {
+      const trimmedOpencodeGoKey = opencodeGoApiKey.trim();
+      const trimmedOpencodeZenKey = opencodeZenApiKey.trim();
+      if (trimmedGeminiKey !== "") secretPayload.gemini_api_key = trimmedGeminiKey;
+      if (trimmedOpencodeGoKey !== "") secretPayload.opencode_go_api_key = trimmedOpencodeGoKey;
+      if (trimmedOpencodeZenKey !== "") secretPayload.opencode_zen_api_key = trimmedOpencodeZenKey;
+      if (canManageSecrets && Object.keys(secretPayload).length > 0) {
         const secretRes = await pb.collection("app_secrets").getList(1, 1, { fields: "id" });
         if (secretRes.items.length > 0) {
-          await pb.collection("app_secrets").update(secretRes.items[0].id, {
-            gemini_api_key: trimmedGeminiKey,
-          });
+          await pb.collection("app_secrets").update(secretRes.items[0].id, secretPayload);
         } else {
-          await pb.collection("app_secrets").create({
-            gemini_api_key: trimmedGeminiKey,
-          });
+          await pb.collection("app_secrets").create(secretPayload);
         }
         setGeminiApiKey("");
-        setHasGeminiApiKey(true);
+        setOpencodeGoApiKey("");
+        setOpencodeZenApiKey("");
+        if (trimmedGeminiKey !== "") setHasGeminiApiKey(true);
+        if (trimmedOpencodeGoKey !== "") setHasOpencodeGoApiKey(true);
+        if (trimmedOpencodeZenKey !== "") setHasOpencodeZenApiKey(true);
         setDirty(false);
         setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        setTranslationModelsRefresh((value) => value + 1);
       }
     } catch (err) {
       if (err instanceof ClientResponseError) {
@@ -267,6 +335,12 @@ export default function AdminSettings() {
       setSaving(false);
     }
   };
+
+  const currentTranslationModel = settings.translation_model.trim();
+  const translationModelOptions = [
+    ...(currentTranslationModel && !translationModels.includes(currentTranslationModel) ? [currentTranslationModel] : []),
+    ...translationModels,
+  ].map((model) => ({ value: model, label: model }));
 
   if (loading) {
     return <div className="admin-note">Loading settings…</div>;
@@ -387,7 +461,24 @@ export default function AdminSettings() {
             }))}
           />
           <AdminTextField label="Translation locales (comma separated)" value={settings.translation_locales} onChange={(value) => update("translation_locales", value)} placeholder="en, zh-cn" />
-          <AdminTextField label="Gemini model" value={settings.translation_model} onChange={(value) => update("translation_model", value)} placeholder="gemini-1.5-flash" />
+          <AdminSelectField
+            label="Translation provider"
+            value={settings.translation_provider}
+            onChange={(value) => update("translation_provider", value)}
+            options={[
+              { value: "gemini", label: "Gemini" },
+              { value: "opencode-go", label: "OpenCode Go" },
+              { value: "opencode-zen", label: "OpenCode Zen" },
+            ]}
+          />
+          <AdminSelectField
+            label={`Translation model${translationModelsLoading ? " (loading…)" : ""}`}
+            value={settings.translation_model}
+            onChange={(value) => update("translation_model", value)}
+            options={translationModelOptions}
+            placeholder="Fetch models after configuring a key"
+          />
+          {translationModelsError ? <p className="admin-note admin-settings-inline-note">{translationModelsError}</p> : null}
           <AdminTextField
             label="Translation requests/minute"
             type="number"
@@ -397,16 +488,38 @@ export default function AdminSettings() {
             max={1000}
           />
           {canManageSecrets && (
-            <AdminTextField
-              label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
-              type="password"
-              value={geminiApiKey}
-              onChange={(value) => {
-                setGeminiApiKey(value);
-                setDirty(true);
-              }}
-              placeholder={hasGeminiApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
-            />
+            <>
+              <AdminTextField
+                label={`Gemini API Key ${hasGeminiApiKey ? "(saved)" : "(not set)"}`}
+                type="password"
+                value={geminiApiKey}
+                onChange={(value) => {
+                  setGeminiApiKey(value);
+                  setDirty(true);
+                }}
+                placeholder={hasGeminiApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
+              />
+              <AdminTextField
+                label={`OpenCode Go API Key ${hasOpencodeGoApiKey ? "(saved)" : "(not set)"}`}
+                type="password"
+                value={opencodeGoApiKey}
+                onChange={(value) => {
+                  setOpencodeGoApiKey(value);
+                  setDirty(true);
+                }}
+                placeholder={hasOpencodeGoApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
+              />
+              <AdminTextField
+                label={`OpenCode Zen API Key ${hasOpencodeZenApiKey ? "(saved)" : "(not set)"}`}
+                type="password"
+                value={opencodeZenApiKey}
+                onChange={(value) => {
+                  setOpencodeZenApiKey(value);
+                  setDirty(true);
+                }}
+                placeholder={hasOpencodeZenApiKey ? "Saved key is hidden. Leave blank to keep it." : "Paste a new key to save it."}
+              />
+            </>
           )}
         </SettingsSection>
 
