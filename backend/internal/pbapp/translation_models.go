@@ -97,7 +97,7 @@ func fetchTranslationModels(provider, apiKey string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxTranslationModelsResponseBytes+1))
 	if err != nil {
 		return nil, err

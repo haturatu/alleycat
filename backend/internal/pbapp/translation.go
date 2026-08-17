@@ -593,28 +593,6 @@ func buildExcerpt(input string, maxLen int) string {
 	return strings.TrimSpace(string(runes[:maxLen]))
 }
 
-func translateWithGemini(
-	title string,
-	body string,
-	sourceLocale string,
-	targetLocale string,
-	model string,
-	apiKey string,
-	requestsPerMinute int,
-) (string, string, error) {
-	return translateWithProvider(
-		&geminiTranslationProvider{
-			model:      model,
-			apiKey:     apiKey,
-			requestsPM: requestsPerMinute,
-		},
-		title,
-		body,
-		sourceLocale,
-		targetLocale,
-	)
-}
-
 func translateTitleAndBodyWithGemini(
 	title string,
 	body string,
