@@ -21,17 +21,22 @@ import (
 )
 
 const (
+	defaultTranslationProvider   = "gemini"
 	defaultTranslationModel      = "gemini-1.5-flash"
+	defaultOpenCodeGoModel       = "kimi-k2.6"
+	defaultOpenCodeZenModel      = "gpt-5.4-mini"
 	defaultTranslationRPM        = 60
 	maxTranslateRetries          = 3
 	maxTranslationBodyRunes      = 4000
-	maxGeminiResponseBytes       = 8 * 1024 * 1024
-	maxGeminiErrorBytes          = 64 * 1024
+	maxTranslationResponseBytes  = 8 * 1024 * 1024
+	maxTranslationErrorBytes     = 64 * 1024
+	maxProviderErrorMessageBytes = 400
 	postTranslationQueueCapacity = 32
 )
 
 type translationSettings struct {
 	Enabled      bool
+	Provider     string
 	SourceLocale string
 	Locales      []string
 	Model        string
@@ -71,9 +76,10 @@ const (
 	translationJobFailed    translationJobStatus = "failed"
 )
 
-type geminiError struct {
-	Status int
-	Body   string
+type ProviderError struct {
+	Provider   string
+	StatusCode int
+	Body       string
 }
 
 type batchTranslationJob struct {
@@ -84,12 +90,12 @@ type batchTranslationJob struct {
 	force  bool
 }
 
-type geminiRateLimiter struct {
+type translationRateLimiter struct {
 	mu          sync.Mutex
 	nextAllowed time.Time
 }
 
-var sharedGeminiRateLimiter = &geminiRateLimiter{}
+var sharedTranslationRateLimiter = &translationRateLimiter{}
 
 type postTranslationTrigger struct {
 	app      core.App
@@ -103,12 +109,20 @@ var postTranslationQueue = struct {
 	pending map[string]struct{}
 }{}
 
-func (e *geminiError) Error() string {
-	return fmt.Sprintf("gemini request failed: status=%d", e.Status)
+func (e *ProviderError) Error() string {
+	body := strings.TrimSpace(e.Body)
+	if len(body) > maxProviderErrorMessageBytes {
+		body = body[:maxProviderErrorMessageBytes] + "…(truncated)"
+	}
+	if body == "" {
+		return fmt.Sprintf("%s request failed: status=%d", e.Provider, e.StatusCode)
+	}
+	return fmt.Sprintf("%s request failed: status=%d body=%s", e.Provider, e.StatusCode, body)
 }
 
 func registerTranslationFeatures(app *pocketbase.PocketBase) {
 	registerTranslateCommand(app)
+	registerTranslationModelsAPI(app)
 
 	app.OnRecordAfterCreateSuccess("posts").BindFunc(func(e *core.RecordEvent) error {
 		triggerPostTranslation(e.App, e.Record)
@@ -123,7 +137,7 @@ func registerTranslationFeatures(app *pocketbase.PocketBase) {
 func registerTranslateCommand(app *pocketbase.PocketBase) {
 	cmd := &cobra.Command{
 		Use:   "translate-posts",
-		Short: "Translate existing source posts using Gemini",
+		Short: "Translate existing source posts using the configured provider",
 		RunE: func(command *cobra.Command, args []string) error {
 			if err := app.Bootstrap(); err != nil {
 				return err
@@ -216,7 +230,7 @@ func translateAllSourcePosts(app core.App) error {
 		return errors.New("post translation is disabled in settings")
 	}
 	if strings.TrimSpace(settings.APIKey) == "" {
-		return errors.New("gemini_api_key is empty in settings")
+		return fmt.Errorf("%s API key is empty in settings", settings.Provider)
 	}
 	if len(settings.Locales) == 0 {
 		return errors.New("translation_locales is empty in settings")
@@ -286,7 +300,7 @@ func translateSourcePost(app core.App, source *core.Record, settings translation
 				firstErr = err
 			}
 			log.Printf("translation locale failed source=%s locale=%s err=%v", source.Id, locale, err)
-			if isGeminiRateLimitError(err) {
+			if isProviderRateLimitError(err) {
 				_ = completeTranslationJob(app, source.Id, completed, failed, lastError)
 				return err
 			}
@@ -380,15 +394,7 @@ func upsertTranslatedPost(
 		return nil
 	}
 
-	translatedTitle, translatedBody, err := translateWithGemini(
-		title,
-		body,
-		settings.SourceLocale,
-		targetLocale,
-		settings.Model,
-		settings.APIKey,
-		settings.RequestsPM,
-	)
+	translatedTitle, translatedBody, err := translate(settings, title, body, targetLocale)
 	if err != nil {
 		return err
 	}
@@ -419,18 +425,27 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 		return translationSettings{}, err
 	}
 	if errors.Is(err, sql.ErrNoRows) || record == nil {
-		apiKey, keyErr := loadGeminiAPIKey(app, nil)
+		apiKey, keyErr := loadTranslationAPIKey(app, nil, defaultTranslationProvider)
 		if keyErr != nil {
 			return translationSettings{}, keyErr
 		}
 		return translationSettings{
 			Enabled:      false,
+			Provider:     defaultTranslationProvider,
 			SourceLocale: "ja",
 			Locales:      []string{"en"},
 			Model:        defaultTranslationModel,
 			APIKey:       apiKey,
 			RequestsPM:   defaultTranslationRPM,
 		}, nil
+	}
+
+	provider := strings.ToLower(strings.TrimSpace(record.GetString("translation_provider")))
+	if provider == "" {
+		provider = defaultTranslationProvider
+	}
+	if !isSupportedTranslationProvider(provider) {
+		return translationSettings{}, fmt.Errorf("unsupported translation provider: %s", provider)
 	}
 
 	sourceLocale := normalizeLocale(record.GetString("translation_source_locale"))
@@ -455,18 +470,19 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 
 	model := strings.TrimSpace(record.GetString("translation_model"))
 	if model == "" {
-		model = defaultTranslationModel
+		model = defaultTranslationModelForProvider(provider)
 	}
 	requestsPM := int(record.GetFloat("translation_requests_per_minute"))
 	if requestsPM <= 0 {
 		requestsPM = defaultTranslationRPM
 	}
-	apiKey, keyErr := loadGeminiAPIKey(app, record)
+	apiKey, keyErr := loadTranslationAPIKey(app, record, provider)
 	if keyErr != nil {
 		return translationSettings{}, keyErr
 	}
 	return translationSettings{
 		Enabled:      record.GetBool("enable_post_translation"),
+		Provider:     provider,
 		SourceLocale: sourceLocale,
 		Locales:      filtered,
 		Model:        model,
@@ -475,18 +491,55 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 	}, nil
 }
 
-func loadGeminiAPIKey(app core.App, settingsRecord *core.Record) (string, error) {
+func defaultTranslationModelForProvider(provider string) string {
+	switch provider {
+	case "opencode-go":
+		return defaultOpenCodeGoModel
+	case "opencode-zen":
+		return defaultOpenCodeZenModel
+	default:
+		return defaultTranslationModel
+	}
+}
+
+func isSupportedTranslationProvider(provider string) bool {
+	switch provider {
+	case "gemini", "opencode-go", "opencode-zen":
+		return true
+	default:
+		return false
+	}
+}
+
+func translationAPIKeyField(provider string) (string, error) {
+	switch provider {
+	case "gemini":
+		return "gemini_api_key", nil
+	case "opencode-go":
+		return "opencode_go_api_key", nil
+	case "opencode-zen":
+		return "opencode_zen_api_key", nil
+	default:
+		return "", fmt.Errorf("unsupported translation provider: %s", provider)
+	}
+}
+
+func loadTranslationAPIKey(app core.App, settingsRecord *core.Record, provider string) (string, error) {
+	field, err := translationAPIKeyField(provider)
+	if err != nil {
+		return "", err
+	}
 	secret, err := app.FindFirstRecordByFilter("app_secrets", "id != ''")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
 	if err == nil && secret != nil {
-		key := strings.TrimSpace(secret.GetString("gemini_api_key"))
+		key := strings.TrimSpace(secret.GetString(field))
 		if key != "" {
 			return key, nil
 		}
 	}
-	if settingsRecord != nil {
+	if provider == "gemini" && settingsRecord != nil {
 		return strings.TrimSpace(settingsRecord.GetString("gemini_api_key")), nil
 	}
 	return "", nil
@@ -546,41 +599,6 @@ func buildExcerpt(input string, maxLen int) string {
 		return normalized
 	}
 	return strings.TrimSpace(string(runes[:maxLen]))
-}
-
-func translateWithGemini(
-	title string,
-	body string,
-	sourceLocale string,
-	targetLocale string,
-	model string,
-	apiKey string,
-	requestsPerMinute int,
-) (string, string, error) {
-	if len([]rune(body)) <= maxTranslationBodyRunes {
-		return translateTitleAndBodyWithGemini(title, body, sourceLocale, targetLocale, model, apiKey, requestsPerMinute)
-	}
-
-	translatedTitle, err := translateTitleWithGemini(title, sourceLocale, targetLocale, model, apiKey, requestsPerMinute)
-	if err != nil {
-		return "", "", err
-	}
-
-	chunks := splitTranslationBody(body, maxTranslationBodyRunes)
-	if len(chunks) == 0 {
-		return "", "", errors.New("translation body split produced no chunks")
-	}
-
-	translatedChunks := make([]string, 0, len(chunks))
-	for i, chunk := range chunks {
-		translatedChunk, err := translateBodyChunkWithGemini(chunk, sourceLocale, targetLocale, model, apiKey, requestsPerMinute, i+1, len(chunks))
-		if err != nil {
-			return "", "", err
-		}
-		translatedChunks = append(translatedChunks, translatedChunk)
-	}
-
-	return translatedTitle, strings.Join(translatedChunks, ""), nil
 }
 
 func translateTitleAndBodyWithGemini(
@@ -719,7 +737,7 @@ func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int, resp
 
 	var lastErr error
 	for attempt := 1; attempt <= maxTranslateRetries; attempt++ {
-		sharedGeminiRateLimiter.Wait(requestsPerMinute)
+		sharedTranslationRateLimiter.Wait(requestsPerMinute)
 
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
 		if err != nil {
@@ -731,19 +749,20 @@ func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int, resp
 		if err != nil {
 			lastErr = err
 		} else {
-			respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, maxGeminiResponseBytes+1))
+			respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, maxTranslationResponseBytes+1))
 			_ = resp.Body.Close()
 			if readErr != nil {
 				lastErr = readErr
-			} else if len(respBody) > maxGeminiResponseBytes {
-				lastErr = fmt.Errorf("gemini response exceeds %d bytes", maxGeminiResponseBytes)
+			} else if len(respBody) > maxTranslationResponseBytes {
+				lastErr = fmt.Errorf("gemini response exceeds %d bytes", maxTranslationResponseBytes)
 			} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				if len(respBody) > maxGeminiErrorBytes {
-					respBody = append(respBody[:maxGeminiErrorBytes], []byte("…(truncated)")...)
+				if len(respBody) > maxTranslationErrorBytes {
+					respBody = append(respBody[:maxTranslationErrorBytes], []byte("…(truncated)")...)
 				}
-				lastErr = &geminiError{
-					Status: resp.StatusCode,
-					Body:   string(respBody),
+				lastErr = &ProviderError{
+					Provider:   "gemini",
+					StatusCode: resp.StatusCode,
+					Body:       string(respBody),
 				}
 			} else {
 				text, parseErr := parseGeminiResponseText(respBody)
@@ -761,7 +780,7 @@ func requestGeminiJSON(prompt, model, apiKey string, requestsPerMinute int, resp
 	return "", lastErr
 }
 
-func (l *geminiRateLimiter) Wait(requestsPerMinute int) {
+func (l *translationRateLimiter) Wait(requestsPerMinute int) {
 	if requestsPerMinute <= 0 {
 		return
 	}
@@ -787,7 +806,7 @@ func parseGeminiResponseText(responseBody []byte) (string, error) {
 		return "", err
 	}
 	if len(res.Candidates) == 0 || len(res.Candidates[0].Content.Parts) == 0 {
-		return "", errors.New("empty gemini candidates")
+		return "", errors.New("gemini returned no candidates")
 	}
 	text := strings.TrimSpace(res.Candidates[0].Content.Parts[0].Text)
 	text = strings.TrimPrefix(text, "```json")
@@ -822,7 +841,7 @@ func geminiResponseSchema(fields ...string) map[string]any {
 	}
 }
 
-func unmarshalGeminiJSON(text string, target any) error {
+func unmarshalTranslationJSON(text string, target any) error {
 	if err := json.Unmarshal([]byte(text), target); err == nil {
 		return nil
 	} else {
@@ -831,11 +850,17 @@ func unmarshalGeminiJSON(text string, target any) error {
 			if repairErr := json.Unmarshal([]byte(repaired), target); repairErr == nil {
 				return nil
 			} else {
-				return fmt.Errorf("invalid Gemini JSON: %w (after escape repair: %v)", err, repairErr)
+				return fmt.Errorf("invalid translation JSON: %w (after escape repair: %v)", err, repairErr)
 			}
 		}
 		return err
 	}
+}
+
+// unmarshalGeminiJSON is kept for the existing slug helper and compatibility with
+// callers that still use the Gemini-specific name. The parser is provider-neutral.
+func unmarshalGeminiJSON(text string, target any) error {
+	return unmarshalTranslationJSON(text, target)
 }
 
 func repairInvalidJSONStringEscapes(value string) (string, bool) {
@@ -900,7 +925,7 @@ func extractFirstJSONObject(text string) (string, error) {
 	text = strings.TrimSpace(text)
 	start := strings.IndexByte(text, '{')
 	if start == -1 {
-		return "", errors.New("gemini response did not contain JSON object")
+		return "", errors.New("translation response did not contain JSON object")
 	}
 
 	depth := 0
@@ -937,7 +962,7 @@ func extractFirstJSONObject(text string) (string, error) {
 			}
 		}
 	}
-	return "", errors.New("gemini response contained unterminated JSON object")
+	return "", errors.New("translation response contained unterminated JSON object")
 }
 
 func splitTranslationBody(body string, maxRunes int) []string {
@@ -1045,10 +1070,10 @@ func splitOversizedTranslationSegment(segment string, maxRunes int) []string {
 	return chunks
 }
 
-func isGeminiRateLimitError(err error) bool {
-	var ge *geminiError
-	if errors.As(err, &ge) {
-		return ge.Status == http.StatusTooManyRequests
+func isProviderRateLimitError(err error) bool {
+	var pe *ProviderError
+	if errors.As(err, &pe) {
+		return pe.StatusCode == http.StatusTooManyRequests
 	}
 	return false
 }
@@ -1131,8 +1156,8 @@ func runTranslationJobs(
 					if err != nil {
 						failedCount++
 						log.Printf("translation locale failed source=%s locale=%s err=%v", job.source.Id, job.locale, err)
-						if stopOnRateLimit && fatalErr == nil && isGeminiRateLimitError(err) {
-							fatalErr = fmt.Errorf("translate-posts stopped due to Gemini rate limit after retry exhaustion: %w", err)
+						if stopOnRateLimit && fatalErr == nil && isProviderRateLimitError(err) {
+							fatalErr = fmt.Errorf("translate-posts stopped due to provider rate limit after retry exhaustion: %w", err)
 							cancel()
 						}
 					} else {

@@ -93,6 +93,7 @@ type SettingsRecord struct {
 	ShowRelatedPosts         bool   `json:"show_related_posts"`
 	ShowArchiveSearch        bool   `json:"show_archive_search"`
 	EnablePostTranslation    bool   `json:"enable_post_translation"`
+	TranslationProvider      string `json:"translation_provider"`
 	TranslationSourceLocale  string `json:"translation_source_locale"`
 	TranslationLocales       string `json:"translation_locales"`
 	TranslationModel         string `json:"translation_model"`

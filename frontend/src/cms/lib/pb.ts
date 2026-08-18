@@ -14,12 +14,14 @@ const normalizedEnvUrl =
       )
     : envUrl;
 
-const baseUrl =
+const rawBaseUrl =
   normalizedEnvUrl && normalizedEnvUrl.startsWith("/")
     ? typeof window !== "undefined"
       ? `${window.location.origin}${normalizedEnvUrl}`
       : `http://127.0.0.1:8090${normalizedEnvUrl}`
     : normalizedEnvUrl || (typeof window !== "undefined" ? window.location.origin : inferredUrl);
+
+const baseUrl = rawBaseUrl.replace(/\/+$/, "");
 
 export const pb = new PocketBase(baseUrl);
 pb.autoCancellation(false);

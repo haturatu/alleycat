@@ -102,6 +102,7 @@ func defaultSettings() SettingsRecord {
 		EnableCodeHighlight:      true,
 		HighlightTheme:           "github-dark",
 		SiteLanguage:             "ja",
+		TranslationProvider:      "gemini",
 		TranslationSourceLocale:  "ja",
 		TranslationLocales:       "en",
 		TranslationModel:         "gemini-1.5-flash",
@@ -120,6 +121,7 @@ func (item *SettingsRecord) ApplyDefaults() {
 	item.ArchivePageSize = defaultIfZero(item.ArchivePageSize, 10)
 	item.HomePageSize = defaultIfZero(item.HomePageSize, 3)
 	item.SiteLanguage = defaultIfBlank(item.SiteLanguage, "ja")
+	item.TranslationProvider = defaultIfTrimmedBlank(item.TranslationProvider, "gemini")
 	item.TranslationSourceLocale = defaultIfTrimmedBlank(item.TranslationSourceLocale, item.SiteLanguage)
 	item.TranslationLocales = defaultIfTrimmedBlank(item.TranslationLocales, "en")
 	item.TranslationModel = defaultIfTrimmedBlank(item.TranslationModel, "gemini-1.5-flash")

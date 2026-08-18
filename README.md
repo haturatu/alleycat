@@ -203,9 +203,10 @@ The following settings are editable in the Admin UI:
 - Site URL (feeds)
 - Site language
 - Enable post translation
+- Translation provider (Gemini, OpenCode Go, or OpenCode Zen)
 - Translation source locale
 - Translation target locales (multiple)
-- Gemini model
+- Translation model (loaded from the selected provider)
 - Translation requests/minute
 - Feed items limit
 - Excerpt length
@@ -229,14 +230,18 @@ The following settings are editable in the Admin UI:
 - Enable comments
 - Comment script tag (utterances/giscus)
 - Gemini API key
-  Note: only users with the `admin` role can view or update the Gemini API key because it is stored in the `app_secrets` collection. Users with the `editor` role can edit the main settings record but cannot manage that secret.
+- OpenCode Go API key
+- OpenCode Zen API key
+  Note: only users with the `admin` role can view or update provider API keys because they are stored in the `app_secrets` collection. Users with the `editor` role can edit the main settings record but cannot manage those secrets.
 
 ### Post Translation Migration
 - Existing posts can be translated with:
   - `cd backend`
   - `go run . translate-posts`
-- This command reads translation options from `settings` and the Gemini API key from `app_secrets`.
-- Gemini retry behavior is capped at 3 attempts per translation request.
+- This command reads translation options from `settings` and the selected provider key from `app_secrets`.
+- Slug generation uses the same selected translation provider.
+- Gemini uses `generateContent`, OpenCode Go uses OpenAI-compatible `/chat/completions`, and OpenCode Zen uses `/responses`.
+- Provider retry behavior is capped at 3 attempts per translation request.
 
 ### Sitemaps
 - Default sitemap:

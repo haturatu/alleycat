@@ -83,10 +83,14 @@
 .admin-select-popover {
   border-radius: var(--admin-radius-sm);
   overflow: hidden;
+  max-height: min(320px, calc(100dvh - 32px));
 }
 
 .admin-select-list {
   display: grid;
+  max-height: min(320px, calc(100dvh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .admin-select-option {

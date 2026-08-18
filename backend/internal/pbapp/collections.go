@@ -348,6 +348,11 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.BoolField{Name: "enable_post_translation"})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_source_locale"})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_locales"})
+		addFieldIfMissing(c, &core.SelectField{
+			Name:      "translation_provider",
+			Values:    []string{"gemini", "opencode-go", "opencode-zen"},
+			MaxSelect: 1,
+		})
 		addFieldIfMissing(c, &core.TextField{Name: "translation_model"})
 		addFieldIfMissing(c, &core.NumberField{Name: "translation_requests_per_minute"})
 		existingGeminiKey := c.Fields.GetByName("gemini_api_key")
@@ -375,6 +380,8 @@ func ensureCollections(app core.App) error {
 		setRuleIfNil(&c.DeleteRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
 
 		addFieldIfMissing(c, &core.TextField{Name: "gemini_api_key"})
+		addFieldIfMissing(c, &core.TextField{Name: "opencode_go_api_key"})
+		addFieldIfMissing(c, &core.TextField{Name: "opencode_zen_api_key"})
 		return nil
 	})
 	if err != nil {
