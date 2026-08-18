@@ -89,6 +89,9 @@ func fetchTranslationModels(provider, apiKey string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if provider == "opencode-go" || provider == "opencode-zen" {
+		setOpenCodeClientHeaders(req)
+	}
 	if provider != "gemini" && strings.TrimSpace(apiKey) != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}

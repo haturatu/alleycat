@@ -229,6 +229,12 @@ func TestRequestOpenCodeGoJSON(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
 			t.Errorf("Authorization = %q, want %q", got, "Bearer test-key")
 		}
+		if got := r.Header.Get("X-Opencode-Client"); got != openCodeClient {
+			t.Errorf("X-Opencode-Client = %q, want %q", got, openCodeClient)
+		}
+		if got := r.Header.Get("User-Agent"); got != openCodeUserAgent {
+			t.Errorf("User-Agent = %q, want %q", got, openCodeUserAgent)
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Fatalf("read request body: %v", err)
@@ -314,8 +320,11 @@ func TestRequestOpenCodeZenChatCompletions(t *testing.T) {
 		if got := messages[1].(map[string]any)["role"]; got != "user" {
 			t.Errorf("second message role = %v, want user", got)
 		}
-		if got := r.Header.Get("X-Opencode-Client"); got != "alleycat" {
-			t.Errorf("X-Opencode-Client = %q, want alleycat", got)
+		if got := r.Header.Get("X-Opencode-Client"); got != openCodeClient {
+			t.Errorf("X-Opencode-Client = %q, want %q", got, openCodeClient)
+		}
+		if got := r.Header.Get("User-Agent"); got != openCodeUserAgent {
+			t.Errorf("User-Agent = %q, want %q", got, openCodeUserAgent)
 		}
 		if got := r.Header.Get("X-Opencode-Project"); got != "alleycat" {
 			t.Errorf("X-Opencode-Project = %q, want alleycat", got)
