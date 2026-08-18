@@ -20,6 +20,8 @@ const (
 	defaultOpenCodeZenMessagesURL        = "https://opencode.ai/zen/v1/messages"
 	defaultOpenCodeZenGoogleModelsURL    = "https://opencode.ai/zen/v1/models"
 	defaultOpenCodeZenModelsURL          = "https://opencode.ai/zen/v1/models"
+	openCodeClient                       = "cli"
+	openCodeUserAgent                    = "opencode/latest/1.18.18/cli"
 )
 
 var (
@@ -359,11 +361,14 @@ func requestOpenCodeZen(prompt, model, apiKey string, requestsPerMinute int) (st
 
 func setOpenCodeZenChatHeaders(req *http.Request, apiKey string) {
 	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("User-Agent", "alleycat/opencode-zen")
-	req.Header.Set("X-Opencode-Client", "alleycat")
 	req.Header.Set("X-Opencode-Project", "alleycat")
 	req.Header.Set("X-Opencode-Request", fmt.Sprintf("msg_alleycat_%d", time.Now().UnixNano()))
 	req.Header.Set("X-Opencode-Session", fmt.Sprintf("ses_alleycat_%d", time.Now().UnixNano()))
+}
+
+func setOpenCodeClientHeaders(req *http.Request) {
+	req.Header.Set("x-opencode-client", openCodeClient)
+	req.Header.Set("User-Agent", openCodeUserAgent)
 }
 
 func requestOpenCodeJSON(provider, endpoint string, payload any, apiKey string, requestsPerMinute int, parse func([]byte) (string, error)) (string, error) {
@@ -386,6 +391,7 @@ func requestOpenCodeJSONWithHeaders(provider, endpoint string, payload any, apiK
 		if err != nil {
 			return "", err
 		}
+		setOpenCodeClientHeaders(req)
 		setHeaders(req, apiKey)
 		req.Header.Set("Content-Type", "application/json")
 
