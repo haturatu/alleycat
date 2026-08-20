@@ -2,6 +2,16 @@ import { describe, expect, test } from "vitest";
 
 import { __test__ } from "./mediaUpload";
 
+describe("hashFileSHA256", () => {
+  test("returns the SHA-256 digest for a file", async () => {
+    const file = new File(["hello"], "hello.txt");
+
+    await expect(__test__.hashFileSHA256(file)).resolves.toBe(
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    );
+  });
+});
+
 describe("toRelativeMediaURL", () => {
   test("converts pocketbase file URLs to relative paths", () => {
     expect(

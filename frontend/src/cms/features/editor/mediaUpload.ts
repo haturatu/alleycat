@@ -1,5 +1,4 @@
 import { ClientResponseError } from "pocketbase";
-import { sha256 } from "js-sha256";
 import { pb } from "@cms/lib/pb";
 
 const normalizeUploadFilename = (filename: string) => {
@@ -29,8 +28,12 @@ const buildUploadPath = (filename: string, checksum: string) => {
 const escapeFilterString = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
 const hashFileSHA256 = async (file: File) => {
-  const data = new Uint8Array(await file.arrayBuffer());
-  return sha256(data);
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 };
 
 type MediaRecord = {
@@ -129,5 +132,6 @@ export const uploadImageAndGetURL = async (file: File): Promise<string> => {
 };
 
 export const __test__ = {
+  hashFileSHA256,
   toRelativeMediaURL,
 };
