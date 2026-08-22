@@ -16,32 +16,52 @@ type settingsCacheEntry struct {
 }
 
 type PostRecord struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Slug        string `json:"slug"`
-	Body        string `json:"body"`
-	Content     string `json:"content"`
-	Excerpt     string `json:"excerpt"`
-	Tags        string `json:"tags"`
-	Category    string `json:"category"`
-	Published   bool   `json:"published"`
-	PublishedAt string `json:"published_at"`
-	Date        string `json:"date"`
+	ID            string      `json:"id"`
+	Title         string      `json:"title"`
+	Slug          string      `json:"slug"`
+	Body          string      `json:"body"`
+	Content       string      `json:"content"`
+	Excerpt       string      `json:"excerpt"`
+	Tags          string      `json:"tags"`
+	Category      string      `json:"category"`
+	Published     bool        `json:"published"`
+	PublishedAt   string      `json:"published_at"`
+	Date          string      `json:"date"`
+	Author        string      `json:"author"`
+	FeaturedImage string      `json:"featured_image"`
+	Created       string      `json:"created"`
+	Updated       string      `json:"updated"`
+	Expand        *PostExpand `json:"expand"`
+}
+
+type AuthorRecord struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+type PostExpand struct {
+	Author *AuthorRecord `json:"author"`
 }
 
 type PostTranslationRecord struct {
-	ID              string `json:"id"`
-	SourcePost      string `json:"source_post"`
-	Locale          string `json:"locale"`
-	Title           string `json:"title"`
-	Slug            string `json:"slug"`
-	Body            string `json:"body"`
-	Excerpt         string `json:"excerpt"`
-	Tags            string `json:"tags"`
-	Category        string `json:"category"`
-	Published       bool   `json:"published"`
-	PublishedAt     string `json:"published_at"`
-	TranslationDone bool   `json:"translation_done"`
+	ID              string      `json:"id"`
+	SourcePost      string      `json:"source_post"`
+	Locale          string      `json:"locale"`
+	Title           string      `json:"title"`
+	Slug            string      `json:"slug"`
+	Body            string      `json:"body"`
+	Excerpt         string      `json:"excerpt"`
+	Tags            string      `json:"tags"`
+	Category        string      `json:"category"`
+	Published       bool        `json:"published"`
+	PublishedAt     string      `json:"published_at"`
+	TranslationDone bool        `json:"translation_done"`
+	Author          string      `json:"author"`
+	FeaturedImage   string      `json:"featured_image"`
+	Created         string      `json:"created"`
+	Updated         string      `json:"updated"`
+	Expand          *PostExpand `json:"expand"`
 }
 
 type PageRecord struct {

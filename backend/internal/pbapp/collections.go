@@ -13,7 +13,12 @@ import (
 func ensureCollections(app core.App) error {
 	cmsUsers, err := ensureCollection(app, core.CollectionTypeAuth, "cms_users", func(c *core.Collection) error {
 		setRuleIfNil(&c.ListRule, `@request.auth.id != ""`)
-		setRuleIfNil(&c.ViewRule, `@request.auth.id != ""`)
+		if c.ViewRule != nil && *c.ViewRule == `@request.auth.id != ""` {
+			publicViewRule := `id != ""`
+			c.ViewRule = &publicViewRule
+		} else {
+			setRuleIfNil(&c.ViewRule, `id != ""`)
+		}
 		setRuleIfNil(&c.CreateRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
 		setRuleIfNil(&c.UpdateRule, `@request.auth.id != "" && @request.auth.role = "admin"`)
 		setRuleIfNil(&c.DeleteRule, `@request.auth.id != "" && @request.auth.role = "admin"`)

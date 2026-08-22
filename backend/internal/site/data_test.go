@@ -15,3 +15,17 @@ func TestPostPublishedTimeParsesPocketBaseTimestamp(t *testing.T) {
 		t.Fatalf("postPublishedTime() = %v, want %v", got, want)
 	}
 }
+
+func TestWithAuthorExpandPreservesExistingRelations(t *testing.T) {
+	t.Parallel()
+
+	if got := withAuthorExpand(map[string]string{}); got["expand"] != "author" {
+		t.Fatalf("withAuthorExpand() = %q, want author", got["expand"])
+	}
+	if got := withAuthorExpand(map[string]string{"expand": "category"}); got["expand"] != "category,author" {
+		t.Fatalf("withAuthorExpand() = %q, want category,author", got["expand"])
+	}
+	if got := withAuthorExpand(map[string]string{"expand": "author,category"}); got["expand"] != "author,category" {
+		t.Fatalf("withAuthorExpand() duplicated author: %q", got["expand"])
+	}
+}
