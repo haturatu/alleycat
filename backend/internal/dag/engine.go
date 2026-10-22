@@ -39,6 +39,24 @@ func (e *Engine) NewContext() *ResolveContext {
 	}
 }
 
+// NewContextWithDependencies builds the graph without invoking resolvers or
+// caching values. Edges are copied and deduplicated; callers may reuse the input.
+func (e *Engine) NewContextWithDependencies(deps map[NodeKey][]NodeKey) *ResolveContext {
+	ctx := e.NewContext()
+	for key, dependencies := range deps {
+		seen := make(map[NodeKey]struct{}, len(dependencies))
+		for _, dep := range dependencies {
+			if _, exists := seen[dep]; exists {
+				continue
+			}
+			seen[dep] = struct{}{}
+			ctx.deps[key] = append(ctx.deps[key], dep)
+			ctx.revDeps[dep] = append(ctx.revDeps[dep], key)
+		}
+	}
+	return ctx
+}
+
 func (e *Engine) Resolve(ctx *ResolveContext, key NodeKey) (Value, error) {
 	if ctx == nil {
 		ctx = e.NewContext()

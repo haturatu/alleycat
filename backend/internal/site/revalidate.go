@@ -623,6 +623,10 @@ func dagChangedKeysForPost(current, original *PostRecord) []dag.NodeKey {
 			continue
 		}
 		keys = appendUniqueDAGNodeKey(keys, postBySlugNodeKey("", strings.TrimSpace(item.Slug)))
+		// Family identity survives a source slug change or deletion.
+		if sourceID := strings.TrimSpace(item.ID); sourceID != "" {
+			keys = appendUniqueDAGNodeKey(keys, postFamilyNodeKey(sourceID))
+		}
 	}
 	return keys
 }
@@ -634,6 +638,10 @@ func dagChangedKeysForTranslation(current, original *PostTranslationRecord) []da
 			continue
 		}
 		keys = appendUniqueDAGNodeKey(keys, postBySlugNodeKey(normalizeLocale(item.Locale), strings.TrimSpace(item.Slug)))
+		// A deleted translation no longer has a leaf in the current graph.
+		if sourceID := strings.TrimSpace(item.SourcePost); sourceID != "" {
+			keys = appendUniqueDAGNodeKey(keys, postFamilyNodeKey(sourceID))
+		}
 	}
 	return keys
 }
@@ -645,6 +653,8 @@ func dagChangedKeysForPage(current, original *PageRecord) []dag.NodeKey {
 			continue
 		}
 		keys = appendUniqueDAGNodeKey(keys, pageByURLNodeKey(strings.TrimSpace(item.URL)))
+		// Removing a page must refresh menus even after its old leaf disappears.
+		keys = appendUniqueDAGNodeKey(keys, menuPagesNodeKey())
 	}
 	return keys
 }
@@ -679,23 +689,21 @@ func revalidateDAGAffectedRoutes(root string, changed []dag.NodeKey, extraRoutes
 		return nil
 	}
 
-	engine := newSiteDAGEngine()
-	resolveCtx := engine.NewContext()
-	for _, route := range snapshot.routeKeys() {
-		if _, err := engine.Resolve(resolveCtx, route); err != nil {
-			return err
-		}
-	}
+	return revalidateDAGAffectedRoutesWithEngine(root, snapshot, newSiteDAGEngine(), changed, extraRoutes)
+}
 
-	routes := dagAffectedRouteKeysFromChanged(resolveCtx, changed)
+func revalidateDAGAffectedRoutesWithEngine(root string, snapshot *snapshotBuildContext, engine *dag.Engine, changed []dag.NodeKey, extraRoutes []dagExtraRoute) error {
+	dependencies := engine.NewContextWithDependencies(snapshotRouteDependencies(snapshot))
+	routes := dagAffectedRouteKeysFromChanged(dependencies, changed)
 	extraReasons := map[dag.NodeKey][]string{}
 	for _, route := range extraRoutes {
 		routes = appendUniqueDAGNodeKey(routes, route.Key)
 		extraReasons[route.Key] = append([]string(nil), route.Reasons...)
 	}
 
+	resolveCtx := engine.NewContext()
 	for _, route := range routes {
-		slog.Info("revalidate DAG affected route", "route", route.ID, "reasons", dagAffectedRouteReasons(resolveCtx, changed, route, extraReasons[route]))
+		slog.Info("revalidate DAG affected route", "route", route.ID, "reasons", dagAffectedRouteReasons(dependencies, changed, route, extraReasons[route]))
 		value, err := engine.Resolve(resolveCtx, route)
 		if err != nil {
 			return err
