@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM golang:1.27-alpine AS build
 WORKDIR /app
 COPY go.mod .
@@ -15,7 +17,7 @@ WORKDIR /pb
 ARG ALPINE_MIRROR=https://ftp.udx.icscoe.jp/Linux/alpine
 RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|" /etc/apk/repositories \
     && apk add --no-cache libwebp-tools
-COPY --from=build /pb/pocketbase /pb/pocketbase
+COPY --link --from=build /pb/pocketbase /pb/pocketbase
 EXPOSE 8091
 VOLUME ["/pb/pb_data"]
 CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8091"]
