@@ -17,6 +17,9 @@ const criticalBaseStyles = `<style>
     html,body{margin:0;padding:0}
     body{line-height:1.6;text-rendering:optimizeLegibility}
     img{max-width:100%;height:auto;display:block}
+    .post-featured-image{margin:1.5rem 0;aspect-ratio:16/9;overflow:hidden}
+    .post-featured-image img{width:100%;height:100%;object-fit:cover}
+    .post-author{margin:0;color:inherit;font-size:.95em}
     .navbar{display:flex;justify-content:space-between;align-items:center}
     main{max-width:1100px;margin:0 auto;padding:24px 6vw 80px}
     .postList{display:grid;gap:16px}
@@ -247,6 +250,21 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
       margin-left: 3rem;
       opacity: 0.75;
     }
+    .post-featured-image {
+      margin: 1.5rem 0;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+    }
+    .post-featured-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .post-author {
+      margin: 0;
+      color: inherit;
+      font-size: 0.95em;
+    }
     </style>`
 	fontStyles := ""
 	if fontStylesheet != "" {
@@ -294,73 +312,6 @@ func renderHeadWithExtras(title string, settings SettingsRecord, extraHead strin
     %s
   </head>
   <body>`, escapeHTML(settings.SiteLanguage), pageTitle, themeStyles, fontStyles, commonContentStyles, feedAlternates, metaDesc, analytics, ads, codeHighlight, extraHead)
-}
-
-type postMetaInput struct {
-	Path        string
-	Locale      string
-	Title       string
-	Description string
-	PublishedAt string
-}
-
-func renderPostMetaTags(input postMetaInput, settings SettingsRecord) string {
-	canonicalURL := buildAbsoluteSiteURL(settings, input.Path)
-	if canonicalURL == "" {
-		canonicalURL = input.Path
-	}
-
-	description := strings.TrimSpace(input.Description)
-	if description == "" {
-		description = strings.TrimSpace(settings.Description)
-	}
-
-	parts := []string{
-		fmt.Sprintf(`<link rel="canonical" href="%s" />`, escapeHTML(canonicalURL)),
-		`<meta property="og:type" content="article" />`,
-		fmt.Sprintf(`<meta property="og:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
-		fmt.Sprintf(`<meta property="og:description" content="%s" />`, escapeHTML(description)),
-		fmt.Sprintf(`<meta property="og:url" content="%s" />`, escapeHTML(canonicalURL)),
-		fmt.Sprintf(`<meta property="og:site_name" content="%s" />`, escapeHTML(settings.SiteName)),
-		fmt.Sprintf(`<meta name="twitter:card" content="%s" />`, func() string {
-			if settings.EnableOGPImageGeneration {
-				return "summary_large_image"
-			}
-			return "summary"
-		}()),
-		fmt.Sprintf(`<meta name="twitter:title" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
-		fmt.Sprintf(`<meta name="twitter:description" content="%s" />`, escapeHTML(description)),
-	}
-
-	if locale := normalizeLocale(input.Locale); locale != "" {
-		parts = append(parts, fmt.Sprintf(`<meta property="og:locale" content="%s" />`, escapeHTML(strings.ReplaceAll(locale, "-", "_"))))
-	}
-	if publishedAt := strings.TrimSpace(input.PublishedAt); publishedAt != "" {
-		parts = append(parts, fmt.Sprintf(`<meta property="article:published_time" content="%s" />`, escapeHTML(publishedAt)))
-	}
-	if settings.EnableOGPImageGeneration {
-		imageLocale := extractLocaleFromPostPath(input.Path)
-		if imageLocale == "" {
-			if sourceLocale := normalizeLocale(settings.TranslationSourceLocale); sourceLocale != "" {
-				imageLocale = sourceLocale
-			} else {
-				imageLocale = normalizeLocale(settings.SiteLanguage)
-			}
-		}
-		imageURL := buildAbsoluteSiteURL(settings, postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path)))
-		if imageURL == "" {
-			imageURL = postOGImageRoute(imageLocale, extractSlugFromPostPath(input.Path))
-		}
-		parts = append(parts,
-			fmt.Sprintf(`<meta property="og:image" content="%s" />`, escapeHTML(imageURL)),
-			fmt.Sprintf(`<meta property="og:image:width" content="%d" />`, postOGImageWidth),
-			fmt.Sprintf(`<meta property="og:image:height" content="%d" />`, postOGImageHeight),
-			fmt.Sprintf(`<meta name="twitter:image" content="%s" />`, escapeHTML(imageURL)),
-			fmt.Sprintf(`<meta name="twitter:image:alt" content="%s" />`, escapeHTML(strings.TrimSpace(input.Title))),
-		)
-	}
-
-	return strings.Join(parts, "\n    ")
 }
 
 func renderNav(menu []PageRecord, settings SettingsRecord) string {
@@ -946,40 +897,60 @@ func renderPostFromInput(input *postRenderInput, settings SettingsRecord) (strin
 		excerpt = buildExcerpt(body, settings.ExcerptLength)
 	}
 	postPath := postPathPrefix + strings.TrimSpace(post.Slug) + "/"
-	headExtras := renderPostMetaTags(postMetaInput{
+	author := postAuthor(post)
+	imageURL := featuredImageURL(post, input.translation, settings)
+	seoInput := postMetaInput{
 		Path:        postPath,
 		Locale:      currentLocale,
 		Title:       defaultString(post.Title, "Post"),
 		Description: excerpt,
 		PublishedAt: date,
-	}, settings)
+		ModifiedAt:  post.Updated,
+		ImageURL:    imageURL,
+		ImageAlt:    defaultString(post.Title, "Post"),
+		Author:      author,
+	}
+	if input.translation != nil {
+		seoInput.FeaturedImageCollection = "post_translations"
+		seoInput.FeaturedImageRecordID = input.translation.ID
+		seoInput.FeaturedImage = input.translation.FeaturedImage
+	} else {
+		seoInput.FeaturedImageCollection = "posts"
+		seoInput.FeaturedImageRecordID = post.ID
+		seoInput.FeaturedImage = post.FeaturedImage
+	}
+	headExtras := renderPostMetaTags(seoInput, settings) + "\n    " + renderPostStructuredData(seoInput, settings)
+	featuredImageHTML := renderPostFeaturedImage(imageURL, defaultString(post.Title, "Post"))
+	authorHTML := renderPostAuthor(author)
 
 	return renderHeadWithExtras(defaultString(post.Title, "Post"), settings, headExtras) +
 		renderNav(menu, settings) +
 		fmt.Sprintf(`<main class="body-post">
-      <article class="post">
-        <header class="post-header">
-          <h1 class="post-title">%s</h1>
-          <div class="post-details">
+	      <article class="post">
+	        <header class="post-header">
+	          <h1 class="post-title">%s</h1>
+	          %s
+	          <div class="post-details">
+	            %s
+	            <p>%d min</p>
             %s
-            <p>%d min</p>
             %s
-            %s
-            %s
-          </div>
-        </header>
-        %s
-        <div class="post-body body">%s</div>
+	            %s
+	          </div>
+	        </header>
+	        %s
+	        %s
+	        <div class="post-body body">%s</div>
       </article>
       %s
       %s
-      %s
-    </main>`, escapeHTML(post.Title), func() string {
+	      %s
+	    </main>`, escapeHTML(post.Title), authorHTML, func() string {
 			if date == "" {
 				return ""
 			}
 			return fmt.Sprintf(`<p><time datetime="%s">%s</time></p>`, escapeHTML(date), formatDate(date))
-		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, tocHTML, body, commentsHTML, relatedHTML, navHTML) +
+		}(), calcReadTime(body), categoryHTML, postTags, languageHTML, featuredImageHTML, tocHTML, body, commentsHTML, relatedHTML, navHTML) +
 		renderFooter(settings), true
 }
 

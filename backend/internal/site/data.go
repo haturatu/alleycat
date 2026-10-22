@@ -43,18 +43,36 @@ var mediaPathCache = struct {
 
 var filterEscapeReplacer = strings.NewReplacer("\\", "\\\\", "\"", "\\\"")
 
+func withAuthorExpand(params map[string]string) map[string]string {
+	if params == nil {
+		params = make(map[string]string)
+	}
+	expand := strings.TrimSpace(params["expand"])
+	if expand == "" {
+		params["expand"] = "author"
+		return params
+	}
+	for _, relation := range strings.Split(expand, ",") {
+		if strings.TrimSpace(relation) == "author" {
+			return params
+		}
+	}
+	params["expand"] = expand + ",author"
+	return params
+}
+
 func getPosts(params map[string]string) (PBList[PostRecord], error) {
 	if ctx := currentSnapshotBuildContext(); ctx != nil {
 		return ctx.queryPosts(params), nil
 	}
-	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
+	return fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), withAuthorExpand(params))
 }
 
 func getPostTranslations(params map[string]string) (PBList[PostTranslationRecord], error) {
 	if ctx := currentSnapshotBuildContext(); ctx != nil {
 		return ctx.queryPostTranslations(params), nil
 	}
-	return fetchList[PostTranslationRecord](fmt.Sprintf("%s/api/collections/post_translations/records", pbURL), params)
+	return fetchList[PostTranslationRecord](fmt.Sprintf("%s/api/collections/post_translations/records", pbURL), withAuthorExpand(params))
 }
 
 func getPages(params map[string]string) (PBList[PageRecord], error) {
@@ -122,7 +140,7 @@ func getPostBySlugInLocale(slug string, locale string) *PostRecord {
 		return &post
 	}
 	if locale == "" {
-		data, err := fetchList[PostRecord](fmt.Sprintf("%s/api/collections/posts/records", pbURL), map[string]string{
+		data, err := getPosts(map[string]string{
 			"perPage": "1",
 			"filter":  fmt.Sprintf("slug = \"%s\" && published = true", escapeFilter(slug)),
 		})
@@ -178,7 +196,15 @@ func getPostByID(id string) *PostRecord {
 		copy := item
 		return &copy
 	}
-	post, err := fetchRecord[PostRecord](fmt.Sprintf("%s/api/collections/posts/records/%s", pbURL, url.PathEscape(id)))
+	target := fmt.Sprintf("%s/api/collections/posts/records/%s", pbURL, url.PathEscape(id))
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return nil
+	}
+	query := parsed.Query()
+	query.Set("expand", "author")
+	parsed.RawQuery = query.Encode()
+	post, err := fetchRecord[PostRecord](parsed.String())
 	if err != nil {
 		return nil
 	}
@@ -627,7 +653,7 @@ func listPublishedTranslationsByLocaleStrict(locale string) ([]PostTranslationRe
 }
 
 func getPostsContext(ctx context.Context, params map[string]string) (PBList[PostRecord], error) {
-	return fetchListContext[PostRecord](ctx, fmt.Sprintf("%s/api/collections/posts/records", pbURL), params)
+	return fetchListContext[PostRecord](ctx, fmt.Sprintf("%s/api/collections/posts/records", pbURL), withAuthorExpand(params))
 }
 
 func getPagesContext(ctx context.Context, params map[string]string) (PBList[PageRecord], error) {
@@ -714,16 +740,21 @@ func collectTaxonomiesStrict(posts []PostRecord) ([]string, []string) {
 
 func translationToPost(item PostTranslationRecord) PostRecord {
 	return PostRecord{
-		ID:          item.ID,
-		Title:       item.Title,
-		Slug:        item.Slug,
-		Body:        item.Body,
-		Excerpt:     item.Excerpt,
-		Tags:        item.Tags,
-		Category:    item.Category,
-		Published:   item.Published,
-		PublishedAt: item.PublishedAt,
-		Date:        item.PublishedAt,
+		ID:            item.ID,
+		Title:         item.Title,
+		Slug:          item.Slug,
+		Body:          item.Body,
+		Excerpt:       item.Excerpt,
+		Tags:          item.Tags,
+		Category:      item.Category,
+		Published:     item.Published,
+		PublishedAt:   item.PublishedAt,
+		Date:          item.PublishedAt,
+		Author:        item.Author,
+		FeaturedImage: item.FeaturedImage,
+		Created:       item.Created,
+		Updated:       item.Updated,
+		Expand:        item.Expand,
 	}
 }
 
