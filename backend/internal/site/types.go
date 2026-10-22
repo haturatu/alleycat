@@ -1,6 +1,9 @@
 package site
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type PBList[T any] struct {
 	Items      []T `json:"items"`
@@ -134,6 +137,8 @@ type archiveListing struct {
 }
 
 type snapshotBuildContext struct {
+	postIndexesOnce      sync.Once
+	postIndexes          map[string]snapshotPostIndex
 	settings             SettingsRecord
 	menu                 []PageRecord
 	publishedPosts       []PostRecord

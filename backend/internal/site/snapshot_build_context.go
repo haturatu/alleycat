@@ -133,6 +133,7 @@ func newSnapshotBuildContextContext(requestCtx context.Context) (*snapshotBuildC
 		ctx.archiveIndex["/archive/category/"+url.PathEscape(category)+"/"] = ctx.buildArchiveListing(items)
 	}
 
+	ctx.preparePostIndexes()
 	return ctx, nil
 }
 
@@ -393,26 +394,15 @@ func (ctx *snapshotBuildContext) postsForLocale(locale string) []PostRecord {
 }
 
 func (ctx *snapshotBuildContext) getAdjacentPostsInLocale(post *PostRecord, locale string) (newer *PostRecord, older *PostRecord) {
-	items := ctx.postsForLocale(locale)
-	index := -1
-	for i := range items {
-		if strings.TrimSpace(items[i].Slug) == strings.TrimSpace(post.Slug) {
-			index = i
-			break
-		}
-	}
-	if index < 0 {
+	if post == nil {
 		return nil, nil
 	}
-	if index > 0 {
-		copy := items[index-1]
-		newer = &copy
+	index := ctx.postIndexForLocale(locale)
+	position, ok := index.positionBySlug[strings.TrimSpace(post.Slug)]
+	if !ok {
+		return nil, nil
 	}
-	if index+1 < len(items) {
-		copy := items[index+1]
-		older = &copy
-	}
-	return newer, older
+	return adjacentPostsAt(index.posts, position)
 }
 
 func comparePostOrder(a, b PostRecord) int {
@@ -442,20 +432,14 @@ func (ctx *snapshotBuildContext) getAdjacentPostsAroundReferenceInLocale(post *P
 		return nil, nil
 	}
 
-	items := ctx.postsForLocale(locale)
+	index := ctx.postIndexForLocale(locale)
+	items := index.posts
 	if len(items) == 0 {
 		return nil, nil
 	}
 
-	index := -1
-	for i := range items {
-		if strings.TrimSpace(items[i].Slug) == strings.TrimSpace(post.Slug) {
-			index = i
-			break
-		}
-	}
-	if index >= 0 {
-		return ctx.getAdjacentPostsInLocale(post, locale)
+	if position, ok := index.positionBySlug[strings.TrimSpace(post.Slug)]; ok {
+		return adjacentPostsAt(items, position)
 	}
 
 	insertAt := len(items)
