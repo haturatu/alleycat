@@ -299,6 +299,9 @@ func archiveTotalPages(filter string, perPage int) (int, error) {
 }
 
 func writeSnapshotRoute(root, route string, body []byte) error {
+	if snapshot := currentSnapshotBuildContext(); snapshot != nil && strings.HasPrefix(snapshotContentType(route), "text/html") {
+		body = preparePrerenderedSnapshotHTML(body, snapshot.settings)
+	}
 	return writeSnapshotFile(root, route, body)
 }
 

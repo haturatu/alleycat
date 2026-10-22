@@ -7,6 +7,18 @@ import (
 	"golang.org/x/net/html"
 )
 
+// This prefix is stored only on disk and removed before serving. It records that
+// metadata URLs were resolved against the configured SiteURL during generation.
+const absoluteSnapshotHTMLPrefix = "<!--alleycat:absolute-meta-urls:v1-->\n"
+
+func preparePrerenderedSnapshotHTML(body []byte, settings SettingsRecord) []byte {
+	if len(body) == 0 || normalizeSiteBaseURL(settings.SiteURL) == "" {
+		return body
+	}
+	resolved := absolutizePrerenderedSnapshotHTML(body, settings)
+	return append([]byte(absoluteSnapshotHTMLPrefix), resolved...)
+}
+
 func absolutizePrerenderedSnapshotHTML(body []byte, settings SettingsRecord) []byte {
 	if len(body) == 0 || normalizeSiteBaseURL(settings.SiteURL) == "" {
 		return body
