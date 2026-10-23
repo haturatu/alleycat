@@ -1,6 +1,7 @@
 package site
 
 import (
+	"bytes"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -350,7 +351,11 @@ func servePrerenderedSnapshot(w http.ResponseWriter, r *http.Request, clean stri
 	contentType := snapshotContentType(clean)
 	if strings.HasPrefix(contentType, "text/html") {
 		setHTMLSecurityHeaders(w.Header())
-		body = absolutizePrerenderedSnapshotHTML(body, withRequestSiteURL(getSettings(), r))
+		if bytes.HasPrefix(body, []byte(absoluteSnapshotHTMLPrefix)) {
+			body = body[len(absoluteSnapshotHTMLPrefix):]
+		} else {
+			body = absolutizePrerenderedSnapshotHTML(body, withRequestSiteURL(getSettings(), r))
+		}
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", contentType)
