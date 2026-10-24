@@ -87,6 +87,9 @@ func registerSlugGenerationAPI(app *pocketbase.PocketBase) {
 				return err
 			}
 			if strings.TrimSpace(settings.APIKey) == "" {
+				if settings.Provider == "chatgpt" {
+					return apis.NewBadRequestError("Connect ChatGPT in Settings before generating slugs.", nil)
+				}
 				return apis.NewBadRequestError(fmt.Sprintf("%s API key is not configured.", settings.Provider), nil)
 			}
 

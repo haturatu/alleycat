@@ -355,9 +355,22 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.TextField{Name: "translation_locales"})
 		addFieldIfMissing(c, &core.SelectField{
 			Name:      "translation_provider",
-			Values:    []string{"gemini", "opencode-go", "opencode-zen"},
+			Values:    []string{"gemini", "opencode-go", "opencode-zen", "chatgpt"},
 			MaxSelect: 1,
 		})
+		providerField, ok := c.Fields.GetByName("translation_provider").(*core.SelectField)
+		if !ok {
+			return fmt.Errorf("settings.translation_provider field must be a select field")
+		}
+		foundChatGPT := false
+		for _, provider := range providerField.Values {
+			if provider == "chatgpt" {
+				foundChatGPT = true
+			}
+		}
+		if !foundChatGPT {
+			providerField.Values = append(providerField.Values, "chatgpt")
+		}
 		addFieldIfMissing(c, &core.TextField{Name: "translation_model"})
 		addFieldIfMissing(c, &core.NumberField{Name: "translation_requests_per_minute"})
 		existingGeminiKey := c.Fields.GetByName("gemini_api_key")
@@ -387,6 +400,7 @@ func ensureCollections(app core.App) error {
 		addFieldIfMissing(c, &core.TextField{Name: "gemini_api_key"})
 		addFieldIfMissing(c, &core.TextField{Name: "opencode_go_api_key"})
 		addFieldIfMissing(c, &core.TextField{Name: "opencode_zen_api_key"})
+		addFieldIfMissing(c, &core.TextField{Name: "chatgpt_oauth", Hidden: true, Max: 65536})
 		return nil
 	})
 	if err != nil {
