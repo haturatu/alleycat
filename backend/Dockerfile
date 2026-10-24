@@ -14,9 +14,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.24
 WORKDIR /pb
-ARG ALPINE_MIRROR=https://ftp.udx.icscoe.jp/Linux/alpine
-RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|" /etc/apk/repositories \
-    && apk add --no-cache libwebp-tools
+ARG ALPINE_MIRROR=https://mirrors.xtom.jp/alpine
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR}|" /etc/apk/repositories \
+    && apk add --cache-packages libwebp-tools
 COPY --link --from=build /pb/pocketbase /pb/pocketbase
 EXPOSE 8091
 VOLUME ["/pb/pb_data"]
