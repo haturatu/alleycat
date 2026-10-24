@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ClientResponseError } from "pocketbase";
 import { hasRole, pb } from "@cms/lib/pb";
 import {
@@ -11,6 +11,7 @@ import {
 import FormStatusMessage from "@cms/ui/FormStatusMessage";
 import SaveButton from "@cms/ui/SaveButton";
 import useAdminPageTitle from "@cms/useAdminPageTitle";
+import ChatGPTConnection from "./ChatGPTConnection";
 
 const translationLanguageOptions = [
   "en",
@@ -160,6 +161,7 @@ export default function AdminSettings() {
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const canManageSecrets = hasRole(["admin"]);
+  const refreshTranslationModels = useCallback(() => setTranslationModelsRefresh((value) => value + 1), []);
 
   useAdminPageTitle("Settings");
 
@@ -227,7 +229,7 @@ export default function AdminSettings() {
       } catch (err) {
         if (!active) return;
         setTranslationModels([]);
-        setTranslationModelsError("Model list could not be loaded. Save an API key or enter a model manually.");
+        setTranslationModelsError(provider === "chatgpt" ? "ChatGPT models could not be loaded. Check the ChatGPT connection and plan permissions." : "Model list could not be loaded. Save an API key or enter a model manually.");
         console.error("translation model list load failed", err);
       } finally {
         if (active) setTranslationModelsLoading(false);
@@ -464,11 +466,15 @@ export default function AdminSettings() {
           <AdminSelectField
             label="Translation provider"
             value={settings.translation_provider}
-            onChange={(value) => update("translation_provider", value)}
+            onChange={(value) => {
+              setSettings((prev) => ({ ...prev, translation_provider: value, translation_model: "" }));
+              setDirty(true);
+            }}
             options={[
               { value: "gemini", label: "Gemini" },
               { value: "opencode-go", label: "OpenCode Go" },
               { value: "opencode-zen", label: "OpenCode Zen" },
+              { value: "chatgpt", label: "ChatGPT / Codex (OAuth)" },
             ]}
           />
           <AdminSelectField
@@ -476,8 +482,10 @@ export default function AdminSettings() {
             value={settings.translation_model}
             onChange={(value) => update("translation_model", value)}
             options={translationModelOptions}
-            placeholder="Fetch models after configuring a key"
+            placeholder={settings.translation_provider === "chatgpt" ? "Connect ChatGPT to load available models" : "Fetch models after configuring a key"}
           />
+          {settings.translation_provider === "chatgpt" && canManageSecrets ? <ChatGPTConnection onConnectionChange={refreshTranslationModels} /> : null}
+          {settings.translation_provider === "chatgpt" && !canManageSecrets ? <p className="admin-note">Ask an administrator to connect ChatGPT for this site.</p> : null}
           {translationModelsError ? <p className="admin-note admin-settings-inline-note">{translationModelsError}</p> : null}
           <AdminTextField
             label="Translation requests/minute"
