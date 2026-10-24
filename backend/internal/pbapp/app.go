@@ -14,6 +14,7 @@ func Run() {
 	app := pocketbase.New()
 	registerTranslationFeatures(app)
 	registerSlugGenerationAPI(app)
+	registerChatGPTOAuthAPI(app)
 	registerBackupImportCommand(app)
 	registerMediaChecksumBackfillCommand(app)
 	registerMediaOptimizationHooks(app)

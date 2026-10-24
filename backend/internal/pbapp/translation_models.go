@@ -66,11 +66,13 @@ func registerTranslationModelsAPI(app *pocketbase.PocketBase) {
 				return err
 			}
 			models := []string{}
-			if provider != "gemini" || strings.TrimSpace(apiKey) != "" {
+			if provider == "chatgpt" {
+				models, err = fetchChatGPTModels(e.App)
+			} else if provider != "gemini" || strings.TrimSpace(apiKey) != "" {
 				models, err = fetchTranslationModels(provider, apiKey)
-				if err != nil {
-					return err
-				}
+			}
+			if err != nil {
+				return err
 			}
 
 			return e.JSON(http.StatusOK, translationModelsResponse{Provider: provider, Models: models})

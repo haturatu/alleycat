@@ -35,6 +35,7 @@ const (
 )
 
 type translationSettings struct {
+	App          core.App
 	Enabled      bool
 	Provider     string
 	SourceLocale string
@@ -430,6 +431,7 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 			return translationSettings{}, keyErr
 		}
 		return translationSettings{
+			App:          app,
 			Enabled:      false,
 			Provider:     defaultTranslationProvider,
 			SourceLocale: "ja",
@@ -481,6 +483,7 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 		return translationSettings{}, keyErr
 	}
 	return translationSettings{
+		App:          app,
 		Enabled:      record.GetBool("enable_post_translation"),
 		Provider:     provider,
 		SourceLocale: sourceLocale,
@@ -493,6 +496,8 @@ func loadTranslationSettings(app core.App) (translationSettings, error) {
 
 func defaultTranslationModelForProvider(provider string) string {
 	switch provider {
+	case "chatgpt":
+		return ""
 	case "opencode-go":
 		return defaultOpenCodeGoModel
 	case "opencode-zen":
@@ -504,7 +509,7 @@ func defaultTranslationModelForProvider(provider string) string {
 
 func isSupportedTranslationProvider(provider string) bool {
 	switch provider {
-	case "gemini", "opencode-go", "opencode-zen":
+	case "gemini", "opencode-go", "opencode-zen", "chatgpt":
 		return true
 	default:
 		return false
@@ -525,6 +530,13 @@ func translationAPIKeyField(provider string) (string, error) {
 }
 
 func loadTranslationAPIKey(app core.App, settingsRecord *core.Record, provider string) (string, error) {
+	if provider == "chatgpt" {
+		credentials, err := loadChatGPTCredentials(app)
+		if err != nil || credentials.AccessToken == "" || !hasChatGPTPlanScope(credentials.Scope) {
+			return "", err
+		}
+		return "oauth", nil
+	}
 	field, err := translationAPIKeyField(provider)
 	if err != nil {
 		return "", err
