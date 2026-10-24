@@ -89,7 +89,7 @@ export default function ChatGPTConnection({ onConnectionChange }: { onConnection
     setBusy(true);
     setError("");
     try {
-      await request("complete", "POST", { callback_url: callbackUrl });
+      await request("complete", "POST", { callback_url: callbackUrl.trim() });
       const data: ConnectionStatus = await request("status");
       setStatus(data);
       setPending(false);
@@ -131,6 +131,7 @@ export default function ChatGPTConnection({ onConnectionChange }: { onConnection
     <div className="admin-settings-subsection">
       <h3>ChatGPT connection</h3>
       <p className="admin-note">Use your ChatGPT plan for this site’s slug generation and translation. Your plan’s shared limits apply.</p>
+      {!status?.connected && !pending ? <p className="admin-note">When this CMS runs on another computer or in Docker, you will finish sign-in here by pasting the completion page’s address.</p> : null}
       <p role="status">{status ? status.connected ? `Connected${status.email ? ` as ${status.email}` : ""}` : "Not connected" : "Checking connection…"}</p>
       {error ? <p role="alert" className="admin-error">{error}</p> : null}
       {notice ? <p role="status" className="admin-note">{notice}</p> : null}
@@ -138,8 +139,12 @@ export default function ChatGPTConnection({ onConnectionChange }: { onConnection
         <>
           <p className="admin-note">Finish sign-in in the ChatGPT tab, then return here. Sign-in expires after 10 minutes.</p>
           {authorizationUrl ? <a href={authorizationUrl} target="_blank" rel="noreferrer">Open ChatGPT sign-in</a> : null}
-          <p className="admin-note">If the completion page cannot open, copy its full address from the browser and paste it below.</p>
-          <AdminTextField label="Completion address" type="url" value={callbackUrl} onChange={setCallbackUrl} />
+          <p className="admin-note" role="status">If the ChatGPT tab shows ERR_CONNECTION_REFUSED at 127.0.0.1, return here to finish sign-in. That address points to the browser’s computer, so it cannot reach a CMS on another computer or inside Docker.</p>
+          <ol className="admin-note">
+            <li>Keep the completion tab open and copy its entire address from the address bar, including everything after the question mark.</li>
+            <li>Paste that address below and select Complete connection. Do not share the address; it contains a one-time sign-in code.</li>
+          </ol>
+          <AdminTextField label="Completion address" type="url" value={callbackUrl} onChange={setCallbackUrl} placeholder="http://127.0.0.1:…/auth/callback?code=…" />
           <AdminButton className="admin-primary" disabled={busy || !callbackUrl.trim()} onPress={complete}>Complete connection</AdminButton>
           <AdminButton className="admin-ghost" disabled={busy} onPress={cancel}>Cancel sign-in</AdminButton>
         </>

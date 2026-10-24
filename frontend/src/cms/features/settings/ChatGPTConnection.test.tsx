@@ -45,14 +45,18 @@ test("starts sign-in and completes a remote callback without browser token stora
     .mockResolvedValueOnce(jsonResponse({ connected: true }))
     .mockResolvedValueOnce(jsonResponse(connected));
   await act(async () => root.render(<ChatGPTConnection onConnectionChange={changed} />));
+  expect(container.textContent).toContain("another computer or in Docker");
   await act(async () => button("Continue with ChatGPT").click());
   expect(popup.location.href).toContain("https://auth.openai.com/");
   expect(popup.opener).toBeNull();
   expect(container.textContent).toContain("Completion address");
+  expect(container.textContent).toContain("ERR_CONNECTION_REFUSED");
+  expect(container.textContent).toContain("including everything after the question mark");
+  expect(container.textContent).toContain("Do not share the address");
   const callback = "http://127.0.0.1:1455/auth/callback?state=test&code=code";
   const input = container.querySelector("input")!;
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, callback);
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, `  ${callback}  `);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await act(async () => button("Complete connection").click());
