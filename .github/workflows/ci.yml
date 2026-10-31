@@ -9,7 +9,42 @@ on:
       - main
 
 jobs:
+  changes:
+    name: Detect affected components
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      cloudflare: ${{ steps.filter.outputs.cloudflare }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.nvmrc'
+              - '.stylelintrc.json'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            cloudflare:
+              - 'cloudflare/**'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
   build:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     name: Build
     runs-on: ubuntu-latest
     defaults:
@@ -44,6 +79,8 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   frontend-test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     name: Frontend Test
     runs-on: ubuntu-latest
     defaults:
@@ -73,6 +110,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   cloudflare-audit:
+    needs: changes
+    if: needs.changes.outputs.cloudflare == 'true'
     name: Cloudflare dependency audit
     runs-on: ubuntu-latest
     defaults:
@@ -96,6 +135,8 @@ jobs:
         run: npm audit --audit-level=high
 
   lint:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     name: Lint
     runs-on: ubuntu-latest
     defaults:
