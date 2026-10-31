@@ -13,6 +13,8 @@ import (
 
 const taxonomyCacheTTL = 60 * time.Second
 const mediaPathCacheTTL = 60 * time.Second
+const mediaPathCacheMaxEntries = 4096
+const mediaPathCacheMaxKeyBytes = 4096
 
 type taxonomyCacheEntry struct {
 	expiresAt  time.Time
@@ -555,23 +557,36 @@ func getMediaByPath(path string) *MediaRecord {
 		"filter":  fmt.Sprintf("path = \"%s\"", escapeFilter(path)),
 	})
 	if err != nil || len(data.Items) == 0 {
-		mediaPathCache.mu.Lock()
-		mediaPathCache.items[path] = mediaPathCacheEntry{
-			expiresAt: now.Add(mediaPathCacheTTL),
-			found:     false,
-		}
-		mediaPathCache.mu.Unlock()
+		cacheMediaPath(path, mediaPathCacheEntry{expiresAt: now.Add(mediaPathCacheTTL)}, now)
 		return nil
 	}
 	item := data.Items[0]
-	mediaPathCache.mu.Lock()
-	mediaPathCache.items[path] = mediaPathCacheEntry{
-		expiresAt: now.Add(mediaPathCacheTTL),
-		found:     true,
-		media:     item,
-	}
-	mediaPathCache.mu.Unlock()
+	cacheMediaPath(path, mediaPathCacheEntry{expiresAt: now.Add(mediaPathCacheTTL), found: true, media: item}, now)
 	return &item
+}
+
+// Expiry is reclaimed at capacity; the hard entry/key limits also bound cold misses.
+func cacheMediaPath(path string, entry mediaPathCacheEntry, now time.Time) {
+	if len(path) > mediaPathCacheMaxKeyBytes {
+		return
+	}
+	mediaPathCache.mu.Lock()
+	defer mediaPathCache.mu.Unlock()
+	if len(mediaPathCache.items) >= mediaPathCacheMaxEntries {
+		for key, value := range mediaPathCache.items {
+			if !now.Before(value.expiresAt) {
+				delete(mediaPathCache.items, key)
+			}
+		}
+		if _, exists := mediaPathCache.items[path]; !exists && len(mediaPathCache.items) >= mediaPathCacheMaxEntries {
+			// Cache entries are expendable; eviction must include negative results.
+			for key := range mediaPathCache.items {
+				delete(mediaPathCache.items, key)
+				break
+			}
+		}
+	}
+	mediaPathCache.items[path] = entry
 }
 
 func collectTags() []string {
