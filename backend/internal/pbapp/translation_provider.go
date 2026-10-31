@@ -21,6 +21,8 @@ type geminiTranslationProvider struct {
 
 func newTranslationProvider(settings translationSettings) (translationProvider, error) {
 	switch settings.Provider {
+	case "chatgpt":
+		return &chatGPTTranslationProvider{app: settings.App, model: settings.Model, requestsPM: settings.RequestsPM}, nil
 	case "", "gemini":
 		return &geminiTranslationProvider{
 			model:      settings.Model,
