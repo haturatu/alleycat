@@ -17,3 +17,20 @@
 **/*.log
 **/tmp
 **/bin
+# Prevent untracked host-side data and credentials from entering any image.
+**/.env
+**/.env.*
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/id_rsa*
+**/id_ed25519*
+**/secrets
+**/uploads
+frontend/public

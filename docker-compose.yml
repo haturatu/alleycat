@@ -13,7 +13,7 @@ services:
       - "8091:8091"
     environment:
       - SSR_REGEN_URL=http://frontend:8888/__internal/revalidate
-      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
+      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:?Set STATIC_REGEN_TOKEN in .env}
     volumes:
       - pb_data:/pb/pb_data
     deploy:
@@ -38,7 +38,7 @@ services:
     environment:
       - LISTEN_ADDR=:8888
       - PB_URL=http://pocketbase:8091
-      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:-}
+      - STATIC_REGEN_TOKEN=${STATIC_REGEN_TOKEN:?Set STATIC_REGEN_TOKEN in .env}
     depends_on:
       pocketbase:
         condition: service_healthy

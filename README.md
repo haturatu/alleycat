@@ -324,3 +324,9 @@ Build outputs and local runtime data such as `frontend/node_modules`, `frontend/
 ├── package-lock.json           # Root npm lockfile for repo-level tooling
 └── package.json                # Root npm package for repo-level tooling
 ```
+
+### GHCR container images
+
+On pushes to `main` or `v*` tags, GitHub Actions builds three separate images from the corresponding Docker contexts: `ghcr.io/haturatu/alleycat-pocketbase`, `ghcr.io/haturatu/alleycat-site`, and `ghcr.io/haturatu/alleycat-cms`. Publishing uses `GITHUB_TOKEN` without any build-time Cloudflare or revalidation credentials. Set each GHCR package visibility to **Public** after its first publication.
+
+For prebuilt deployments, replace each service's local `build:` block with the matching `image:` reference while keeping volumes, ports and runtime environment values. The static-regeneration token must be provided through the local Compose `.env` (or an exported environment variable) and is never part of an image. Host-generated `frontend/public` assets are excluded from builds to avoid publishing private/untracked data; mount any deployment-specific assets at runtime instead.
