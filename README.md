@@ -324,3 +324,12 @@ Build outputs and local runtime data such as `frontend/node_modules`, `frontend/
 ├── package-lock.json           # Root npm lockfile for repo-level tooling
 └── package.json                # Root npm package for repo-level tooling
 ```
+
+### Container images
+
+The Docker images are:
+- `ghcr.io/haturatu/alleycat-pocketbase:latest`
+- `ghcr.io/haturatu/alleycat-site:latest`
+- `ghcr.io/haturatu/alleycat-cms:latest`
+
+To use prebuilt images with Docker Compose, replace the corresponding `build:` blocks with `image:` entries. Keep the existing volumes, ports and runtime environment settings. Set `STATIC_REGEN_TOKEN` in a local `.env` file or the shell, and mount any site-specific static assets at runtime.
