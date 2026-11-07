@@ -325,8 +325,11 @@ Build outputs and local runtime data such as `frontend/node_modules`, `frontend/
 └── package.json                # Root npm package for repo-level tooling
 ```
 
-### GHCR container images
+### Container images
 
-On pushes to `main` or `v*` tags, GitHub Actions builds three separate images from the corresponding Docker contexts: `ghcr.io/haturatu/alleycat-pocketbase`, `ghcr.io/haturatu/alleycat-site`, and `ghcr.io/haturatu/alleycat-cms`. Publishing uses `GITHUB_TOKEN` without any build-time Cloudflare or revalidation credentials. Set each GHCR package visibility to **Public** after its first publication.
+The Docker images are:
+- `ghcr.io/haturatu/alleycat-pocketbase:latest`
+- `ghcr.io/haturatu/alleycat-site:latest`
+- `ghcr.io/haturatu/alleycat-cms:latest`
 
-For prebuilt deployments, replace each service's local `build:` block with the matching `image:` reference while keeping volumes, ports and runtime environment values. The static-regeneration token must be provided through the local Compose `.env` (or an exported environment variable) and is never part of an image. Host-generated `frontend/public` assets are excluded from builds to avoid publishing private/untracked data; mount any deployment-specific assets at runtime instead.
+To use prebuilt images with Docker Compose, replace the corresponding `build:` blocks with `image:` entries. Keep the existing volumes, ports and runtime environment settings. Set `STATIC_REGEN_TOKEN` in a local `.env` file or the shell, and mount any site-specific static assets at runtime.
